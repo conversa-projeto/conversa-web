@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { Contato, Conversa, Mensagem } from '../types/api'
+import type { Contato, Conversa, EventoChamadaSocket, Mensagem } from '../types/api'
 import { getAttachmentUrl } from '../services/http'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
@@ -19,6 +19,16 @@ export const useChatStore = defineStore('chat', () => {
   let reconnectTimer: number | null = null
   let reconnectAttempts = 0
   const marcandoVisualizacao = new Set<number>()
+
+  let _tratarEventoChamada: ((evento: EventoChamadaSocket) => void) | null = null
+
+  function registrarHandlerChamada(handler: (evento: EventoChamadaSocket) => void) {
+    _tratarEventoChamada = handler
+  }
+
+  function removerHandlerChamada() {
+    _tratarEventoChamada = null
+  }
 
   const conversaAtiva = computed(() => conversas.value.find((item) => item.id === conversaAtivaId.value) || null)
   const mensagensAtivas = computed(() => {
@@ -210,13 +220,11 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function getWebSocketUrl(): string {
-    const auth = useAuthStore()
-    const apiBase = auth.apiBase?.trim() || 'http://localhost:90'
-    const base = new URL(apiBase)
-    const restPort = Number(base.port || (base.protocol === 'https:' ? 443 : 80))
-    const wsProtocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsPort = 8000 + restPort
-    return `${wsProtocol}//${base.hostname}:${wsPort}`
+    const isSecure = window.location.protocol === 'https:'
+    const wsProtocol = isSecure ? 'wss:' : 'ws:'
+    const httpPort = Number(window.location.port || (isSecure ? 443 : 80))
+    const wsPort = 8000 + httpPort
+    return `${wsProtocol}//${window.location.hostname}:${wsPort}`
   }
 
   function conectarWebSocket() {
@@ -284,7 +292,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function tratarEventoSocket(raw: string) {
-    let evento: { tipo?: number; grupo?: number; conversa_id?: number; mensagens?: string } | null = null
+    let evento: { tipo?: number; grupo?: number; conversa_id?: number; mensagens?: string; chamada_id?: number; usuario_id?: number } | null = null
     try {
       evento = JSON.parse(raw)
     } catch {
@@ -321,6 +329,11 @@ export const useChatStore = defineStore('chat', () => {
 
     if (evento.tipo === 40) {
       await carregarConversas()
+      return
+    }
+
+    if (evento.tipo && evento.tipo >= 51 && evento.tipo <= 55 && _tratarEventoChamada) {
+      _tratarEventoChamada(evento as unknown as EventoChamadaSocket)
       return
     }
   }
@@ -444,6 +457,8 @@ export const useChatStore = defineStore('chat', () => {
     desconectarWebSocket,
     encerrarTempoReal,
     marcarMensagensComoVisualizadas,
-    urlAnexo
+    urlAnexo,
+    registrarHandlerChamada,
+    removerHandlerChamada
   }
 })

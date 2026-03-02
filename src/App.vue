@@ -119,7 +119,25 @@
               <h2 class="text-lg font-semibold text-slate-800">
                 {{ chat.conversaAtiva.descricao || chat.conversaAtiva.nome || `Conversa #${chat.conversaAtiva.id}` }}
               </h2>
-              <span class="text-xs uppercase tracking-wide text-slate-500">{{ chat.conversaAtiva.tipo === 2 ? 'Grupo' : 'Chat' }}</span>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="!call.emChamada && !call.recebendoChamada"
+                  class="rounded-lg bg-emerald-100 px-2.5 py-1.5 text-sm text-emerald-700 hover:bg-emerald-200"
+                  title="Chamada de voz"
+                  @click="solicitarChamada(1)"
+                >
+                  Ligar
+                </button>
+                <button
+                  v-if="!call.emChamada && !call.recebendoChamada"
+                  class="rounded-lg bg-blue-100 px-2.5 py-1.5 text-sm text-blue-700 hover:bg-blue-200"
+                  title="Chamada de v&iacute;deo"
+                  @click="solicitarChamada(2)"
+                >
+                  V&iacute;deo
+                </button>
+                <span class="text-xs uppercase tracking-wide text-slate-500">{{ chat.conversaAtiva.tipo === 2 ? 'Grupo' : 'Chat' }}</span>
+              </div>
             </div>
 
             <div class="flex gap-2">
@@ -393,18 +411,229 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal: Selecionar participantes para chamada em grupo -->
+    <div v-if="modalParticipantesChamada" class="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4">
+      <div class="w-full max-w-md rounded-xl bg-white p-4">
+        <h3 class="mb-3 text-lg font-semibold text-slate-800">
+          {{ tipoChamadaPendente === 2 ? 'Chamada de v\u00EDdeo' : 'Chamada de voz' }}
+        </h3>
+
+        <p class="mb-2 text-sm font-medium text-slate-700">Selecionar participantes</p>
+        <div class="max-h-52 overflow-auto rounded border border-slate-200">
+          <label
+            v-for="contato in chat.contatos"
+            :key="`call-${contato.id}`"
+            class="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
+          >
+            <input v-model="participantesSelecionados" type="checkbox" :value="contato.id" />
+            <span>{{ contato.nome }}</span>
+          </label>
+        </div>
+
+        <div class="mt-4 flex justify-end gap-2">
+          <button class="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100" @click="cancelarModalParticipantes">Cancelar</button>
+          <button
+            class="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            :disabled="participantesSelecionados.length === 0"
+            @click="confirmarChamadaGrupo"
+          >
+            Iniciar chamada
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Chamada recebida -->
+    <div
+      v-if="call.recebendoChamada && call.chamada"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+    >
+      <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="text-center">
+          <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">
+            {{ call.tipoChamada === 2 ? '\uD83D\uDCF9' : '\uD83D\uDCDE' }}
+          </div>
+
+          <h3 class="text-lg font-semibold text-slate-800">Chamada recebida</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            {{ call.chamadaRemetente?.usuario_nome || 'Algu\u00E9m' }} est\u00E1 ligando...
+          </p>
+          <p class="mt-1 text-xs text-slate-400">
+            {{ call.tipoChamada === 2 ? 'V\u00EDdeo + \u00C1udio' : 'Somente \u00C1udio' }}
+          </p>
+        </div>
+
+        <div class="mt-6 flex justify-center gap-4">
+          <button
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500 text-2xl text-white shadow hover:bg-rose-600"
+            title="Recusar"
+            @click="recusarChamadaRecebida"
+          >
+            &#10006;
+          </button>
+          <button
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-2xl text-white shadow hover:bg-emerald-600"
+            title="Atender"
+            @click="aceitarChamadaRecebida"
+          >
+            &#10004;
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay: Chamada ativa -->
+    <div
+      v-if="call.emChamada"
+      class="fixed inset-0 z-40 flex flex-col bg-slate-900"
+    >
+      <!-- Top Bar -->
+      <div class="flex items-center gap-3 border-b border-slate-700 bg-slate-800 px-4 py-3">
+        <div
+          class="h-2.5 w-2.5 rounded-full"
+          :class="call.estado === 'ativa' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'"
+        ></div>
+        <h2 class="flex-1 text-sm font-medium text-white">
+          {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}
+        </h2>
+        <span class="rounded-full bg-slate-700 px-3 py-1 text-xs text-slate-300">
+          {{ call.tipoChamada === 2 ? 'V\u00EDdeo' : '\u00C1udio' }}
+        </span>
+        <span class="rounded-full bg-slate-700 px-3 py-1 text-xs text-emerald-400">
+          {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
+        </span>
+      </div>
+
+      <!-- Grid de v\u00EDdeo/\u00E1udio -->
+      <div class="flex-1 overflow-auto p-3">
+        <div class="grid gap-3" :class="gridClass">
+          <!-- Tile local -->
+          <div class="relative overflow-hidden rounded-xl bg-slate-800" :class="tileAspect">
+            <div
+              v-if="call.tipoChamada === 1 || call.cameraMutada"
+              class="flex h-full w-full items-center justify-center bg-slate-700"
+            >
+              <span class="text-4xl font-bold text-slate-400">
+                {{ iniciaisUsuario(auth.user?.nome || '') }}
+              </span>
+            </div>
+            <video
+              v-else
+              ref="videoLocal"
+              autoplay
+              playsinline
+              muted
+              class="h-full w-full object-cover"
+            ></video>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
+              <span class="text-xs text-white">{{ auth.user?.nome }} (voc\u00EA)</span>
+            </div>
+          </div>
+
+          <!-- Tiles remotos -->
+          <div
+            v-for="[userId, peer] in call.peers"
+            :key="userId"
+            class="relative overflow-hidden rounded-xl bg-slate-800"
+            :class="tileAspect"
+          >
+            <div
+              v-if="call.tipoChamada === 1 || !peer.stream?.getVideoTracks().length"
+              class="flex h-full w-full items-center justify-center bg-slate-700"
+            >
+              <span class="text-4xl font-bold text-slate-400">
+                {{ iniciaisUsuario(peer.usuarioNome) }}
+              </span>
+            </div>
+            <video
+              v-else
+              v-src-object="peer.stream"
+              autoplay
+              playsinline
+              :muted="call.saidaAudioMutada"
+              class="h-full w-full object-cover"
+            ></video>
+            <audio
+              v-if="call.tipoChamada === 1 && peer.stream"
+              v-src-object="peer.stream"
+              autoplay
+              :muted="call.saidaAudioMutada"
+            ></audio>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
+              <span class="text-xs text-white">{{ peer.usuarioNome }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controles -->
+      <div class="flex items-center justify-center gap-3 border-t border-slate-700 bg-slate-800 px-4 py-3">
+        <button
+          class="flex h-12 w-12 items-center justify-center rounded-full text-lg transition"
+          :class="call.micMutado ? 'bg-slate-600 text-slate-400' : 'bg-slate-700 text-white'"
+          title="Microfone"
+          @click="call.alternarMicrofone()"
+        >
+          {{ call.micMutado ? '\uD83D\uDD07' : '\uD83C\uDFA4' }}
+        </button>
+
+        <button
+          v-if="call.tipoChamada === 2"
+          class="flex h-12 w-12 items-center justify-center rounded-full text-lg transition"
+          :class="call.cameraMutada ? 'bg-slate-600 text-slate-400' : 'bg-slate-700 text-white'"
+          title="C\u00E2mera"
+          @click="call.alternarCamera()"
+        >
+          {{ call.cameraMutada ? '\uD83D\uDEAB' : '\uD83D\uDCF7' }}
+        </button>
+
+        <button
+          class="flex h-12 w-12 items-center justify-center rounded-full text-lg transition"
+          :class="call.saidaAudioMutada ? 'bg-slate-600 text-slate-400' : 'bg-slate-700 text-white'"
+          title="\u00C1udio sa\u00EDda"
+          @click="call.alternarSaidaAudio()"
+        >
+          {{ call.saidaAudioMutada ? '\uD83D\uDD07' : '\uD83D\uDD0A' }}
+        </button>
+
+        <button
+          class="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500 text-lg text-white hover:bg-rose-600"
+          title="Sair da chamada"
+          @click="sairDaChamadaAtual"
+        >
+          &#10006;
+        </button>
+      </div>
+
+      <!-- Erro -->
+      <div v-if="call.erroMsg" class="absolute left-4 right-4 top-16 rounded-lg bg-rose-500/90 px-4 py-2 text-sm text-white">
+        {{ call.erroMsg }}
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, type Directive } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
-import type { ConteudoMensagem, Mensagem } from './types/api'
+import { useCallStore } from './stores/call'
+import type { ConteudoMensagem, Mensagem, TipoChamada } from './types/api'
 import { getAttachmentUrl } from './services/http'
 
 const auth = useAuthStore()
 const chat = useChatStore()
+const call = useCallStore()
+
+const vSrcObject: Directive<HTMLMediaElement, MediaStream | null> = {
+  mounted(el, binding) {
+    if (binding.value) el.srcObject = binding.value
+  },
+  updated(el, binding) {
+    if (el.srcObject !== binding.value) el.srcObject = binding.value
+  }
+}
 
 const login = ref('')
 const senha = ref('')
@@ -444,6 +673,11 @@ const abrirModalGrupo = ref(false)
 const nomeGrupo = ref('')
 const membrosGrupo = ref<number[]>([])
 const erroGrupo = ref('')
+
+const modalParticipantesChamada = ref(false)
+const participantesSelecionados = ref<number[]>([])
+const tipoChamadaPendente = ref<TipoChamada>(1)
+const videoLocal = ref<HTMLVideoElement | null>(null)
 
 const emojis = [0x1F600,0x1F601,0x1F602,0x1F923,0x1F60A,0x1F60D,0x1F60E,0x1F622,0x1F621,0x1F44D,0x1F64F,0x2764].map((code) => String.fromCodePoint(code))
 
@@ -512,6 +746,9 @@ onMounted(async () => {
   if (auth.isAuthenticated) {
     try {
       await chat.inicializar()
+      chat.registrarHandlerChamada((evento) => {
+        void call.tratarEventoChamada(evento)
+      })
       await posicionarAberturaConversaAtiva()
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Falha ao iniciar sess\u00E3o'
@@ -528,6 +765,8 @@ onUnmounted(() => {
   }
   window.removeEventListener('keydown', aoTeclaGlobal)
   document.body.style.overflow = ''
+  chat.removerHandlerChamada()
+  call.encerrarChamada()
   chat.encerrarTempoReal()
   encerrarStreamAudio()
   for (const url of Object.values(anexosUrl.value)) {
@@ -553,6 +792,9 @@ async function fazerLogin() {
   try {
     await auth.login(login.value.trim(), senha.value)
     await chat.inicializar()
+    chat.registrarHandlerChamada((evento) => {
+      void call.tratarEventoChamada(evento)
+    })
     await posicionarAberturaConversaAtiva()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao efetuar login'
@@ -562,6 +804,8 @@ async function fazerLogin() {
 }
 
 function sair() {
+  call.encerrarChamada()
+  chat.removerHandlerChamada()
   chat.encerrarTempoReal()
   auth.logout()
 }
@@ -1206,6 +1450,110 @@ async function confirmarGrupo() {
     erroGrupo.value = e instanceof Error ? e.message : 'Erro ao criar grupo'
   }
 }
+
+// === Chamada (Call) ===
+
+function solicitarChamada(tipo: TipoChamada) {
+  if (!chat.conversaAtiva) return
+
+  if (chat.conversaAtiva.tipo === 1 && chat.conversaAtiva.destinatario_id) {
+    void iniciarChamadaDireta(tipo, chat.conversaAtiva.destinatario_id)
+  } else if (chat.conversaAtiva.tipo === 2) {
+    tipoChamadaPendente.value = tipo
+    participantesSelecionados.value = []
+    modalParticipantesChamada.value = true
+  }
+}
+
+async function iniciarChamadaDireta(tipo: TipoChamada, destinatarioId: number) {
+  if (!auth.user) return
+  try {
+    await call.iniciarChamada(tipo, [{ id: auth.user.id }, { id: destinatarioId }])
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao iniciar chamada'
+  }
+}
+
+function cancelarModalParticipantes() {
+  modalParticipantesChamada.value = false
+  participantesSelecionados.value = []
+}
+
+async function confirmarChamadaGrupo() {
+  if (!auth.user || participantesSelecionados.value.length === 0) return
+
+  const usuarios = [
+    { id: auth.user.id },
+    ...participantesSelecionados.value.map(id => ({ id }))
+  ]
+
+  modalParticipantesChamada.value = false
+  participantesSelecionados.value = []
+
+  try {
+    await call.iniciarChamada(tipoChamadaPendente.value, usuarios)
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao iniciar chamada'
+  }
+}
+
+async function aceitarChamadaRecebida() {
+  try {
+    await call.aceitarChamada()
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao aceitar chamada'
+  }
+}
+
+function recusarChamadaRecebida() {
+  void call.recusarChamada()
+}
+
+function sairDaChamadaAtual() {
+  if (call.estado === 'chamando') {
+    void call.cancelarChamada()
+  } else {
+    void call.sairDaChamada()
+  }
+}
+
+function iniciaisUsuario(nome: string): string {
+  return nome
+    .split(' ')
+    .map(p => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
+const gridClass = computed(() => {
+  const total = call.peers.size + 1
+  if (total <= 1) return 'grid-cols-1'
+  if (total === 2) return 'grid-cols-1 md:grid-cols-2'
+  if (total <= 4) return 'grid-cols-2'
+  if (total <= 6) return 'grid-cols-2 md:grid-cols-3'
+  return 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+})
+
+const tileAspect = computed(() => {
+  return call.tipoChamada === 2 ? 'aspect-video' : 'aspect-square max-h-48'
+})
+
+watch(
+  () => call.streamLocal,
+  (stream) => {
+    if (videoLocal.value) {
+      videoLocal.value.srcObject = stream
+    }
+  }
+)
+
+watch(videoLocal, (el) => {
+  if (el && call.streamLocal) {
+    el.srcObject = call.streamLocal
+  }
+})
 
 watch(
   () => chat.mensagensAtivas.map((mensagem) => mensagem.id),

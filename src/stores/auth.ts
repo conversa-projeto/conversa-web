@@ -26,16 +26,13 @@ function getDefaultApiBase(): string {
     import.meta.env.VITE_API_BASE ||
     (typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:90`
-      : 'http://localhost:90')
+      : 'http://localhost')
 
   let base = stored || fallback
   if (typeof window !== 'undefined') {
     const hostAtual = window.location.hostname
     base = base.replace('://localhost:', `://${hostAtual}:`)
     base = base.replace('://127.0.0.1:', `://${hostAtual}:`)
-  }
-  if (base.endsWith(':9000')) {
-    base = base.replace(':9000', ':90')
   }
   return base
 }

@@ -3,8 +3,8 @@ function getApiBase(): string {
   const fallback =
     import.meta.env.VITE_API_BASE ||
     (typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:90`
-      : 'http://localhost:90')
+      ? `${window.location.protocol}//${window.location.hostname}`
+      : 'http://localhost')
   let base = local || fallback
 
   if (typeof window !== 'undefined') {
@@ -12,11 +12,7 @@ function getApiBase(): string {
     base = base.replace('://localhost:', `://${hostAtual}:`)
     base = base.replace('://127.0.0.1:', `://${hostAtual}:`)
   }
-
-  if (base.endsWith(':9000')) {
-    base = base.replace(':9000', ':90')
-  }
-
+  
   return base.replace(/\/$/, '')
 }
 

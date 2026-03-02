@@ -1,9 +1,11 @@
 import type {
   AnexoResponse,
+  Chamada,
   Contato,
   Conversa,
   LoginResponse,
-  Mensagem
+  Mensagem,
+  TipoChamada
 } from '../types/api'
 import { requestApi } from './http'
 
@@ -119,5 +121,49 @@ export function mensagemStatus(conversaId: number, mensagemIds: number[]) {
       conversa: conversaId,
       mensagem: mensagemIds.join(',')
     }
+  })
+}
+
+// === Chamada (Call) ===
+
+export function chamadaIniciar(tipo: TipoChamada, usuarios: Array<{ id: number }>) {
+  return requestApi<Chamada>('/chamada/iniciar', 'PUT', {
+    body: { tipo, usuarios }
+  })
+}
+
+export function chamadaCancelar(chamadaId: number) {
+  return requestApi<{ id: number }>('/chamada/cancelar', 'POST', {
+    body: { id: chamadaId }
+  })
+}
+
+export function chamadaEntrar(chamadaId: number) {
+  return requestApi<{ id: number }>('/chamada/entrar', 'POST', {
+    body: { id: chamadaId }
+  })
+}
+
+export function chamadaRecusar(chamadaId: number) {
+  return requestApi<{ id: number }>('/chamada/recusar', 'POST', {
+    body: { id: chamadaId }
+  })
+}
+
+export function chamadaSair(chamadaId: number) {
+  return requestApi<{ id: number }>('/chamada/sair', 'POST', {
+    body: { id: chamadaId }
+  })
+}
+
+export function chamadaFinalizar(chamadaId: number) {
+  return requestApi<{ id: number }>('/chamada/finalizar', 'POST', {
+    body: { id: chamadaId }
+  })
+}
+
+export function chamadaDados(chamadaId: number) {
+  return requestApi<Chamada>('/chamada/dados', 'GET', {
+    query: { id: chamadaId }
   })
 }
