@@ -1,6 +1,7 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
+import { useChatStore } from './chat'
 import * as api from '../services/conversaApi'
 import type { Chamada, TipoChamada, EventoChamadaSocket } from '../types/api'
 
@@ -25,12 +26,15 @@ export const useCallStore = defineStore('call', () => {
   const micMutado = ref(false)
   const cameraMutada = ref(false)
   const saidaAudioMutada = ref(false)
+  const compartilhandoTela = ref(false)
   const erroMsg = ref('')
 
   const streamLocal = shallowRef<MediaStream | null>(null)
+  const streamTela = shallowRef<MediaStream | null>(null)
   const peers = ref<Map<number, PeerConexao>>(new Map())
 
   let tempoToqueChamada: number | null = null
+  let trackCamera: MediaStreamTrack | null = null
 
   // --- Computed ---
 
@@ -51,6 +55,19 @@ export const useCallStore = defineStore('call', () => {
     if (!chamada.value) return null
     return chamada.value.usuarios.find(u => u.usuario_id === chamada.value!.criado_por) || null
   })
+
+  const contatosNaoNaChamada = computed(() => {
+    const chat = useChatStore()
+    if (!chamada.value) return chat.contatos
+    const auth = useAuthStore()
+    const idsNaChamada = new Set(chamada.value.usuarios.map(u => u.usuario_id))
+    if (auth.user) idsNaChamada.add(auth.user.id)
+    return chat.contatos.filter(c => !idsNaChamada.has(c.id))
+  })
+
+  const somenteRecepcao = computed(() =>
+    estado.value === 'ativa' && tipoChamada.value === 2 && !streamLocal.value
+  )
 
   // --- MediaMTX / WebRTC helpers ---
 
@@ -144,7 +161,7 @@ export const useCallStore = defineStore('call', () => {
     let resposta: Response | null = null
     let tentativas = 0
 
-    while (tentativas++ < 15) {
+    while (tentativas++ < 8) {
       try {
         resposta = await fetch(`${getMediaMtxUrl()}/${caminhoStream}/whep`, {
           method: 'POST',
@@ -187,10 +204,17 @@ export const useCallStore = defineStore('call', () => {
     peers.value = new Map(peers.value)
 
     try {
-      entrada.txPc = await publicarParaPeer(usuarioId)
-      const { pc, stream } = await assinarDePeer(usuarioId)
-      entrada.rxPc = pc
-      entrada.stream = stream
+      if (streamLocal.value) {
+        entrada.txPc = await publicarParaPeer(usuarioId)
+      }
+      try {
+        const { pc, stream } = await assinarDePeer(usuarioId)
+        entrada.rxPc = pc
+        entrada.stream = stream
+      } catch {
+        // Peer pode nao estar transmitindo (modo somente-recepcao)
+        console.warn(`WHEP: ${usuarioNome} pode nao estar transmitindo ainda`)
+      }
       peers.value = new Map(peers.value)
     } catch (e) {
       erroMsg.value = `Erro ao conectar com ${usuarioNome}: ${e instanceof Error ? e.message : String(e)}`
@@ -229,7 +253,17 @@ export const useCallStore = defineStore('call', () => {
     })
   }
 
+  function liberarStreamTela() {
+    if (streamTela.value) {
+      streamTela.value.getTracks().forEach(t => t.stop())
+      streamTela.value = null
+    }
+    compartilhandoTela.value = false
+    trackCamera = null
+  }
+
   function liberarMidiaLocal() {
+    liberarStreamTela()
     if (streamLocal.value) {
       streamLocal.value.getTracks().forEach(t => t.stop())
       streamLocal.value = null
@@ -237,17 +271,19 @@ export const useCallStore = defineStore('call', () => {
   }
 
   function resetarEstado() {
+    console.trace('[CALL] resetarEstado chamado, estado anterior:', estado.value)
     estado.value = 'inativo'
     chamada.value = null
     micMutado.value = false
     cameraMutada.value = false
     saidaAudioMutada.value = false
+    compartilhandoTela.value = false
     erroMsg.value = ''
   }
 
   // --- Acoes de chamada ---
 
-  async function iniciarChamada(tipo: TipoChamada, usuarios: Array<{ id: number }>) {
+  async function iniciarChamada(tipo: TipoChamada, usuarios: Array<{ id: number }>, comTela = false) {
     const auth = useAuthStore()
     if (!auth.user) throw new Error('Usuario nao autenticado')
     if (estado.value !== 'inativo') throw new Error('Ja existe uma chamada em andamento')
@@ -256,7 +292,24 @@ export const useCallStore = defineStore('call', () => {
     tipoChamada.value = tipo
 
     try {
-      streamLocal.value = await adquirirMidiaLocal(tipo)
+      if (comTela && tipo === 2) {
+        const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: { sampleRate: 48000, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        })
+        streamLocal.value = new MediaStream([
+          ...audioStream.getAudioTracks(),
+          ...telaStream.getVideoTracks()
+        ])
+        streamTela.value = telaStream
+        compartilhandoTela.value = true
+        trackCamera = null
+
+        telaStream.getVideoTracks()[0].onended = () => { void pararCompartilhamento() }
+      } else {
+        streamLocal.value = await adquirirMidiaLocal(tipo)
+      }
+
       estado.value = 'chamando'
       chamada.value = await api.chamadaIniciar(tipo, usuarios)
     } catch (e) {
@@ -276,7 +329,9 @@ export const useCallStore = defineStore('call', () => {
     cancelarTemporizadorToque()
 
     try {
-      streamLocal.value = await adquirirMidiaLocal(tipoChamada.value)
+      if (tipoChamada.value === 1) {
+        streamLocal.value = await adquirirMidiaLocal(tipoChamada.value)
+      }
       await api.chamadaEntrar(chamada.value.id)
       estado.value = 'ativa'
 
@@ -369,6 +424,120 @@ export const useCallStore = defineStore('call', () => {
     saidaAudioMutada.value = !saidaAudioMutada.value
   }
 
+  // --- Compartilhamento de tela ---
+
+  async function compartilharTela() {
+    if (compartilhandoTela.value || tipoChamada.value !== 2 || !streamLocal.value) return
+
+    const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+    const screenTrack = telaStream.getVideoTracks()[0]
+
+    // Salva track da câmera para restaurar depois
+    trackCamera = streamLocal.value.getVideoTracks()[0] || null
+
+    // Troca a track de vídeo em todas as conexões WHIP
+    for (const [, peer] of peers.value) {
+      const sender = peer.txPc?.getSenders().find(s => s.track?.kind === 'video')
+      if (sender) await sender.replaceTrack(screenTrack)
+    }
+
+    // Atualiza streamLocal para o tile local mostrar a tela
+    if (trackCamera) streamLocal.value.removeTrack(trackCamera)
+    streamLocal.value.addTrack(screenTrack)
+
+    streamTela.value = telaStream
+    compartilhandoTela.value = true
+
+    screenTrack.onended = () => { void pararCompartilhamento() }
+  }
+
+  async function pararCompartilhamento() {
+    if (!compartilhandoTela.value || !streamLocal.value) return
+
+    const screenTrack = streamTela.value?.getVideoTracks()[0]
+
+    // Restaura track da câmera ou adquire nova
+    if (!trackCamera) {
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true })
+        trackCamera = camStream.getVideoTracks()[0]
+      } catch {
+        // Câmera indisponível
+      }
+    }
+
+    // Troca de volta em todas as conexões WHIP
+    for (const [, peer] of peers.value) {
+      const sender = peer.txPc?.getSenders().find(s => s.track?.kind === 'video')
+      if (sender) await sender.replaceTrack(trackCamera)
+    }
+
+    // Atualiza streamLocal
+    if (screenTrack) streamLocal.value.removeTrack(screenTrack)
+    if (trackCamera) streamLocal.value.addTrack(trackCamera)
+
+    // Para as tracks da tela
+    streamTela.value?.getTracks().forEach(t => t.stop())
+    streamTela.value = null
+    compartilhandoTela.value = false
+    trackCamera = null
+  }
+
+  // --- Adicionar usuario a chamada ativa ---
+
+  async function adicionarUsuario(usuarioId: number) {
+    if (!chamada.value || estado.value !== 'ativa') return
+    await api.chamadaAdicionarUsuario(chamada.value.id, usuarioId)
+    chamada.value = await api.chamadaDados(chamada.value.id)
+  }
+
+  // --- Iniciar transmissao local (receptor que quer comecar a transmitir) ---
+
+  async function iniciarTransmissaoLocal(opcoes?: { video?: boolean }) {
+    if (estado.value !== 'ativa') return
+
+    const video = opcoes?.video ?? (tipoChamada.value === 2)
+    streamLocal.value = await adquirirMidiaLocal(video ? 2 : 1)
+
+    // Reconecta todos os peers para incluir WHIP
+    const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
+      id,
+      nome: p.usuarioNome
+    }))
+    desconectarTodosPeers()
+    for (const peer of peersAtuais) {
+      await conectarPeer(peer.id, peer.nome)
+    }
+  }
+
+  // --- Upgrade audio → video ---
+
+  async function upgradeParaVideo() {
+    if (tipoChamada.value !== 1 || estado.value !== 'ativa') return
+
+    const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+    const videoTrack = videoStream.getVideoTracks()[0]
+
+    if (streamLocal.value) {
+      streamLocal.value.addTrack(videoTrack)
+    } else {
+      // Se nao tinha stream local, adquire audio tambem
+      streamLocal.value = await adquirirMidiaLocal(2)
+    }
+
+    tipoChamada.value = 2
+
+    // Reconecta peers para enviar video
+    const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
+      id,
+      nome: p.usuarioNome
+    }))
+    desconectarTodosPeers()
+    for (const peer of peersAtuais) {
+      await conectarPeer(peer.id, peer.nome)
+    }
+  }
+
   // --- Temporizador de toque ---
 
   function cancelarTemporizadorToque() {
@@ -383,6 +552,8 @@ export const useCallStore = defineStore('call', () => {
   async function tratarEventoChamada(evento: EventoChamadaSocket) {
     const auth = useAuthStore()
     if (!auth.user) return
+
+    console.log('[CALL] Evento recebido:', evento.tipo, 'chamada_id:', evento.chamada_id, 'usuario_id:', (evento as any).usuario_id, 'estado atual:', estado.value)
 
     switch (evento.tipo) {
       case 51: {
@@ -492,6 +663,7 @@ export const useCallStore = defineStore('call', () => {
     micMutado,
     cameraMutada,
     saidaAudioMutada,
+    compartilhandoTela,
     streamLocal,
     peers,
     erroMsg,
@@ -499,6 +671,8 @@ export const useCallStore = defineStore('call', () => {
     recebendoChamada,
     participantesAtivos,
     chamadaRemetente,
+    contatosNaoNaChamada,
+    somenteRecepcao,
     iniciarChamada,
     aceitarChamada,
     recusarChamada,
@@ -508,6 +682,11 @@ export const useCallStore = defineStore('call', () => {
     alternarMicrofone,
     alternarCamera,
     alternarSaidaAudio,
+    compartilharTela,
+    pararCompartilhamento,
+    adicionarUsuario,
+    iniciarTransmissaoLocal,
+    upgradeParaVideo,
     tratarEventoChamada,
     encerrarChamada
   }

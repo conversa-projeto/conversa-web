@@ -167,3 +167,9 @@ export function chamadaDados(chamadaId: number) {
     query: { id: chamadaId }
   })
 }
+
+export function chamadaAdicionarUsuario(chamadaId: number, usuarioId: number) {
+  return requestApi<{ id: number }>('/chamada/usuario', 'PUT', {
+    body: { chamada_id: chamadaId, usuario_id: usuarioId }
+  })
+}
