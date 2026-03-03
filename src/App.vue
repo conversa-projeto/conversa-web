@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-blue-50 p-4">
+  <div class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-blue-50 p-1 md:p-4">
     <div v-if="!auth.isAuthenticated" class="mx-auto mt-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
       <div class="bg-slate-900/80 px-6 py-8 text-center">
         <img src="/logo.png" alt="Logo" class="mx-auto p-2" />
@@ -42,8 +42,11 @@
       </form>
     </div>
 
-    <div v-else class="flex h-[calc(100vh-2rem)] overflow-hidden rounded-xl bg-white shadow">
-      <aside class="w-full max-w-sm border-r border-slate-200 bg-slate-50">
+    <div v-else class="flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-white shadow md:h-[calc(100vh-2rem)]">
+      <aside
+        class="relative w-full flex-col border-r border-slate-200 bg-slate-50 md:flex md:max-w-sm"
+        :class="sidebarAberta ? 'flex' : 'hidden'"
+      >
         <div class="border-b border-slate-200 p-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
@@ -56,35 +59,20 @@
             </button>
           </div>
 
-          <button class="flex w-full items-center justify-center gap-1.5 rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700" @click="abrirModalGrupo = true">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
-            Novo grupo
-          </button>
+          <div class="flex gap-2">
+            <button class="flex flex-1 items-center justify-center gap-1.5 rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" @click="mostrarBuscaContato = true">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg>
+              Nova conversa
+            </button>
+            <button class="flex flex-1 items-center justify-center gap-1.5 rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700" @click="abrirModalGrupo = true">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+              Novo grupo
+            </button>
+          </div>
         </div>
 
-        <div class="space-y-4 p-4">
-          <section>
-            <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Contatos</h2>
-            <input
-              v-model="filtroContato"
-              type="text"
-              class="mb-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
-              placeholder="Pesquisar contato"
-            />
-            <div class="max-h-44 overflow-auto rounded border border-slate-200 bg-white">
-              <button
-                v-for="contato in contatosFiltrados"
-                :key="contato.id"
-                class="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
-                @click="abrirConversaContato(contato.id)"
-              >
-                <span>{{ contato.nome }}</span>
-                <span class="text-xs text-slate-500">@{{ contato.login }}</span>
-              </button>
-            </div>
-          </section>
-
-          <section>
+        <div class="flex-1 overflow-hidden p-4">
+          <section class="flex h-full flex-col">
             <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Conversas</h2>
             <input
               v-model="filtroConversa"
@@ -92,7 +80,7 @@
               class="mb-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
               placeholder="Pesquisar conversa"
             />
-            <div class="max-h-[calc(100vh-23rem)] overflow-auto rounded border border-slate-200 bg-white">
+            <div class="flex-1 overflow-auto rounded border border-slate-200 bg-white">
               <button
                 v-for="conversa in conversasFiltradas"
                 :key="conversa.id"
@@ -114,9 +102,45 @@
             </div>
           </section>
         </div>
+
+        <!-- Overlay de busca de contatos -->
+        <div v-if="mostrarBuscaContato" class="absolute inset-0 z-10 flex flex-col bg-slate-50">
+          <div class="flex items-center gap-2 border-b border-slate-200 p-4">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
+              @click="mostrarBuscaContato = false; filtroContato = ''"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+            </button>
+            <h2 class="text-sm font-semibold text-slate-700">Nova conversa</h2>
+          </div>
+          <div class="flex-1 overflow-hidden p-4">
+            <input
+              v-model="filtroContato"
+              type="text"
+              class="mb-2 w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-blue-500"
+              placeholder="Pesquisar contato"
+              autofocus
+            />
+            <div class="max-h-[calc(100vh-14rem)] overflow-auto rounded border border-slate-200 bg-white">
+              <button
+                v-for="contato in contatosFiltrados"
+                :key="contato.id"
+                class="flex w-full items-center justify-between border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                @click="selecionarContatoNovaConversa(contato.id)"
+              >
+                <span>{{ contato.nome }}</span>
+                <span class="text-xs text-slate-500">@{{ contato.login }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </aside>
 
-      <main class="flex flex-1 flex-col overflow-hidden">
+      <main
+        class="flex-col overflow-hidden md:flex md:flex-1"
+        :class="sidebarAberta ? 'hidden md:flex' : 'flex flex-1'"
+      >
         <!-- Barra de chamada ativa (sempre visível quando em chamada) -->
         <div v-if="call.emChamada" class="relative flex items-center gap-2 border-b border-slate-700 bg-slate-800 px-3 py-1.5 text-white text-xs">
           <div
@@ -125,6 +149,9 @@
           ></div>
           <span class="font-medium">
             {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}
+          </span>
+          <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-emerald-400">
+            {{ call.duracaoChamadaFormatada }}
           </span>
           <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
             {{ call.tipoChamada === 2 ? 'V\u00EDdeo' : '\u00C1udio' }}
@@ -247,9 +274,17 @@
         <div v-if="chat.conversaAtiva" class="border-b border-slate-200 p-4">
           <div class="mx-auto w-full max-w-[1200px]">
             <div class="mb-2 flex items-center justify-between">
-              <h2 class="text-lg font-semibold text-slate-800">
-                {{ chat.conversaAtiva.descricao || chat.conversaAtiva.nome || `Conversa #${chat.conversaAtiva.id}` }}
-              </h2>
+              <div class="flex items-center gap-2">
+                <button
+                  class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200 md:hidden"
+                  @click="sidebarAberta = true"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+                </button>
+                <h2 class="text-lg font-semibold text-slate-800">
+                  {{ chat.conversaAtiva.descricao || chat.conversaAtiva.nome || `Conversa #${chat.conversaAtiva.id}` }}
+                </h2>
+              </div>
               <div class="flex items-center gap-2">
                 <button
                   v-if="!call.emChamada && !call.recebendoChamada"
@@ -258,7 +293,7 @@
                   @click="solicitarChamada(1)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" /></svg>
-                  Ligar
+                  <span class="hidden md:inline">Ligar</span>
                 </button>
                 <button
                   v-if="!call.emChamada && !call.recebendoChamada"
@@ -267,7 +302,7 @@
                   @click="solicitarChamada(2)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
-                  V&iacute;deo
+                  <span class="hidden md:inline">V&iacute;deo</span>
                 </button>
                 <button
                   v-if="!call.emChamada && !call.recebendoChamada"
@@ -276,35 +311,47 @@
                   @click="solicitarChamada(2, true)"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
-                  Tela
+                  <span class="hidden md:inline">Tela</span>
                 </button>
-                <span class="text-xs uppercase tracking-wide text-slate-500">{{ chat.conversaAtiva.tipo === 2 ? 'Grupo' : 'Chat' }}</span>
+                <button
+                  class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
+                  title="Pesquisar na conversa"
+                  @click="painelBuscaChat = !painelBuscaChat; if (!painelBuscaChat) { buscaNoChat = ''; chat.resultadosBuscaConversa = [] }"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-slate-600"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+                </button>
               </div>
             </div>
 
-            <div class="flex gap-2">
-              <input
-                v-model="buscaNoChat"
-                type="text"
-                class="w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                placeholder="Pesquisar nesta conversa"
-                @keyup.enter="pesquisarNoChat"
-              />
-              <button class="flex items-center gap-1 rounded bg-slate-700 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800" @click="pesquisarNoChat">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
-                Buscar
-              </button>
-            </div>
+            <div v-if="painelBuscaChat" class="mt-2">
+              <div class="flex gap-2">
+                <input
+                  v-model="buscaNoChat"
+                  type="text"
+                  class="w-full rounded border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+                  placeholder="Pesquisar nesta conversa"
+                  @keyup.enter="pesquisarNoChat"
+                  autofocus
+                />
+                <button class="flex items-center gap-1 rounded bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800" @click="pesquisarNoChat">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+                  <span class="hidden md:inline">Buscar</span>
+                </button>
+                <button class="flex items-center rounded px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100" @click="painelBuscaChat = false; buscaNoChat = ''; chat.resultadosBuscaConversa = []">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
 
-            <div v-if="chat.resultadosBuscaConversa.length" class="mt-2 max-h-28 overflow-auto rounded border border-amber-200 bg-amber-50 p-2 text-xs">
-              <button
-                v-for="item in chat.resultadosBuscaConversa"
-                :key="`find-${item.id}`"
-                class="block w-full truncate rounded px-2 py-1 text-left text-amber-800 hover:bg-amber-100"
-                @click="irParaMensagem(item.id)"
-              >
-                #{{ item.id }} - {{ resumoMensagem(item) }}
-              </button>
+              <div v-if="chat.resultadosBuscaConversa.length" class="mt-2 max-h-28 overflow-auto rounded border border-amber-200 bg-amber-50 p-2 text-xs">
+                <button
+                  v-for="item in chat.resultadosBuscaConversa"
+                  :key="`find-${item.id}`"
+                  class="block w-full truncate rounded px-2 py-1 text-left text-amber-800 hover:bg-amber-100"
+                  @click="irParaMensagem(item.id)"
+                >
+                  #{{ item.id }} - {{ resumoMensagem(item) }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -347,13 +394,33 @@
                     :key="`${item.mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
                     class="mb-1 last:mb-0"
                   >
-                    <p
-                      v-if="conteudo.tipo === 1"
-                      class="whitespace-pre-wrap break-words"
-                      :class="classeTextoMensagem(conteudo.conteudo)"
-                    >
-                      {{ conteudo.conteudo }}
-                    </p>
+                    <template v-if="conteudo.tipo === 1">
+                      <template v-if="temCodigoFormatado(conteudo.conteudo)">
+                        <template v-for="(seg, segIdx) in parseCodeBlocks(conteudo.conteudo)" :key="segIdx">
+                          <p
+                            v-if="seg.tipo === 'texto' && seg.conteudo.trim()"
+                            class="whitespace-pre-wrap break-words"
+                            :class="classeTextoMensagem(seg.conteudo)"
+                          >{{ seg.conteudo.trim() }}</p>
+                          <div v-else-if="seg.tipo === 'codigo'" class="group relative my-1 max-w-full">
+                            <div class="flex items-center justify-between rounded-t bg-slate-700 px-3 py-1">
+                              <span class="text-[10px] text-slate-400">{{ seg.linguagem || 'code' }}</span>
+                              <button
+                                class="text-[10px] transition-opacity"
+                                :class="codigosCopiados.has(`${item.mensagem.id}-${segIdx}`) ? 'text-emerald-400' : 'text-slate-400 opacity-0 group-hover:opacity-100 hover:text-white'"
+                                @click="copiarCodigo(seg.conteudo, `${item.mensagem.id}-${segIdx}`)"
+                              >{{ codigosCopiados.has(`${item.mensagem.id}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
+                            </div>
+                            <pre class="overflow-x-auto rounded-b bg-slate-800 p-3 text-xs leading-relaxed"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+                          </div>
+                        </template>
+                      </template>
+                      <p
+                        v-else
+                        class="whitespace-pre-wrap break-words"
+                        :class="classeTextoMensagem(conteudo.conteudo)"
+                      >{{ conteudo.conteudo }}</p>
+                    </template>
 
                     <img
                       v-else-if="conteudo.tipo === 2"
@@ -417,8 +484,11 @@
           </div>
         </div>
 
-        <div v-else class="flex flex-1 items-center justify-center text-slate-500">
-          Selecione uma conversa para come&ccedil;ar.
+        <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 text-slate-500">
+          <span>Selecione uma conversa para come&ccedil;ar.</span>
+          <button class="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 md:hidden" @click="sidebarAberta = true">
+            Ver conversas
+          </button>
         </div>
 
         <div v-if="chat.conversaAtiva" class="border-t border-slate-200 bg-white p-3">
@@ -426,15 +496,15 @@
 
           <div class="mx-auto w-full max-w-[1200px]">
             <p v-if="erro" class="mb-2 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erro }}</p>
-            <div class="relative flex items-center gap-2">
-              <button class="flex items-center gap-1 rounded bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300" title="Anexar arquivo" @click="inputArquivo?.click()">
+            <div class="relative flex items-end gap-2">
+              <button class="flex items-center gap-1 rounded bg-slate-200 px-2 py-2 text-sm hover:bg-slate-300 md:px-3" title="Anexar arquivo" @click="inputArquivo?.click()">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>
-                Arquivo
+                <span class="hidden md:inline">Arquivo</span>
               </button>
 
-              <button class="flex items-center gap-1 rounded bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300" title="Emoji" @click="mostrarEmoji = !mostrarEmoji">
+              <button class="flex items-center gap-1 rounded bg-slate-200 px-2 py-2 text-sm hover:bg-slate-300 md:px-3" title="Emoji" @click="mostrarEmoji = !mostrarEmoji">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" /></svg>
-                Emoji
+                <span class="hidden md:inline">Emoji</span>
               </button>
 
               <div v-if="mostrarEmoji" class="absolute bottom-12 left-0 z-10 grid grid-cols-6 gap-1 rounded border border-slate-200 bg-white p-2 shadow">
@@ -449,7 +519,7 @@
               </div>
 
               <button
-                class="flex items-center gap-1 rounded px-3 py-2 text-sm font-medium text-white"
+                class="flex items-center gap-1 rounded px-2 py-2 text-sm font-medium text-white md:px-3"
                 :class="gravandoAudio ? 'bg-rose-600' : 'bg-emerald-600 hover:bg-emerald-700'"
                 @mousedown.prevent="iniciarAudio"
                 @mouseup.prevent="pararAudio"
@@ -459,21 +529,24 @@
                 @touchcancel.prevent="pararAudio"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
-                {{ gravandoAudio ? 'Gravando...' : '\u00C1udio' }}
+                <span class="hidden md:inline">{{ gravandoAudio ? 'Gravando...' : '\u00C1udio' }}</span>
               </button>
 
-              <input
+              <textarea
+                ref="textareaMsg"
                 v-model="textoMensagem"
-                type="text"
-                class="flex-1 rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                spellcheck="true"
+                rows="1"
+                class="flex-1 resize-none rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
                 placeholder="Digite sua mensagem"
-                @keyup.enter="enviarTexto"
+                @keydown.enter.exact.prevent="enviarTexto"
                 @paste="aoColarNoChat"
-              />
+                @input="autoResizeTextarea"
+              ></textarea>
 
-              <button class="flex items-center gap-1 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" @click="enviarTexto">
+              <button class="flex items-center gap-1 rounded bg-blue-600 px-2 py-2 text-sm font-medium text-white hover:bg-blue-700 md:px-4" @click="enviarTexto">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
-                Enviar
+                <span class="hidden md:inline">Enviar</span>
               </button>
             </div>
           </div>
@@ -679,6 +752,39 @@ import { getAttachmentUrl } from './services/http'
 import { pinia } from './pinia'
 import CallWindow from './CallWindow.vue'
 
+import hljs from 'highlight.js/lib/core'
+import hljsJavascript from 'highlight.js/lib/languages/javascript'
+import hljsTypescript from 'highlight.js/lib/languages/typescript'
+import hljsPython from 'highlight.js/lib/languages/python'
+import hljsSql from 'highlight.js/lib/languages/sql'
+import hljsJson from 'highlight.js/lib/languages/json'
+import hljsXml from 'highlight.js/lib/languages/xml'
+import hljsCss from 'highlight.js/lib/languages/css'
+import hljsBash from 'highlight.js/lib/languages/bash'
+import hljsJava from 'highlight.js/lib/languages/java'
+import hljsCsharp from 'highlight.js/lib/languages/csharp'
+import hljsGo from 'highlight.js/lib/languages/go'
+import hljsPhp from 'highlight.js/lib/languages/php'
+
+hljs.registerLanguage('javascript', hljsJavascript)
+hljs.registerLanguage('js', hljsJavascript)
+hljs.registerLanguage('typescript', hljsTypescript)
+hljs.registerLanguage('ts', hljsTypescript)
+hljs.registerLanguage('python', hljsPython)
+hljs.registerLanguage('py', hljsPython)
+hljs.registerLanguage('sql', hljsSql)
+hljs.registerLanguage('json', hljsJson)
+hljs.registerLanguage('xml', hljsXml)
+hljs.registerLanguage('html', hljsXml)
+hljs.registerLanguage('css', hljsCss)
+hljs.registerLanguage('bash', hljsBash)
+hljs.registerLanguage('sh', hljsBash)
+hljs.registerLanguage('java', hljsJava)
+hljs.registerLanguage('csharp', hljsCsharp)
+hljs.registerLanguage('cs', hljsCsharp)
+hljs.registerLanguage('go', hljsGo)
+hljs.registerLanguage('php', hljsPhp)
+
 const auth = useAuthStore()
 const chat = useChatStore()
 const call = useCallStore()
@@ -700,8 +806,10 @@ const erro = ref('')
 const filtroContato = ref('')
 const filtroConversa = ref('')
 const buscaNoChat = ref('')
+const painelBuscaChat = ref(false)
 
 const textoMensagem = ref('')
+const textareaMsg = ref<HTMLTextAreaElement | null>(null)
 const mostrarEmoji = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const mensagensContainer = ref<HTMLDivElement | null>(null)
@@ -725,7 +833,10 @@ const gravandoAudio = ref(false)
 const mediaRecorder = ref<MediaRecorder | null>(null)
 const audioStream = ref<MediaStream | null>(null)
 let audioChunks: BlobPart[] = []
+let audioInicioGravacao = 0
 
+const mostrarBuscaContato = ref(false)
+const sidebarAberta = ref(true)
 const abrirModalGrupo = ref(false)
 const nomeGrupo = ref('')
 const membrosGrupo = ref<number[]>([])
@@ -745,6 +856,9 @@ let appPopup: VueApp | null = null
 // Ringtone (Web Audio API)
 let toqueAudioCtx: AudioContext | null = null
 let toqueInterval: number | null = null
+
+// Browser notification
+let notificacaoChamada: Notification | null = null
 
 const emojis =[0x1F600,0x1F601,0x1F602,0x1F923,0x1F60A,0x1F60D,0x1F60E,0x1F622,0x1F621,0x1F44D,0x1F64F,0x2764].map((code) => String.fromCodePoint(code))
 
@@ -834,6 +948,7 @@ onUnmounted(() => {
   document.body.style.overflow = ''
   fecharJanelaChamada()
   pararToque()
+  fecharNotificacaoChamada()
   chat.removerHandlerChamada()
   call.encerrarChamada()
   chat.encerrarTempoReal()
@@ -865,6 +980,9 @@ async function fazerLogin() {
       void call.tratarEventoChamada(evento)
     })
     await posicionarAberturaConversaAtiva()
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao efetuar login'
   } finally {
@@ -875,6 +993,7 @@ async function fazerLogin() {
 function sair() {
   fecharJanelaChamada()
   pararToque()
+  fecharNotificacaoChamada()
   call.encerrarChamada()
   chat.removerHandlerChamada()
   chat.encerrarTempoReal()
@@ -889,15 +1008,25 @@ async function abrirConversaContato(contatoId: number) {
 
   try {
     await chat.iniciarConversaDireta(contato)
+    sidebarAberta.value = false
     await posicionarAberturaConversaAtiva()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao abrir conversa'
   }
 }
 
+async function selecionarContatoNovaConversa(contatoId: number) {
+  mostrarBuscaContato.value = false
+  filtroContato.value = ''
+  await abrirConversaContato(contatoId)
+}
+
 async function abrirConversa(conversaId: number) {
   try {
     await chat.selecionarConversa(conversaId)
+    sidebarAberta.value = false
+    painelBuscaChat.value = false
+    buscaNoChat.value = ''
     await posicionarAberturaConversaAtiva()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao abrir conversa'
@@ -914,10 +1043,17 @@ async function enviarTexto() {
     await chat.enviarTexto(texto)
     textoMensagem.value = ''
     await nextTick()
+    if (textareaMsg.value) textareaMsg.value.style.height = 'auto'
     rolarParaFinal()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao enviar texto'
   }
+}
+
+function autoResizeTextarea(event: Event) {
+  const el = event.target as HTMLTextAreaElement
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
 }
 
 function inserirEmoji(emoji: string) {
@@ -1095,8 +1231,13 @@ async function iniciarAudio() {
     }
 
     recorder.onstop = async () => {
-      if (!audioChunks.length) {
+      const duracaoMs = Date.now() - audioInicioGravacao
+      if (!audioChunks.length || duracaoMs < 1000) {
         encerrarStreamAudio()
+        if (duracaoMs < 1000) {
+          erro.value = 'Áudio muito curto, segure por mais tempo.'
+          setTimeout(() => { if (erro.value === 'Áudio muito curto, segure por mais tempo.') erro.value = '' }, 2000)
+        }
         return
       }
 
@@ -1117,6 +1258,7 @@ async function iniciarAudio() {
     }
 
     recorder.start()
+    audioInicioGravacao = Date.now()
     mediaRecorder.value = recorder
     gravandoAudio.value = true
   } catch (e) {
@@ -1191,6 +1333,64 @@ function isMensagemSoEmoji(texto: string): boolean {
 
 function classeTextoMensagem(texto: string): string {
   return isMensagemSoEmoji(texto) ? 'text-4xl leading-tight' : 'text-sm'
+}
+
+// --- Code blocks ---
+interface SegmentoTexto {
+  tipo: 'texto' | 'codigo'
+  conteudo: string
+  linguagem?: string
+}
+
+function temCodigoFormatado(texto: string): boolean {
+  return /```\w*\n[\s\S]*?```/.test(texto)
+}
+
+function parseCodeBlocks(texto: string): SegmentoTexto[] {
+  const regex = /```(\w*)\n([\s\S]*?)```/g
+  const segmentos: SegmentoTexto[] = []
+  let ultimo = 0
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(texto)) !== null) {
+    if (match.index > ultimo) {
+      segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo, match.index) })
+    }
+    segmentos.push({ tipo: 'codigo', conteudo: match[2], linguagem: match[1] || undefined })
+    ultimo = match.index + match[0].length
+  }
+  if (ultimo < texto.length) {
+    segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo) })
+  }
+  return segmentos
+}
+
+function highlightCodigo(codigo: string, linguagem?: string): string {
+  if (linguagem && hljs.getLanguage(linguagem)) {
+    return hljs.highlight(codigo, { language: linguagem }).value
+  }
+  return hljs.highlightAuto(codigo).value
+}
+
+const codigosCopiados = ref<Set<string>>(new Set())
+
+async function copiarCodigo(codigo: string, chave: string) {
+  try {
+    await navigator.clipboard.writeText(codigo)
+    codigosCopiados.value.add(chave)
+    codigosCopiados.value = new Set(codigosCopiados.value)
+    setTimeout(() => {
+      codigosCopiados.value.delete(chave)
+      codigosCopiados.value = new Set(codigosCopiados.value)
+    }, 2000)
+  } catch {
+    // fallback
+    const ta = document.createElement('textarea')
+    ta.value = codigo
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+  }
 }
 
 function statusEntrega(mensagem: Mensagem): string {
@@ -1693,12 +1893,37 @@ function pararToque() {
   if (toqueAudioCtx) { toqueAudioCtx.close(); toqueAudioCtx = null }
 }
 
-// Watch ringtone
+function mostrarNotificacaoChamada() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  const remetente = call.chamadaRemetente?.usuario_nome || 'Alguém'
+  const tipo = call.tipoChamada === 2 ? 'Vídeo' : 'Áudio'
+  notificacaoChamada = new Notification('Chamada recebida', {
+    body: `${remetente} está ligando (${tipo})`,
+    tag: 'conversa-chamada',
+    requireInteraction: true
+  })
+  notificacaoChamada.onclick = () => {
+    window.focus()
+    notificacaoChamada?.close()
+    notificacaoChamada = null
+  }
+}
+
+function fecharNotificacaoChamada() {
+  if (notificacaoChamada) {
+    notificacaoChamada.close()
+    notificacaoChamada = null
+  }
+}
+
+// Watch ringtone + notification
 watch(() => call.recebendoChamada, (recebendo) => {
   if (recebendo) {
     iniciarToque()
+    mostrarNotificacaoChamada()
   } else {
     pararToque()
+    fecharNotificacaoChamada()
   }
 })
 

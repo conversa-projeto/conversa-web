@@ -1,6 +1,13 @@
+@import 'highlight.js/styles/github-dark.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+pre code.hljs {
+  background: transparent;
+  padding: 0;
+}
 
 :root {
   color-scheme: light;

@@ -36,6 +36,34 @@ export const useCallStore = defineStore('call', () => {
   let tempoToqueChamada: number | null = null
   let trackCamera: MediaStreamTrack | null = null
 
+  // Timer de duração
+  const duracaoChamadaSegundos = ref(0)
+  let intervaloDuracao: number | null = null
+
+  const duracaoChamadaFormatada = computed(() => {
+    const s = duracaoChamadaSegundos.value
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const seg = s % 60
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(seg)}` : `${pad(m)}:${pad(seg)}`
+  })
+
+  function iniciarTimerDuracao() {
+    pararTimerDuracao()
+    duracaoChamadaSegundos.value = 0
+    intervaloDuracao = window.setInterval(() => {
+      duracaoChamadaSegundos.value++
+    }, 1000)
+  }
+
+  function pararTimerDuracao() {
+    if (intervaloDuracao !== null) {
+      window.clearInterval(intervaloDuracao)
+      intervaloDuracao = null
+    }
+  }
+
   // --- Computed ---
 
   const emChamada = computed(() =>
@@ -272,6 +300,8 @@ export const useCallStore = defineStore('call', () => {
 
   function resetarEstado() {
     console.trace('[CALL] resetarEstado chamado, estado anterior:', estado.value)
+    pararTimerDuracao()
+    duracaoChamadaSegundos.value = 0
     estado.value = 'inativo'
     chamada.value = null
     micMutado.value = false
@@ -334,6 +364,7 @@ export const useCallStore = defineStore('call', () => {
       }
       await api.chamadaEntrar(chamada.value.id)
       estado.value = 'ativa'
+      iniciarTimerDuracao()
 
       chamada.value = await api.chamadaDados(chamada.value.id)
 
@@ -614,6 +645,7 @@ export const useCallStore = defineStore('call', () => {
         // UsuarioEntrou
         if (chamada.value?.id === evento.chamada_id && estado.value === 'chamando') {
           estado.value = 'ativa'
+          iniciarTimerDuracao()
         }
 
         if (chamada.value?.id === evento.chamada_id && estado.value === 'ativa') {
@@ -673,6 +705,7 @@ export const useCallStore = defineStore('call', () => {
     chamadaRemetente,
     contatosNaoNaChamada,
     somenteRecepcao,
+    duracaoChamadaFormatada,
     iniciarChamada,
     aceitarChamada,
     recusarChamada,

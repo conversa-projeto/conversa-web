@@ -9,6 +9,9 @@
       <span class="text-xs font-medium">
         {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}
       </span>
+      <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-emerald-400">
+        {{ call.duracaoChamadaFormatada }}
+      </span>
       <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
         {{ call.tipoChamada === 2 ? 'V\u00EDdeo' : '\u00C1udio' }}
       </span>
