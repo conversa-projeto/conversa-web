@@ -4,6 +4,7 @@ import type { Contato, Conversa, EventoChamadaSocket, Mensagem } from '../types/
 import { getAttachmentUrl } from '../services/http'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
+import { useCallStore } from './call'
 
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
@@ -246,6 +247,10 @@ export const useChatStore = defineStore('chat', () => {
           token: auth.token
         })
       )
+      if (_tratarEventoChamada) {
+        const callStore = useCallStore()
+        void callStore.verificarChamadasPendentes()
+      }
     }
 
     socket.onmessage = (event) => {
@@ -413,6 +418,10 @@ export const useChatStore = defineStore('chat', () => {
       await carregarConversas()
       if (conversaAtivaId.value) {
         await carregarMensagens(conversaAtivaId.value)
+      }
+      if (_tratarEventoChamada) {
+        const callStore = useCallStore()
+        void callStore.verificarChamadasPendentes()
       }
     }, 8000)
   }

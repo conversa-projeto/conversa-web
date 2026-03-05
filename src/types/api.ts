@@ -105,6 +105,17 @@ export interface Chamada {
   usuarios: ChamadaUsuario[]
 }
 
+export interface ChamadaPendente {
+  id: number
+  tipo: TipoChamada
+  status: StatusChamada
+  iniciada: string | null
+  finalizada: string | null
+  conversa_id: number
+  criado_em: string
+  criado_por: number
+}
+
 export interface EventoChamadaSocket {
   tipo: 51 | 52 | 53 | 54 | 55
   chamada_id: number

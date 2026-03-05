@@ -176,21 +176,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, type Directive } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useCallStore } from './stores/call'
+import { vSrcObject } from './directives/vSrcObject'
+import { iniciaisUsuario } from './utils/formatters'
 
 const auth = useAuthStore()
 const call = useCallStore()
-
-const vSrcObject: Directive<HTMLMediaElement, MediaStream | null> = {
-  mounted(el, binding) {
-    if (binding.value) el.srcObject = binding.value
-  },
-  updated(el, binding) {
-    if (el.srcObject !== binding.value) el.srcObject = binding.value
-  }
-}
 
 const videoLocal = ref<HTMLVideoElement | null>(null)
 const modalAdicionarUsuario = ref(false)
@@ -208,16 +201,6 @@ const gridClass = computed(() => {
 const tileAspect = computed(() => {
   return call.tipoChamada === 2 ? 'aspect-video' : 'aspect-square max-h-48'
 })
-
-function iniciaisUsuario(nome: string): string {
-  return nome
-    .split(' ')
-    .map(p => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-}
 
 async function ativarMicrofone() {
   try {

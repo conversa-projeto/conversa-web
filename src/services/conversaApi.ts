@@ -1,6 +1,7 @@
 import type {
   AnexoResponse,
   Chamada,
+  ChamadaPendente,
   Contato,
   Conversa,
   LoginResponse,
@@ -172,4 +173,8 @@ export function chamadaAdicionarUsuario(chamadaId: number, usuarioId: number) {
   return requestApi<{ id: number }>('/chamada/usuario', 'PUT', {
     body: { chamada_id: chamadaId, usuario_id: usuarioId }
   })
+}
+
+export function getChamadasPendentes() {
+  return requestApi<ChamadaPendente[]>('/chamadas/pendentes')
 }

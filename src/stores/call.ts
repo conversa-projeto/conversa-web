@@ -15,9 +15,14 @@ export interface PeerConexao {
   stream: MediaStream | null
 }
 
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' }
-]
+const ICE_SERVERS: RTCIceServer[] = (() => {
+  const stunUrl = import.meta.env.VITE_STUN_URL
+  if (stunUrl === undefined || stunUrl === null) {
+    return [{ urls: 'stun:stun.l.google.com:19302' }]
+  }
+  if (stunUrl === '') return []
+  return [{ urls: stunUrl }]
+})()
 
 export const useCallStore = defineStore('call', () => {
   const estado = ref<EstadoChamada>('inativo')
@@ -102,7 +107,8 @@ export const useCallStore = defineStore('call', () => {
   function getMediaMtxUrl(): string {
     const isSecure = window.location.protocol === 'https:'
     const proto = isSecure ? 'https' : 'http'
-    return `${proto}://${window.location.hostname}:8889`
+    const port = import.meta.env.VITE_MEDIAMTX_PORT || '8889'
+    return `${proto}://${window.location.hostname}:${port}`
   }
 
   function sanitizar(s: string): string {
@@ -681,6 +687,33 @@ export const useCallStore = defineStore('call', () => {
     }
   }
 
+  async function verificarChamadasPendentes() {
+    if (emChamada.value || estado.value === 'recebendo') return
+
+    let pendentes: Awaited<ReturnType<typeof api.getChamadasPendentes>>
+    try {
+      pendentes = await api.getChamadasPendentes()
+    } catch {
+      return
+    }
+
+    if (pendentes.length === 0) return
+
+    const chamadaPendente = pendentes[0]
+    const idadeMs = Date.now() - new Date(chamadaPendente.criado_em).getTime()
+
+    if (idadeMs > 25000) {
+      try { await api.chamadaRecusar(chamadaPendente.id) } catch { /* ignore */ }
+      return
+    }
+
+    await tratarEventoChamada({
+      tipo: 51,
+      chamada_id: chamadaPendente.id,
+      usuario_id: chamadaPendente.criado_por
+    })
+  }
+
   function encerrarChamada() {
     cancelarTemporizadorToque()
     desconectarTodosPeers()
@@ -721,6 +754,7 @@ export const useCallStore = defineStore('call', () => {
     iniciarTransmissaoLocal,
     upgradeParaVideo,
     tratarEventoChamada,
+    verificarChamadasPendentes,
     encerrarChamada
   }
 })
