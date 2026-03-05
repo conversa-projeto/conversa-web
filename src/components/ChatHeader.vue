@@ -9,9 +9,14 @@
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           </button>
-          <h2 class="text-lg font-semibold text-slate-800">
-            {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
-          </h2>
+          <div>
+            <h2 class="text-lg font-semibold text-slate-800">
+              {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
+            </h2>
+            <p v-if="textoDigitando" class="text-xs text-emerald-600 animate-pulse">
+              {{ textoDigitando }}
+            </p>
+          </div>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -86,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useCallStore } from '../stores/call'
 import { resumoMensagem } from '../utils/formatters'
@@ -100,6 +105,14 @@ const emit = defineEmits<{
 
 const chat = useChatStore()
 const call = useCallStore()
+
+const textoDigitando = computed(() => {
+  const nomes = chat.digitandoNaConversaAtiva
+  if (nomes.length === 0) return ''
+  if (nomes.length === 1) return `${nomes[0]} está digitando...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão digitando...`
+  return `${nomes[0]} e mais ${nomes.length - 1} estão digitando...`
+})
 
 const painelBuscaChat = ref(false)
 const buscaNoChat = ref('')

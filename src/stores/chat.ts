@@ -21,6 +21,12 @@ export const useChatStore = defineStore('chat', () => {
   let reconnectAttempts = 0
   const marcandoVisualizacao = new Set<number>()
 
+  let digitandoDebounceTimer: number | null = null
+  let ultimoDigitandoEnviado = 0
+  const DIGITANDO_DEBOUNCE_MS = 2500
+  const DIGITANDO_EXPIRACAO_MS = 4000
+  const digitandoPorConversa = ref<Map<number, Map<number, number>>>(new Map())
+
   let _tratarEventoChamada: ((evento: EventoChamadaSocket) => void) | null = null
 
   function registrarHandlerChamada(handler: (evento: EventoChamadaSocket) => void) {
@@ -37,6 +43,20 @@ export const useChatStore = defineStore('chat', () => {
       return []
     }
     return mensagensPorConversa.value[conversaAtivaId.value] || []
+  })
+
+  const digitandoNaConversaAtiva = computed<string[]>(() => {
+    if (!conversaAtivaId.value) return []
+    const mapa = digitandoPorConversa.value.get(conversaAtivaId.value)
+    if (!mapa || mapa.size === 0) return []
+    const auth = useAuthStore()
+    const nomes: string[] = []
+    for (const usuarioId of mapa.keys()) {
+      if (usuarioId === auth.user?.id) continue
+      const contato = contatos.value.find(c => c.id === usuarioId)
+      nomes.push(contato?.nome || `Usuário #${usuarioId}`)
+    }
+    return nomes
   })
 
   async function inicializar() {
@@ -332,6 +352,11 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    if (evento.tipo === 4 && evento.conversa_id && evento.usuario_id) {
+      tratarDigitando(evento.conversa_id, evento.usuario_id)
+      return
+    }
+
     if (evento.tipo === 40) {
       await carregarConversas()
       return
@@ -383,6 +408,17 @@ export const useChatStore = defineStore('chat', () => {
     const atualizada = conversaIds.includes(ativa)
     if (atualizada) {
       await carregarMensagens(ativa)
+    }
+
+    for (const conversaId of conversaIds) {
+      const mapa = digitandoPorConversa.value.get(conversaId)
+      if (mapa) {
+        for (const timer of mapa.values()) window.clearTimeout(timer)
+        digitandoPorConversa.value.delete(conversaId)
+      }
+    }
+    if (conversaIds.length > 0) {
+      digitandoPorConversa.value = new Map(digitandoPorConversa.value)
     }
   }
 
@@ -437,6 +473,56 @@ export const useChatStore = defineStore('chat', () => {
     return getAttachmentUrl(identificador)
   }
 
+  function enviarDigitando() {
+    if (!conversaAtivaId.value) return
+    const agora = Date.now()
+    if (agora - ultimoDigitandoEnviado < DIGITANDO_DEBOUNCE_MS) {
+      if (!digitandoDebounceTimer) {
+        digitandoDebounceTimer = window.setTimeout(() => {
+          digitandoDebounceTimer = null
+          enviarDigitando()
+        }, DIGITANDO_DEBOUNCE_MS - (Date.now() - ultimoDigitandoEnviado))
+      }
+      return
+    }
+    ultimoDigitandoEnviado = agora
+    void api.digitando(conversaAtivaId.value).catch(() => {})
+  }
+
+  function tratarDigitando(conversaId: number, usuarioId: number) {
+    const auth = useAuthStore()
+    if (usuarioId === auth.user?.id) return
+
+    let mapa = digitandoPorConversa.value.get(conversaId)
+    if (!mapa) {
+      mapa = new Map()
+      digitandoPorConversa.value.set(conversaId, mapa)
+    }
+
+    const timerExistente = mapa.get(usuarioId)
+    if (timerExistente) window.clearTimeout(timerExistente)
+
+    const timer = window.setTimeout(() => {
+      const m = digitandoPorConversa.value.get(conversaId)
+      if (m) {
+        m.delete(usuarioId)
+        if (m.size === 0) digitandoPorConversa.value.delete(conversaId)
+        digitandoPorConversa.value = new Map(digitandoPorConversa.value)
+      }
+    }, DIGITANDO_EXPIRACAO_MS)
+
+    mapa.set(usuarioId, timer)
+    digitandoPorConversa.value = new Map(digitandoPorConversa.value)
+  }
+
+  function limparDigitandoConversaAtiva() {
+    if (digitandoDebounceTimer) {
+      window.clearTimeout(digitandoDebounceTimer)
+      digitandoDebounceTimer = null
+    }
+    ultimoDigitandoEnviado = 0
+  }
+
   function encerrarTempoReal() {
     pararPolling()
     desconectarWebSocket()
@@ -466,6 +552,9 @@ export const useChatStore = defineStore('chat', () => {
     desconectarWebSocket,
     encerrarTempoReal,
     marcarMensagensComoVisualizadas,
+    digitandoNaConversaAtiva,
+    enviarDigitando,
+    limparDigitandoConversaAtiva,
     urlAnexo,
     registrarHandlerChamada,
     removerHandlerChamada

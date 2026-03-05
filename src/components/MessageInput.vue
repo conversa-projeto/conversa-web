@@ -49,7 +49,7 @@
           placeholder="Digite sua mensagem"
           @keydown.enter.exact.prevent="enviarTexto"
           @paste="aoColarNoChat"
-          @input="autoResizeTextarea"
+          @input="aoDigitar"
         ></textarea>
 
         <button class="flex items-center gap-1 rounded bg-blue-600 px-2 py-2 text-sm font-medium text-white hover:bg-blue-700 md:px-4" @click="enviarTexto">
@@ -92,6 +92,7 @@ async function enviarTexto() {
 
   try {
     await chat.enviarTexto(texto)
+    chat.limparDigitandoConversaAtiva()
     textoMensagem.value = ''
     await nextTick()
     if (textareaMsg.value) textareaMsg.value.style.height = 'auto'
@@ -105,6 +106,13 @@ function autoResizeTextarea(event: Event) {
   const el = event.target as HTMLTextAreaElement
   el.style.height = 'auto'
   el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+}
+
+function aoDigitar(event: Event) {
+  autoResizeTextarea(event)
+  if (textoMensagem.value.trim()) {
+    chat.enviarDigitando()
+  }
 }
 
 function inserirEmoji(emoji: string) {

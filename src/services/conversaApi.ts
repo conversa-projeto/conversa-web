@@ -178,3 +178,9 @@ export function chamadaAdicionarUsuario(chamadaId: number, usuarioId: number) {
 export function getChamadasPendentes() {
   return requestApi<ChamadaPendente[]>('/chamadas/pendentes')
 }
+
+export function digitando(conversaId: number) {
+  return requestApi<{ sucesso: boolean }>('/conversa/digitando', 'POST', {
+    body: { id: conversaId }
+  })
+}
