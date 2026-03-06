@@ -125,13 +125,14 @@ async function selecionarArquivo(event: Event) {
   const file = target.files?.[0]
   if (!file) return
   const isImagem = file.type.startsWith('image/')
+  const isAudio = file.type.startsWith('audio/')
 
   try {
     if (isImagem) {
       emit('open-image-preview', file, file.name, file.type || 'image/png')
       return
     }
-    await chat.enviarArquivo(file, file.name, file.type, false)
+    await chat.enviarArquivo(file, file.name, file.type, isAudio)
     await nextTick()
     emit('message-sent')
   } catch (e) {

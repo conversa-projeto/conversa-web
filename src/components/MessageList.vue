@@ -26,6 +26,13 @@
           @download="(id, nome) => abrirAnexo(id, nome)"
         />
       </template>
+
+      <!-- Typing Indicator with reserved height -->
+      <div class="h-6 flex items-end">
+        <p v-if="textoDigitando" class="text-xs text-emerald-600 animate-pulse">
+          {{ textoDigitando }}
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -46,6 +53,14 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 const chat = useChatStore()
+
+const textoDigitando = computed(() => {
+  const nomes = chat.digitandoNaConversaAtiva
+  if (nomes.length === 0) return ''
+  if (nomes.length === 1) return `${nomes[0]} está digitando...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão digitando...`
+  return `${nomes[0]} e mais ${nomes.length - 1} estão digitando...`
+})
 
 const {
   mensagensContainer,

@@ -5,6 +5,7 @@ import { getAttachmentUrl } from '../services/http'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
+import { playNotificationSound, showNotification, requestNotificationPermission } from '../utils/sound'
 
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
@@ -66,6 +67,9 @@ export const useChatStore = defineStore('chat', () => {
     }
     conectarWebSocket()
     iniciarPolling()
+
+    // Solicita permissão para notificações na inicialização
+    void requestNotificationPermission()
   }
 
   async function carregarContatos() {
@@ -390,8 +394,52 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    const conversaIds = Array.from(new Set(novas.map((item) => item.conversa_id)))
+    const auth = useAuthStore()
+    const meuId = auth.user?.id
     const ativa = conversaAtivaId.value
+    const conversaIdsRaw = Array.from(new Set(novas.map((item) => item.conversa_id)))
+
+    // Busca os dados completos das novas mensagens para poder exibir notificações detalhadas
+    const mensagensCompletas = await Promise.all(
+      conversaIdsRaw.map(async (conversaId) => {
+        const msgs = await api.getMensagens(conversaId, 0, 10, 0) // Busca as 10 últimas
+        return msgs.filter((m) => novas.some((n) => n.mensagem_id === m.id))
+      })
+    )
+    const todasNovasDetalhes = mensagensCompletas.flat()
+
+    // Verifica se há novas mensagens de outros usuários que devem disparar notificação
+    const deOutrosParaNotificar = todasNovasDetalhes.filter((m) => {
+      const isMe = m.remetente_id === meuId
+      const isChatAtivoEFocado = m.conversa_id === ativa && document.hasFocus()
+      return !isMe && !isChatAtivoEFocado
+    })
+
+    if (deOutrosParaNotificar.length > 0) {
+      // Toca o som de notificação
+      playNotificationSound()
+
+      // Mostra notificação para a última mensagem recebida que seja notificável
+      const ultima = deOutrosParaNotificar[deOutrosParaNotificar.length - 1]
+      const contato = contatos.value.find((c) => c.id === ultima.remetente_id)
+      const nomeRemetente = contato?.nome || ultima.remetente || 'Nova mensagem'
+
+      let texto = ''
+      if (ultima.conteudos && ultima.conteudos.length > 0) {
+        const c = ultima.conteudos[0]
+        if (c.tipo === 1) texto = c.conteudo
+        else if (c.tipo === 2) texto = '📷 Imagem'
+        else if (c.tipo === 4) texto = '🎤 Áudio'
+        else texto = '📎 Arquivo'
+      }
+
+      showNotification(nomeRemetente, {
+        body: texto,
+        tag: `conversa-${ultima.conversa_id}` // Agrupa notificações por conversa
+      })
+    }
+
+    const conversaIds = conversaIdsRaw
 
     await Promise.allSettled(
       conversaIds
@@ -486,7 +534,7 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
     ultimoDigitandoEnviado = agora
-    void api.digitando(conversaAtivaId.value).catch(() => {})
+    void api.digitando(conversaAtivaId.value).catch(() => { })
   }
 
   function tratarDigitando(conversaId: number, usuarioId: number) {

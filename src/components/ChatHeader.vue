@@ -13,9 +13,6 @@
             <h2 class="text-lg font-semibold text-slate-800">
               {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
             </h2>
-            <p v-if="textoDigitando" class="text-xs text-emerald-600 animate-pulse">
-              {{ textoDigitando }}
-            </p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -106,13 +103,7 @@ const emit = defineEmits<{
 const chat = useChatStore()
 const call = useCallStore()
 
-const textoDigitando = computed(() => {
-  const nomes = chat.digitandoNaConversaAtiva
-  if (nomes.length === 0) return ''
-  if (nomes.length === 1) return `${nomes[0]} está digitando...`
-  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão digitando...`
-  return `${nomes[0]} e mais ${nomes.length - 1} estão digitando...`
-})
+
 
 const painelBuscaChat = ref(false)
 const buscaNoChat = ref('')
