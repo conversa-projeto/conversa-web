@@ -20,13 +20,13 @@
       </div>
 
       <div class="mt-6 flex justify-center gap-4">
-        <button
-          class="flex h-14 w-14 items-center justify-center rounded-full bg-rose-500 text-white shadow hover:bg-rose-600"
+        <CallControlButton
+          variant="danger"
+          size="lg"
+          icon="leave"
           title="Recusar"
           @click="emit('reject')"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 3.75 18 6m0 0 2.25 2.25M18 6l2.25-2.25M18 6l-2.25 2.25m-9-1.023A11.985 11.985 0 0 0 3.18 10.96a.748.748 0 0 0 .3.89l2.96 1.857a.75.75 0 0 0 .9-.058l2.44-2.148a.75.75 0 0 0 .236-.656L9.614 7.56a.75.75 0 0 0-.484-.577 6.012 6.012 0 0 1-.38-.128ZM15.75 3.75c.128.038.256.08.38.128a.75.75 0 0 0 .484.577l.402 3.285a.75.75 0 0 1-.236.656l-2.44 2.148a.75.75 0 0 1-.9.058L10.48 8.745a.748.748 0 0 1-.3-.89 11.985 11.985 0 0 1 5.57-4.105Z" /></svg>
-        </button>
+        />
         <button
           class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow hover:bg-emerald-600"
           title="Atender"
@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 import { useCallStore } from '../stores/call'
+import CallControlButton from './CallControlButton.vue'
 
 const emit = defineEmits<{
   'accept': []

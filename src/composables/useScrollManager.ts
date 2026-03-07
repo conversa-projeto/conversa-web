@@ -53,9 +53,9 @@ export function useScrollManager() {
     const node = document.getElementById(`msg-${mensagemId}`)
     if (!node) return
     node.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    ;(node as HTMLElement).classList.add('ring-2', 'ring-amber-400')
+      ; (node as HTMLElement).classList.add('ring-2', 'ring-amber-400')
     window.setTimeout(() => {
-      ;(node as HTMLElement).classList.remove('ring-2', 'ring-amber-400')
+      ; (node as HTMLElement).classList.remove('ring-2', 'ring-amber-400')
     }, 1200)
   }
 
@@ -162,8 +162,9 @@ export function useScrollManager() {
       if (!ultimoIdAtual || ultimoIdAtual === ultimoIdAnterior) return
 
       const ultimaMensagem = chat.mensagensAtivas[chat.mensagensAtivas.length - 1]
+      const isOwnMessage = !!ultimaMensagem && ultimaMensagem.remetente_id === auth.user?.id
       const recebidaDeOutroUsuario = !!ultimaMensagem && ultimaMensagem.remetente_id !== auth.user?.id
-      if (!recebidaDeOutroUsuario || !estavaNoFim) return
+      if (!isOwnMessage && (!recebidaDeOutroUsuario || !estavaNoFim)) return
 
       await nextTick()
       rolarParaFinal()

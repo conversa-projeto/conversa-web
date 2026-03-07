@@ -12,9 +12,32 @@
       />
 
       <main
-        class="flex-col overflow-hidden md:flex md:flex-1"
+        class="relative flex-col overflow-hidden md:flex md:flex-1"
         :class="sidebarAberta ? 'hidden md:flex' : 'flex flex-1'"
+        @dragenter.prevent="onDragEnter"
+        @dragover.prevent="onDragOver"
+        @dragleave.prevent="onDragLeave"
       >
+        <!-- Overlay de Drag and Drop -->
+        <div
+          v-if="isDragging"
+          class="absolute inset-0 z-50 flex items-center justify-center bg-blue-600/20 backdrop-blur-sm"
+          @dragenter.prevent="onDragEnter"
+          @dragover.prevent
+          @drop.prevent="onDrop"
+          @dragleave.prevent="onDragLeave"
+        >
+          <div class="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-blue-500 bg-white p-8 shadow-2xl">
+            <div class="rounded-full bg-blue-100 p-4 text-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-12 w-12">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+              </svg>
+            </div>
+            <span class="text-xl font-semibold text-slate-800">Solte para enviar o arquivo</span>
+            <span class="text-sm text-slate-500">Imagens mostrar\u00E3o uma pr\u00E9via antes de enviar</span>
+          </div>
+        </div>
+
         <CallBar
           v-if="call.emChamada"
           :janela-chamada-aberta="!!janelaChamada"
@@ -58,10 +81,16 @@
       :url="imagemTelaCheiaUrl"
       :nome="imagemTelaCheiaNome"
       :zoom="zoomImagemTelaCheia"
+      :translate-x="translateX"
+      :translate-y="translateY"
+      :is-dragging="imagemIsDragging"
       @close="fecharImagemTelaCheia"
       @zoom-in="ajustarZoomImagem(0.2)"
       @zoom-out="ajustarZoomImagem(-0.2)"
       @zoom-wheel="zoomImagemPorRoda"
+      @drag-start="iniciarArrasto"
+      @drag-move="processarArrasto"
+      @drag-end="finalizarArrasto"
     />
 
     <ImagePreviewModal
@@ -98,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useCallStore } from './stores/call'
@@ -107,6 +136,7 @@ import { useCallPopup } from './composables/useCallPopup'
 import { useImageViewer } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
+import { useDragAndDrop } from './composables/useDragAndDrop'
 
 import LoginForm from './components/LoginForm.vue'
 import ChatSidebar from './components/ChatSidebar.vue'
@@ -151,10 +181,16 @@ const {
   imagemTelaCheiaUrl,
   imagemTelaCheiaNome,
   zoomImagemTelaCheia,
+  translateX,
+  translateY,
+  isDragging: imagemIsDragging,
   abrirImagemTelaCheia,
   fecharImagemTelaCheia,
   ajustarZoomImagem,
-  zoomImagemPorRoda
+  zoomImagemPorRoda,
+  iniciarArrasto,
+  processarArrasto,
+  finalizarArrasto
 } = useImageViewer(garantirAnexoUrl, anexosUrl)
 
 const {
@@ -168,6 +204,33 @@ const {
 } = useImagePreview(() => {
   messageListRef.value?.rolarParaFinal()
 })
+
+const { isDragging, onDragEnter, onDragLeave, onDragOver, onDrop } = useDragAndDrop(handleFilesDropped)
+
+async function handleFilesDropped(files: FileList) {
+  if (!chat.conversaAtiva) return
+
+  for (const file of Array.from(files)) {
+    const isImagem = file.type.startsWith('image/')
+    const isAudio = file.type.startsWith('audio/')
+
+    try {
+      if (isImagem) {
+        abrirPreviewImagem(file, file.name, file.type || 'image/png')
+        // Se houver mais de um arquivo, paramos no primeiro se for imagem para mostrar o preview
+        // Mas o ideal seria processar os demais se não fossem imagens.
+        // Para simplificar, focamos no primeiro.
+        break
+      } else {
+        await chat.enviarArquivo(file, file.name, file.type, isAudio)
+      }
+    } catch (e) {
+      erro.value = e instanceof Error ? e.message : 'Erro ao enviar arquivo'
+    }
+  }
+  await nextTick()
+  messageListRef.value?.rolarParaFinal()
+}
 
 onMounted(async () => {
   if (auth.isAuthenticated) {

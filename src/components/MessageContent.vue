@@ -7,7 +7,18 @@
             v-if="seg.tipo === 'texto' && seg.conteudo.trim()"
             class="whitespace-pre-wrap break-words"
             :class="classeTextoMensagem(seg.conteudo)"
-          >{{ seg.conteudo.trim() }}</p>
+          >
+            <template v-for="(linkSeg, linkIdx) in parseLinks(seg.conteudo)" :key="linkIdx">
+              <template v-if="linkSeg.tipo === 'texto'">{{ linkSeg.conteudo }}</template>
+              <a
+                v-else
+                :href="formatarUrl(linkSeg.conteudo)"
+                target="_blank"
+                rel="noopener noreferrer"
+                :class="isOwn ? 'text-white underline' : 'text-blue-500 hover:underline'"
+              >{{ linkSeg.conteudo }}</a>
+            </template>
+          </p>
           <div v-else-if="seg.tipo === 'codigo'" class="group relative my-1 max-w-full">
             <div class="flex items-center justify-between rounded-t bg-slate-700 px-3 py-1">
               <span class="text-[10px] text-slate-400">{{ seg.linguagem || 'code' }}</span>
@@ -17,7 +28,7 @@
                 @click="copiarCodigo(seg.conteudo, `${mensagemId}-${segIdx}`)"
               >{{ codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
             </div>
-            <pre class="overflow-x-auto rounded-b bg-slate-800 p-3 text-xs leading-relaxed"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+            <pre class="overflow-x-auto rounded-b bg-slate-800 p-3 text-xs leading-relaxed text-slate-100"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
           </div>
         </template>
       </template>
@@ -25,12 +36,23 @@
         v-else
         class="whitespace-pre-wrap break-words"
         :class="classeTextoMensagem(conteudo.conteudo)"
-      >{{ conteudo.conteudo }}</p>
+      >
+        <template v-for="(linkSeg, linkIdx) in parseLinks(conteudo.conteudo)" :key="linkIdx">
+          <template v-if="linkSeg.tipo === 'texto'">{{ linkSeg.conteudo }}</template>
+          <a
+            v-else
+            :href="formatarUrl(linkSeg.conteudo)"
+            target="_blank"
+            rel="noopener noreferrer"
+            :class="isOwn ? 'text-white underline' : 'text-blue-500 hover:underline'"
+          >{{ linkSeg.conteudo }}</a>
+        </template>
+      </p>
     </template>
 
     <img
       v-else-if="conteudo.tipo === 2"
-      :src="getAnexoUrl(conteudo.conteudo)"
+      :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
       alt="Imagem"
       class="max-h-64 cursor-zoom-in rounded border border-slate-200"
       @load="emit('image-loaded')"
@@ -42,11 +64,12 @@
         <div class="w-[420px] max-w-full">
           <video
             controls
-            :src="getAnexoUrl(conteudo.conteudo)"
+            :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
             class="h-[236px] w-full rounded border border-slate-200 bg-black object-contain"
           />
         </div>
         <button
+          v-if="!conteudo.localUrl"
           class="mt-1 flex items-center gap-1 text-xs underline"
           @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'video')"
         >
@@ -62,6 +85,7 @@
           </div>
         </div>
         <button
+          v-if="!conteudo.localUrl"
           class="ml-auto flex items-center gap-1 rounded bg-slate-700 px-2 py-1 text-xs text-white hover:bg-slate-800"
           @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'Arquivo')"
         >
@@ -70,18 +94,19 @@
         </button>
       </div>
     </template>
-    <audio v-else-if="conteudo.tipo === 4" controls :src="getAnexoUrl(conteudo.conteudo)" class="w-64" />
+    <audio v-else-if="conteudo.tipo === 4" controls :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)" class="w-64" />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { ConteudoMensagem } from '../types/api'
-import { classeTextoMensagem, isVideoConteudo } from '../utils/formatters'
+import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
 import { useCodeHighlight } from '../composables/useCodeHighlight'
 
 defineProps<{
   conteudo: ConteudoMensagem
   mensagemId: number
+  isOwn?: boolean
   getAnexoUrl: (identificador: string) => string
 }>()
 

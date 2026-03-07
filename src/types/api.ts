@@ -20,7 +20,7 @@ export interface LoginResponse extends Usuario {
   dispositivo: Dispositivo
 }
 
-export interface Contato extends Usuario {}
+export interface Contato extends Usuario { }
 
 export interface Conversa {
   id: number
@@ -42,6 +42,7 @@ export interface ConteudoMensagem {
   conteudo: string
   nome?: string | null
   extensao?: string | null
+  localUrl?: string
 }
 
 export interface Mensagem {
@@ -55,6 +56,7 @@ export interface Mensagem {
   visualizada: boolean
   reproduzida: boolean
   conteudos: ConteudoMensagem[]
+  enviando?: boolean
 }
 
 export interface AnexoResponse {

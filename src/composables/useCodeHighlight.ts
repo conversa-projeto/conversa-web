@@ -8,10 +8,8 @@ import hljsJson from 'highlight.js/lib/languages/json'
 import hljsXml from 'highlight.js/lib/languages/xml'
 import hljsCss from 'highlight.js/lib/languages/css'
 import hljsBash from 'highlight.js/lib/languages/bash'
-import hljsJava from 'highlight.js/lib/languages/java'
 import hljsCsharp from 'highlight.js/lib/languages/csharp'
-import hljsGo from 'highlight.js/lib/languages/go'
-import hljsPhp from 'highlight.js/lib/languages/php'
+import hljsDelphi from 'highlight.js/lib/languages/delphi'
 
 hljs.registerLanguage('javascript', hljsJavascript)
 hljs.registerLanguage('js', hljsJavascript)
@@ -26,11 +24,10 @@ hljs.registerLanguage('html', hljsXml)
 hljs.registerLanguage('css', hljsCss)
 hljs.registerLanguage('bash', hljsBash)
 hljs.registerLanguage('sh', hljsBash)
-hljs.registerLanguage('java', hljsJava)
 hljs.registerLanguage('csharp', hljsCsharp)
 hljs.registerLanguage('cs', hljsCsharp)
-hljs.registerLanguage('go', hljsGo)
-hljs.registerLanguage('php', hljsPhp)
+hljs.registerLanguage('pascal', hljsDelphi)
+hljs.registerLanguage('delphi', hljsDelphi)
 
 export interface SegmentoTexto {
   tipo: 'texto' | 'codigo'

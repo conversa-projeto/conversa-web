@@ -1,5 +1,10 @@
 import type { ConteudoMensagem, Mensagem } from '../types/api'
 
+export interface SegmentoTextoLink {
+  tipo: 'texto' | 'link'
+  conteudo: string
+}
+
 export function formatarHora(iso: string): string {
   if (!iso) return ''
   return new Date(iso).toLocaleTimeString('pt-BR', {
@@ -59,6 +64,7 @@ export function classeTextoMensagem(texto: string): string {
 }
 
 export function statusEntrega(mensagem: Mensagem): string {
+  if (mensagem.enviando || mensagem.id < 0) return ''
   const check = String.fromCharCode(10003)
   const checkDuplo = check + check
   if (mensagem.visualizada) return checkDuplo
@@ -79,4 +85,27 @@ export function extensaoPorMime(mime: string): string {
   if (tipo.includes('gif')) return 'gif'
   if (tipo.includes('bmp')) return 'bmp'
   return 'png'
+}
+
+export function parseLinks(texto: string): SegmentoTextoLink[] {
+  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g
+  const segmentos: SegmentoTextoLink[] = []
+  let ultimo = 0
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(texto)) !== null) {
+    if (match.index > ultimo) {
+      segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo, match.index) })
+    }
+    segmentos.push({ tipo: 'link', conteudo: match[0] })
+    ultimo = match.index + match[0].length
+  }
+  if (ultimo < texto.length) {
+    segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo) })
+  }
+  return segmentos
+}
+
+export function formatarUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return `https://${url}`
 }

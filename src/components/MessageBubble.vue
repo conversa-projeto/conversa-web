@@ -20,6 +20,7 @@
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
         :conteudo="conteudo"
         :mensagem-id="mensagem.id"
+        :is-own="isOwn"
         :get-anexo-url="getAnexoUrl"
         @open-image="(id, nome) => emit('open-image', id, nome)"
         @image-loaded="emit('image-loaded')"

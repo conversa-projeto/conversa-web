@@ -3,14 +3,21 @@
     v-if="aberta"
     class="fixed inset-0 z-30 flex flex-col items-center justify-center overflow-hidden bg-black/90"
     @click.self="emit('close')"
+    @mousemove="emit('drag-move', $event)"
+    @mouseup="emit('drag-end')"
+    @mouseleave="emit('drag-end')"
   >
     <div class="flex flex-1 items-center justify-center p-4" @click.self="emit('close')">
       <img
         :src="url"
         :alt="nome"
-        class="max-h-[85vh] max-w-[92vw] select-none object-contain transition-transform duration-150"
-        :style="{ transform: `scale(${zoom})` }"
+        class="max-h-[85vh] max-w-[92vw] select-none object-contain"
+        :class="[
+          zoom > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+        ]"
+        :style="{ transform: `scale(${zoom}) translate(${translateX / zoom}px, ${translateY / zoom}px)` }"
         @wheel.prevent="(e) => emit('zoom-wheel', e)"
+        @mousedown.prevent="emit('drag-start', $event)"
       />
     </div>
 
@@ -30,6 +37,9 @@ defineProps<{
   url: string
   nome: string
   zoom: number
+  translateX: number
+  translateY: number
+  isDragging: boolean
 }>()
 
 const emit = defineEmits<{
@@ -37,5 +47,8 @@ const emit = defineEmits<{
   'zoom-in': []
   'zoom-out': []
   'zoom-wheel': [event: WheelEvent]
+  'drag-start': [event: MouseEvent]
+  'drag-move': [event: MouseEvent]
+  'drag-end': []
 }>()
 </script>
