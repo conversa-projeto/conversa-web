@@ -39,7 +39,7 @@
         </div>
 
         <CallBar
-          v-if="call.emChamada"
+          v-if="call.emChamada && !mostrarChamadaNoPrincipal"
           :janela-chamada-aberta="!!janelaChamada"
           @leave-call="sairDaChamadaAtual"
           @upgrade-video="upgradeParaVideoUI"
@@ -48,20 +48,26 @@
           @open-add-user-modal="modalAdicionarUsuario = true"
         />
 
+        <CallWindow
+          v-if="mostrarChamadaNoPrincipal"
+          :fechar-ao-encerrar="false"
+          class="h-full flex-1"
+        />
+
         <ChatHeader
-          v-if="chat.conversaAtiva"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           @update:sidebar-aberta="sidebarAberta = $event"
           @start-call="solicitarChamada"
-          @go-to-message="messageListRef?.irParaMensagem($event)"
+          @go-to-message="abrirResultadoBusca"
         />
 
         <MessageList
-          v-if="chat.conversaAtiva"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           ref="messageListRef"
           @open-image="handleOpenImage"
         />
 
-        <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 text-slate-500">
+        <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-slate-500">
           <span>Selecione uma conversa para come&ccedil;ar.</span>
           <button class="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 md:hidden" @click="sidebarAberta = true">
             Ver conversas
@@ -69,7 +75,7 @@
         </div>
 
         <MessageInput
-          v-if="chat.conversaAtiva"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
         />
@@ -127,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useCallStore } from './stores/call'
@@ -150,6 +156,7 @@ import CreateGroupModal from './components/CreateGroupModal.vue'
 import CallParticipantsModal from './components/CallParticipantsModal.vue'
 import IncomingCallModal from './components/IncomingCallModal.vue'
 import AddUserToCallModal from './components/AddUserToCallModal.vue'
+import CallWindow from './CallWindow.vue'
 
 const auth = useAuthStore()
 const chat = useChatStore()
@@ -162,6 +169,10 @@ const modalParticipantesChamada = ref(false)
 const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)
 const modalAdicionarUsuario = ref(false)
+const isMobile = computed(() => /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent))
+const mostrarChamadaNoPrincipal = computed(() =>
+  isMobile.value && call.emChamada && call.tipoChamada === 2
+)
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
 
@@ -170,6 +181,7 @@ const { garantirAnexoUrl, anexosUrl, limparAnexos } = useAttachments()
 const {
   janelaChamada,
   abrirJanelaChamada,
+  fecharJanelaChamada,
   sairDaChamadaAtual,
   upgradeParaVideoUI,
   pararToque,
@@ -324,9 +336,10 @@ async function aceitarChamadaRecebida() {
   pararToque()
   const tipo = call.tipoChamada
   try {
-    await call.aceitarChamada()
     if (tipo === 2) abrirJanelaChamada()
+    await call.aceitarChamada()
   } catch (e) {
+    if (tipo === 2) fecharJanelaChamada()
     erro.value = e instanceof Error ? e.message : 'Erro ao aceitar chamada'
   }
 }
@@ -336,6 +349,23 @@ function recusarChamadaRecebida() {
   void call.recusarChamada()
 }
 
+
+async function abrirResultadoBusca(mensagemId: number) {
+  const conversaId = chat.conversaAtivaId
+  if (!conversaId) return
+
+  try {
+    const ok = await chat.carregarContextoMensagem(conversaId, mensagemId, 30, 30)
+    await nextTick()
+    if (ok) {
+      messageListRef.value?.irParaMensagem(mensagemId)
+    } else {
+      erro.value = 'Nao foi possivel localizar esta mensagem no contexto da conversa.'
+    }
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao abrir resultado da pesquisa'
+  }
+}
 async function handleOpenImage(identificador: string, nome: string) {
   try {
     await abrirImagemTelaCheia(identificador, nome)

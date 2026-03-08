@@ -16,7 +16,15 @@ export function useCallPopup(erro: Ref<string>) {
   // Browser notification
   let notificacaoChamada: Notification | null = null
 
+  function suportaPopupChamada() {
+    return !/Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
+  }
+
   function abrirJanelaChamada() {
+    if (!suportaPopupChamada()) {
+      return
+    }
+
     if (janelaChamada.value && !janelaChamada.value.closed) {
       janelaChamada.value.focus()
       return
@@ -79,9 +87,11 @@ export function useCallPopup(erro: Ref<string>) {
   async function upgradeParaVideoUI() {
     try {
       await call.upgradeParaVideo()
-      abrirJanelaChamada()
+      if (suportaPopupChamada()) {
+        abrirJanelaChamada()
+      }
     } catch (e) {
-      erro.value = e instanceof Error ? e.message : 'Erro ao ativar v\u00EDdeo'
+      erro.value = e instanceof Error ? e.message : 'Erro ao ativar vídeo'
     }
   }
 
@@ -114,10 +124,10 @@ export function useCallPopup(erro: Ref<string>) {
   // Notification
   function mostrarNotificacaoChamada() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return
-    const remetente = call.chamadaRemetente?.usuario_nome || 'Algu\u00E9m'
-    const tipo = call.tipoChamada === 2 ? 'V\u00EDdeo' : '\u00C1udio'
+    const remetente = call.chamadaRemetente?.usuario_nome || 'Alguém'
+    const tipo = call.tipoChamada === 2 ? 'Vídeo' : 'Áudio'
     notificacaoChamada = new Notification('Chamada recebida', {
-      body: `${remetente} est\u00E1 ligando (${tipo})`,
+      body: `${remetente} está ligando (${tipo})`,
       tag: 'conversa-chamada',
       requireInteraction: true
     })

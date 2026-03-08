@@ -184,6 +184,11 @@ import { useCallStore } from './stores/call'
 import { vSrcObject } from './directives/vSrcObject'
 import { iniciaisUsuario } from './utils/formatters'
 import CallControlButton from './components/CallControlButton.vue'
+const props = withDefaults(defineProps<{
+  fecharAoEncerrar?: boolean
+}>(), {
+  fecharAoEncerrar: true
+})
 
 const auth = useAuthStore()
 const call = useCallStore()
@@ -280,7 +285,7 @@ watch(videoLocal, (el) => {
 watch(
   () => call.emChamada,
   (em) => {
-    if (!em) {
+    if (!em && props.fecharAoEncerrar) {
       window.close()
     }
   }

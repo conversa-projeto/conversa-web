@@ -40,6 +40,9 @@ export const useCallStore = defineStore('call', () => {
 
   let tempoToqueChamada: number | null = null
   let trackCamera: MediaStreamTrack | null = null
+  let pcPublicacaoLocal: RTCPeerConnection | null = null
+  let repondoPublicacaoLocal = false
+  let intervaloMonitoramentoPeers: number | null = null
 
   // Timer de duração
   const duracaoChamadaSegundos = ref(0)
@@ -60,6 +63,7 @@ export const useCallStore = defineStore('call', () => {
     intervaloDuracao = window.setInterval(() => {
       duracaoChamadaSegundos.value++
     }, 1000)
+    iniciarMonitoramentoPeers()
   }
 
   function pararTimerDuracao() {
@@ -67,6 +71,24 @@ export const useCallStore = defineStore('call', () => {
       window.clearInterval(intervaloDuracao)
       intervaloDuracao = null
     }
+    pararMonitoramentoPeers()
+  }
+
+  function iniciarMonitoramentoPeers() {
+    if (intervaloMonitoramentoPeers !== null) return
+
+    intervaloMonitoramentoPeers = window.setInterval(() => {
+      if (estado.value === 'ativa') {
+        void sincronizarPeersAtivos()
+      }
+    }, 4000)
+  }
+
+  function pararMonitoramentoPeers() {
+    if (intervaloMonitoramentoPeers === null) return
+
+    window.clearInterval(intervaloMonitoramentoPeers)
+    intervaloMonitoramentoPeers = null
   }
 
   // --- Computed ---
@@ -86,15 +108,15 @@ export const useCallStore = defineStore('call', () => {
 
   const chamadaRemetente = computed(() => {
     if (!chamada.value) return null
-    return chamada.value.usuarios.find(u => u.usuario_id === chamada.value!.criado_por) || null
+    return chamada.value.usuarios.find(u => normalizeUserId(u.usuario_id) === Number(chamada.value!.criado_por)) || null
   })
 
   const contatosNaoNaChamada = computed(() => {
     const chat = useChatStore()
     if (!chamada.value) return chat.contatos
     const auth = useAuthStore()
-    const idsNaChamada = new Set(chamada.value.usuarios.map(u => u.usuario_id))
-    if (auth.user) idsNaChamada.add(auth.user.id)
+    const idsNaChamada = new Set(chamada.value.usuarios.map(u => normalizeUserId(u.usuario_id)).filter((id): id is number => id !== null))
+    if (auth.user) idsNaChamada.add(Number(auth.user.id))
     return chat.contatos.filter(c => !idsNaChamada.has(c.id))
   })
 
@@ -115,6 +137,22 @@ export const useCallStore = defineStore('call', () => {
     return s.replace(/[^a-zA-Z0-9_-]/g, '')
   }
 
+  function getChamadaIdAtual(): number {
+    const chamadaId = chamada.value?.id
+    if (!chamadaId) {
+      throw new Error('ID da chamada indisponivel')
+    }
+    return chamadaId
+  }
+
+  function montarCaminhoSala(chamadaId: number): string {
+    return `call-${sanitizar(String(chamadaId))}`
+  }
+
+  function montarCaminhoStreamUsuario(chamadaId: number, usuarioId: number): string {
+    return `${montarCaminhoSala(chamadaId)}-u-${sanitizar(String(usuarioId))}`
+  }
+
   function esperarICE(pc: RTCPeerConnection): Promise<void> {
     return new Promise(resolve => {
       if (pc.iceGatheringState === 'complete') {
@@ -132,13 +170,57 @@ export const useCallStore = defineStore('call', () => {
     return new Promise(r => setTimeout(r, ms))
   }
 
+  function getAuthUserId(): number | null {
+    const auth = useAuthStore()
+    if (!auth.user) return null
+    const id = Number(auth.user.id)
+    return Number.isFinite(id) && id > 0 ? id : null
+  }
+
+  function normalizeUserId(value: unknown): number | null {
+    const id = Number(value)
+    return Number.isFinite(id) && id > 0 ? id : null
+  }
+
+  function isMobileDevice(): boolean {
+    return /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
+  }
+
+  function criarConstraintsMidia(tipo: TipoChamada): MediaStreamConstraints {
+    const audio: MediaTrackConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    }
+
+    if (tipo !== 2) {
+      return { audio, video: false }
+    }
+
+    const video: MediaTrackConstraints = isMobileDevice()
+      ? {
+        width: { ideal: 640, max: 1280 },
+        height: { ideal: 360, max: 720 },
+        frameRate: { ideal: 15, max: 24 },
+        facingMode: 'user'
+      }
+      : {
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 },
+        frameRate: { ideal: 24, max: 30 }
+      }
+
+    return { audio, video }
+  }
+
   // --- WHIP: publicar stream local para um peer ---
 
-  async function publicarParaPeer(targetUserId: number): Promise<RTCPeerConnection> {
+  async function publicarLocalNaSala(): Promise<RTCPeerConnection> {
     const auth = useAuthStore()
     if (!auth.user || !streamLocal.value) {
       throw new Error('Stream local ou usuario nao disponivel')
     }
+    const chamadaId = getChamadaIdAtual()
 
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     streamLocal.value.getTracks().forEach(t => pc.addTrack(t, streamLocal.value!))
@@ -147,7 +229,9 @@ export const useCallStore = defineStore('call', () => {
     await pc.setLocalDescription(offer)
     await esperarICE(pc)
 
-    const caminhoStream = `${sanitizar(String(auth.user.id))}-to-${sanitizar(String(targetUserId))}`
+    const caminhoStream = montarCaminhoStreamUsuario(chamadaId, auth.user.id)
+    const tracksLocais = streamLocal.value.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, muted: t.muted }))
+    console.debug('[CALL][WHIP] publicarLocalNaSala', { chamadaId, usuarioId: auth.user.id, caminhoStream, tracksLocais })
     const resposta = await fetch(`${getMediaMtxUrl()}/${caminhoStream}/whip`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/sdp' },
@@ -164,7 +248,47 @@ export const useCallStore = defineStore('call', () => {
       sdp: await resposta.text()
     })
 
+    console.debug('[CALL][WHIP] publicado com sucesso', { caminhoStream })
+    monitorarPublicacaoLocal(pc)
+
     return pc
+  }
+
+  async function reestabelecerPublicacaoLocal() {
+    if (repondoPublicacaoLocal) return
+    if (!streamLocal.value || !chamada.value) return
+    if (estado.value !== 'ativa' && estado.value !== 'chamando') return
+
+    repondoPublicacaoLocal = true
+    try {
+      encerrarPublicacaoLocal()
+      pcPublicacaoLocal = await publicarLocalNaSala()
+
+      for (const [, peer] of peers.value) {
+        peer.txPc = pcPublicacaoLocal
+      }
+      peers.value = new Map(peers.value)
+
+      if (estado.value === 'ativa') {
+        await sincronizarPeersComRetentativas(2)
+      }
+    } catch (e) {
+      console.warn('Falha ao restabelecer publicacao local', e)
+    } finally {
+      repondoPublicacaoLocal = false
+    }
+  }
+
+  function monitorarPublicacaoLocal(pc: RTCPeerConnection) {
+    pc.onconnectionstatechange = () => {
+      const estadoPc = pc.connectionState
+      if (
+        (estadoPc === 'failed' || estadoPc === 'disconnected') &&
+        pcPublicacaoLocal === pc
+      ) {
+        void reestabelecerPublicacaoLocal()
+      }
+    }
   }
 
   // --- WHEP: assinar stream de um peer ---
@@ -174,6 +298,7 @@ export const useCallStore = defineStore('call', () => {
     if (!auth.user) {
       throw new Error('Usuario nao disponivel')
     }
+    const chamadaId = getChamadaIdAtual()
 
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     const remoteStream = new MediaStream()
@@ -185,28 +310,44 @@ export const useCallStore = defineStore('call', () => {
 
     pc.ontrack = (e) => {
       remoteStream.addTrack(e.track)
+      console.debug('[CALL][WHEP] track recebida', {
+        fromUserId,
+        kind: e.track.kind,
+        muted: e.track.muted,
+        readyState: e.track.readyState,
+        totalTracks: remoteStream.getTracks().length,
+        videoTracks: remoteStream.getVideoTracks().length
+      })
+      // Forca reatividade para atualizar tile remoto quando o video chega depois.
+      peers.value = new Map(peers.value)
     }
 
     const offer = await pc.createOffer()
     await pc.setLocalDescription(offer)
     await esperarICE(pc)
 
-    const caminhoStream = `${sanitizar(String(fromUserId))}-to-${sanitizar(String(auth.user.id))}`
+    const caminhoStream = montarCaminhoStreamUsuario(chamadaId, fromUserId)
     let resposta: Response | null = null
     let tentativas = 0
+    const maxTentativas = tipoChamada.value === 2 ? 40 : 12
+    const atrasoTentativa = tipoChamada.value === 2 ? 1000 : 800
 
-    while (tentativas++ < 8) {
+    while (tentativas++ < maxTentativas) {
       try {
         resposta = await fetch(`${getMediaMtxUrl()}/${caminhoStream}/whep`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/sdp' },
           body: pc.localDescription!.sdp
         })
-        if (resposta.ok) break
+        if (resposta.ok) {
+          console.debug('[CALL][WHEP] sucesso', { fromUserId, caminhoStream, tentativa: tentativas, status: resposta.status })
+          break
+        }
+        console.debug('[CALL][WHEP] tentativa sem stream', { fromUserId, caminhoStream, tentativa: tentativas, status: resposta.status })
       } catch {
         // retry
       }
-      await atraso(800)
+      await atraso(atrasoTentativa)
     }
 
     if (!resposta?.ok) {
@@ -225,42 +366,81 @@ export const useCallStore = defineStore('call', () => {
   // --- Gerenciamento de peers ---
 
   async function conectarPeer(usuarioId: number, usuarioNome: string) {
-    if (peers.value.has(usuarioId)) return
-
-    const entrada: PeerConexao = {
-      usuarioId,
-      usuarioNome,
-      txPc: null,
-      rxPc: null,
-      stream: null
+    const meuUsuarioId = getAuthUserId()
+    const alvoId = normalizeUserId(usuarioId)
+    if (alvoId === null) return
+    if (meuUsuarioId !== null && alvoId === meuUsuarioId) return
+    let entrada = peers.value.get(alvoId)
+    if (!entrada) {
+      entrada = {
+        usuarioId: alvoId,
+        usuarioNome,
+        txPc: null,
+        rxPc: null,
+        stream: null
+      }
+      peers.value.set(alvoId, entrada)
+    } else {
+      entrada.usuarioNome = usuarioNome
     }
-    peers.value.set(usuarioId, entrada)
     peers.value = new Map(peers.value)
 
     try {
-      if (streamLocal.value) {
-        entrada.txPc = await publicarParaPeer(usuarioId)
+      if (streamLocal.value && !pcPublicacaoLocal) {
+        pcPublicacaoLocal = await publicarLocalNaSala()
       }
-      try {
-        const { pc, stream } = await assinarDePeer(usuarioId)
+      entrada.txPc = pcPublicacaoLocal
+
+      if (!entrada.rxPc) {
+        const { pc, stream } = await assinarDePeer(alvoId)
         entrada.rxPc = pc
         entrada.stream = stream
-      } catch {
+      }
+
+      peers.value = new Map(peers.value)
+    } catch (e) {
+      if (!entrada.rxPc) {
         // Peer pode nao estar transmitindo (modo somente-recepcao)
         console.warn(`WHEP: ${usuarioNome} pode nao estar transmitindo ainda`)
       }
-      peers.value = new Map(peers.value)
-    } catch (e) {
-      erroMsg.value = `Erro ao conectar com ${usuarioNome}: ${e instanceof Error ? e.message : String(e)}`
+
+      const msgErro = e instanceof Error ? e.message : String(e)
+      if (msgErro.includes('WHEP erro: 404')) {
+        // 404 costuma ser transitorio (peer ainda nao publicou) ou peer em modo somente-recepcao.
+        // Nao elevamos para erro visual; novas sincronizacoes vao tentar novamente.
+        console.warn(`WHEP 404 para ${usuarioNome}, aguardando nova sincronizacao`)
+        window.setTimeout(() => {
+          if (estado.value === 'ativa') {
+            void sincronizarPeersAtivos()
+          }
+        }, 1500)
+      } else {
+        erroMsg.value = `Erro ao conectar com ${usuarioNome}: ${msgErro}`
+      }
+
       console.error('Erro conectarPeer', e)
     }
+  }
+
+  function encerrarPublicacaoLocal() {
+    if (!pcPublicacaoLocal) return
+
+    const pc = pcPublicacaoLocal
+    pcPublicacaoLocal = null
+    pc.onconnectionstatechange = null
+
+    try { pc.close() } catch { /* ignore */ }
+
+    for (const [, peer] of peers.value) {
+      peer.txPc = null
+    }
+    peers.value = new Map(peers.value)
   }
 
   function desconectarPeer(usuarioId: number) {
     const peer = peers.value.get(usuarioId)
     if (!peer) return
 
-    try { peer.txPc?.close() } catch { /* ignore */ }
     try { peer.rxPc?.close() } catch { /* ignore */ }
 
     peers.value.delete(usuarioId)
@@ -271,20 +451,46 @@ export const useCallStore = defineStore('call', () => {
     for (const [userId] of peers.value) {
       desconectarPeer(userId)
     }
+    encerrarPublicacaoLocal()
+  }
+
+  async function sincronizarPeersAtivos() {
+    if (!chamada.value || estado.value !== 'ativa') return
+
+    const meuUsuarioId = getAuthUserId()
+    if (meuUsuarioId === null) return
+
+    const ativos = chamada.value.usuarios.filter((u) => {
+      const id = normalizeUserId(u.usuario_id)
+      return id !== null && id !== meuUsuarioId && u.status === 3
+    })
+    const idsAtivos = new Set(ativos.map(u => Number(u.usuario_id)))
+    console.debug('[CALL] sincronizarPeersAtivos', { meuUsuarioId, ativos: Array.from(idsAtivos) })
+
+    for (const [userId] of peers.value) {
+      if (!idsAtivos.has(userId)) {
+        desconectarPeer(userId)
+      }
+    }
+
+    for (const usuario of ativos) {
+      await conectarPeer(Number(usuario.usuario_id), usuario.usuario_nome)
+    }
+  }
+
+  async function sincronizarPeersComRetentativas(totalTentativas = 3) {
+    for (let tentativa = 1; tentativa <= totalTentativas; tentativa++) {
+      await sincronizarPeersAtivos()
+      if (tentativa < totalTentativas) {
+        await atraso(tentativa * 1000)
+      }
+    }
   }
 
   // --- Media local ---
 
   async function adquirirMidiaLocal(tipo: TipoChamada): Promise<MediaStream> {
-    return navigator.mediaDevices.getUserMedia({
-      audio: {
-        sampleRate: 48000,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      },
-      video: tipo === 2
-    })
+    return navigator.mediaDevices.getUserMedia(criarConstraintsMidia(tipo))
   }
 
   function liberarStreamTela() {
@@ -357,28 +563,30 @@ export const useCallStore = defineStore('call', () => {
 
   async function aceitarChamada() {
     if (!chamada.value || estado.value !== 'recebendo') return
-
-    const auth = useAuthStore()
-    if (!auth.user) return
-
     erroMsg.value = ''
     cancelarTemporizadorToque()
 
     try {
-      if (tipoChamada.value === 1) {
-        streamLocal.value = await adquirirMidiaLocal(tipoChamada.value)
+      // Em chamadas de video, tentamos publicar camera+audio.
+      // Se camera nao estiver disponivel/permitida, fazemos fallback para audio
+      // para evitar que o usuario entre "mudo" para os demais participantes.
+      if (!streamLocal.value) {
+        try {
+          streamLocal.value = await adquirirMidiaLocal(tipoChamada.value)
+        } catch (erro) {
+          if (tipoChamada.value === 2) {
+            streamLocal.value = await adquirirMidiaLocal(1)
+          } else {
+            throw erro
+          }
+        }
       }
       await api.chamadaEntrar(chamada.value.id)
       estado.value = 'ativa'
       iniciarTimerDuracao()
 
       chamada.value = await api.chamadaDados(chamada.value.id)
-
-      for (const usuario of chamada.value.usuarios) {
-        if (usuario.usuario_id !== auth.user.id && usuario.status === 3) {
-          await conectarPeer(usuario.usuario_id, usuario.usuario_nome)
-        }
-      }
+      await sincronizarPeersComRetentativas()
     } catch (e) {
       liberarMidiaLocal()
       resetarEstado()
@@ -587,14 +795,30 @@ export const useCallStore = defineStore('call', () => {
   // --- Handler de eventos WebSocket ---
 
   async function tratarEventoChamada(evento: EventoChamadaSocket) {
-    const auth = useAuthStore()
-    if (!auth.user) return
-
+    const meuUsuarioId = getAuthUserId()
+    if (meuUsuarioId === null) return
+    const eventoUsuarioId = normalizeUserId(evento.usuario_id)
     console.log('[CALL] Evento recebido:', evento.tipo, 'chamada_id:', evento.chamada_id, 'usuario_id:', (evento as any).usuario_id, 'estado atual:', estado.value)
 
     switch (evento.tipo) {
       case 51: {
         // ChamadaRecebida
+        if (eventoUsuarioId !== null && eventoUsuarioId === meuUsuarioId && estado.value === 'inativo') {
+          return
+        }
+        if (
+          chamada.value?.id === evento.chamada_id &&
+          (emChamada.value || estado.value === 'recebendo')
+        ) {
+          try {
+            chamada.value = await api.chamadaDados(evento.chamada_id)
+            await sincronizarPeersComRetentativas(2)
+          } catch {
+            // ignore
+          }
+          return
+        }
+
         if (emChamada.value || estado.value === 'recebendo') {
           try { await api.chamadaRecusar(evento.chamada_id) } catch { /* ignore */ }
           return
@@ -635,7 +859,7 @@ export const useCallStore = defineStore('call', () => {
 
           if (chamada.value.usuarios.length === 2) {
             const outroUsuario = chamada.value.usuarios.find(
-              u => u.usuario_id !== auth.user!.id
+              u => Number(u.usuario_id) !== meuUsuarioId
             )
             if (outroUsuario?.status === 2) {
               desconectarTodosPeers()
@@ -654,13 +878,10 @@ export const useCallStore = defineStore('call', () => {
           iniciarTimerDuracao()
         }
 
-        if (chamada.value?.id === evento.chamada_id && estado.value === 'ativa') {
+        if (chamada.value?.id === evento.chamada_id) {
           chamada.value = await api.chamadaDados(evento.chamada_id)
-          const novoUsuario = chamada.value.usuarios.find(
-            u => u.usuario_id === evento.usuario_id
-          )
-          if (novoUsuario && novoUsuario.usuario_id !== auth.user!.id) {
-            await conectarPeer(novoUsuario.usuario_id, novoUsuario.usuario_nome)
+          if (estado.value === 'ativa') {
+            await sincronizarPeersComRetentativas()
           }
         }
         break
@@ -669,11 +890,11 @@ export const useCallStore = defineStore('call', () => {
       case 55: {
         // UsuarioSaiu
         if (chamada.value?.id === evento.chamada_id) {
-          desconectarPeer(evento.usuario_id)
+          desconectarPeer(Number(evento.usuario_id))
           chamada.value = await api.chamadaDados(evento.chamada_id)
 
           const outrosAtivos = chamada.value.usuarios.filter(
-            u => u.usuario_id !== auth.user!.id && u.status === 3
+            u => Number(u.usuario_id) !== meuUsuarioId && u.status === 3
           )
           if (outrosAtivos.length === 0 && estado.value === 'ativa') {
             desconectarTodosPeers()

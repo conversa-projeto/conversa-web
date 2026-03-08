@@ -10,6 +10,7 @@ export function useScrollManager() {
   const usuarioNoFimDoChat = ref(true)
   const forcarScrollImagemAteFinal = ref(false)
   const posicionandoAberturaConversa = ref(false)
+  const carregandoHistorico = ref(false)
   let frameValidacaoVisualizacao = 0
 
   function rolarParaFinal() {
@@ -111,6 +112,31 @@ export function useScrollManager() {
   function aoScrollChat() {
     atualizarPosicaoScroll()
     solicitarValidacaoVisualizacao()
+    void tentarCarregarMensagensAnteriores()
+  }
+  async function tentarCarregarMensagensAnteriores() {
+    const conversaId = chat.conversaAtivaId
+    const container = mensagensContainer.value
+    if (!conversaId || !container) return
+    if (carregandoHistorico.value || chat.carregando) return
+
+    // Topo quase alcançado: busca página anterior.
+    if (container.scrollTop > 40) return
+
+    carregandoHistorico.value = true
+    const alturaAntes = container.scrollHeight
+    const topoAntes = container.scrollTop
+
+    try {
+      const adicionadas = await chat.carregarMensagensAnteriores(conversaId, 60)
+      if (adicionadas > 0) {
+        await nextTick()
+        const alturaDepois = container.scrollHeight
+        container.scrollTop = Math.max(0, alturaDepois - alturaAntes + topoAntes)
+      }
+    } finally {
+      carregandoHistorico.value = false
+    }
   }
 
   function aoCarregarImagemNoChat() {
@@ -185,6 +211,7 @@ export function useScrollManager() {
     usuarioNoFimDoChat,
     forcarScrollImagemAteFinal,
     posicionandoAberturaConversa,
+    carregandoHistorico,
     rolarParaFinal,
     rolarParaFinalGarantido,
     rolarMensagemParaVisibilidadeCompleta,

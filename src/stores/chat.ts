@@ -101,6 +101,28 @@ export const useChatStore = defineStore('chat', () => {
     }
     await carregarMensagens(conversaAtivaId.value)
   }
+  async function carregarMensagensAnteriores(conversaId: number, limite = 60) {
+    const atuais = mensagensPorConversa.value[conversaId] || []
+    if (atuais.length === 0) {
+      await carregarMensagens(conversaId)
+      return 0
+    }
+
+    const referencia = atuais[0]?.id || 0
+    if (!referencia) return 0
+
+    const anteriores = await api.getMensagens(conversaId, referencia, limite, 0)
+    if (!anteriores.length) return 0
+
+    const mapa = new Map<number, Mensagem>()
+    for (const msg of anteriores) mapa.set(msg.id, msg)
+    for (const msg of atuais) mapa.set(msg.id, msg)
+
+    const merged = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+    const antes = atuais.length
+    mensagensPorConversa.value[conversaId] = merged
+    return Math.max(0, merged.length - antes)
+  }
 
   async function iniciarConversaDireta(contato: Contato) {
     const auth = useAuthStore()
@@ -281,6 +303,29 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  
+  async function carregarContextoMensagem(conversaId: number, mensagemId: number, previas = 30, seguintes = 30) {
+    const atuais = mensagensPorConversa.value[conversaId] || []
+    if (atuais.some(m => m.id === mensagemId)) {
+      return true
+    }
+
+    let bloco = await api.getMensagens(conversaId, mensagemId, previas, seguintes)
+
+    if (!bloco.some(m => m.id === mensagemId)) {
+      // Fallback para uma janela maior, caso o backend limite o primeiro retorno.
+      bloco = await api.getMensagens(conversaId, mensagemId, 120, 120)
+    }
+
+    if (!bloco.length) return false
+
+    const mapa = new Map<number, Mensagem>()
+    for (const msg of atuais) mapa.set(msg.id, msg)
+    for (const msg of bloco) mapa.set(msg.id, msg)
+
+    mensagensPorConversa.value[conversaId] = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+    return mensagensPorConversa.value[conversaId].some(m => m.id === mensagemId)
+  }
   async function buscarNaConversa(texto: string) {
     const auth = useAuthStore()
     if (!auth.user || !conversaAtivaId.value) {
@@ -690,11 +735,13 @@ export const useChatStore = defineStore('chat', () => {
     carregarContatos,
     carregarConversas,
     selecionarConversa,
+    carregarMensagensAnteriores,
     iniciarConversaDireta,
     criarGrupo,
     enviarTexto,
     enviarArquivo,
     buscarNaConversa,
+    carregarContextoMensagem,
     iniciarPolling,
     pararPolling,
     conectarWebSocket,

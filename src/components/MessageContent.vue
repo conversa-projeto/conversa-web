@@ -55,6 +55,8 @@
       :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
       alt="Imagem"
       class="max-h-64 cursor-zoom-in rounded border border-slate-200"
+      loading="lazy"
+      decoding="async"
       @load="emit('image-loaded')"
       @click="emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
     />
@@ -64,6 +66,7 @@
         <div class="w-[420px] max-w-full">
           <video
             controls
+            preload="metadata"
             :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
             class="h-[236px] w-full rounded border border-slate-200 bg-black object-contain"
           />
@@ -94,7 +97,7 @@
         </button>
       </div>
     </template>
-    <audio v-else-if="conteudo.tipo === 4" controls :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)" class="w-64" />
+    <audio v-else-if="conteudo.tipo === 4" controls preload="metadata" :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)" class="w-64" />
   </div>
 </template>
 

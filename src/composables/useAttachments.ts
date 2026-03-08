@@ -1,9 +1,7 @@
 import { ref } from 'vue'
-import { useAuthStore } from '../stores/auth'
 import { getAnexoUrl } from '../services/conversaApi'
 
 export function useAttachments() {
-  const auth = useAuthStore()
   const anexosUrl = ref<Record<string, string>>({})
   const anexosCarregando = new Set<string>()
 
@@ -14,15 +12,7 @@ export function useAttachments() {
 
     anexosCarregando.add(identificador)
     try {
-      const urlAnexo = await getAnexoUrl(identificador)
-      const resposta = await fetch(urlAnexo)
-
-      if (!resposta.ok) {
-        throw new Error(`Erro ao obter anexo: HTTP ${resposta.status}`)
-      }
-
-      const blob = await resposta.blob()
-      const url = URL.createObjectURL(blob)
+      const url = await getAnexoUrl(identificador)
       anexosUrl.value = {
         ...anexosUrl.value,
         [identificador]: url
@@ -39,23 +29,17 @@ export function useAttachments() {
     return anexosUrl.value[identificador] || ''
   }
 
-  async function abrirAnexo(identificador: string, nome = 'Arquivo') {
+  async function abrirAnexo(identificador: string, _nome = 'Arquivo') {
     await garantirAnexoUrl(identificador)
     const url = anexosUrl.value[identificador]
     if (!url) return
 
-    const link = document.createElement('a')
-    link.href = url
-    link.target = '_blank'
-    link.rel = 'noopener noreferrer'
-    link.download = nome
-    link.click()
+    // For cross-origin signed URLs, browsers can ignore download attribute.
+    // Open in a new tab to let the browser handle range/stream/download behavior.
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   function limparAnexos() {
-    for (const url of Object.values(anexosUrl.value)) {
-      URL.revokeObjectURL(url)
-    }
     anexosUrl.value = {}
   }
 
