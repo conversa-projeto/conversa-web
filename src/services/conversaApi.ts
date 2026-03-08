@@ -66,16 +66,71 @@ export function enviarMensagem(conversaId: number, conteudos: Array<{ ordem: num
   })
 }
 
-export function uploadAnexo(tipo: number, nome: string, extensao: string, data: Blob) {
-  return requestApi<AnexoResponse>('/anexo', 'PUT', {
-    query: {
+export async function sha256File(file: Blob): Promise<string> {
+  const { createSHA256 } = await import('hash-wasm')
+  const hasher = await createSHA256()
+  const chunkSize = 2 * 1024 * 1024 // 2MB
+  let offset = 0
+  while (offset < file.size) {
+    const chunk = file.slice(offset, offset + chunkSize)
+    const buffer = await chunk.arrayBuffer()
+    hasher.update(new Uint8Array(buffer))
+    offset += chunkSize
+  }
+  return hasher.digest('hex')
+}
+
+export async function uploadMinio(url: string, file: Blob, onProgress?: (percent: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', url)
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100)
+          onProgress(percent)
+        }
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve()
+      else reject(new Error('Upload falhou'))
+    }
+    xhr.onerror = () => reject(new Error('Upload falhou (Erro de rede)'))
+    xhr.send(file)
+  })
+}
+
+export async function uploadAnexo(tipo: number, nome: string, extensao: string, data: Blob, onProgress?: (percent: number) => void) {
+  const identificador = await sha256File(data)
+
+  const existe = await requestApi<{ existe: boolean }>('/anexo/existe', 'GET', {
+    query: { identificador }
+  })
+
+  if (existe.existe) {
+    if (onProgress) onProgress(100)
+    return { identificador } as AnexoResponse
+  }
+
+  const presign = await requestApi<{ identificador: string, upload_url: string }>('/anexo', 'PUT', {
+    body: {
+      identificador,
       tipo,
       nome,
-      extensao
-    },
-    body: data,
-    isBinary: true
+      extensao,
+      tamanho: data.size
+    }
   })
+
+  await uploadMinio(presign.upload_url, data, onProgress)
+  return { identificador } as AnexoResponse
+}
+
+export function getAnexoUrl(identificador: string) {
+  return requestApi<{ url: string }>('/anexo', 'GET', {
+    query: { identificador }
+  }).then(res => res.url)
 }
 
 export function pesquisarMensagens(usuarioId: number, texto: string) {

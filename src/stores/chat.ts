@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Contato, Conversa, EventoChamadaSocket, Mensagem } from '../types/api'
-import { getAttachmentUrl } from '../services/http'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
@@ -621,9 +620,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function urlAnexo(identificador: string) {
-    return getAttachmentUrl(identificador)
-  }
+
 
   function enviarDigitando() {
     if (!conversaAtivaId.value) return
@@ -707,7 +704,6 @@ export const useChatStore = defineStore('chat', () => {
     digitandoNaConversaAtiva,
     enviarDigitando,
     limparDigitandoConversaAtiva,
-    urlAnexo,
     registrarHandlerChamada,
     removerHandlerChamada
   }

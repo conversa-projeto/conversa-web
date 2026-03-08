@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { getAttachmentUrl } from '../services/http'
+import { getAnexoUrl } from '../services/conversaApi'
 
 export function useAttachments() {
   const auth = useAuthStore()
@@ -14,11 +14,8 @@ export function useAttachments() {
 
     anexosCarregando.add(identificador)
     try {
-      const resposta = await fetch(getAttachmentUrl(identificador), {
-        headers: {
-          Authorization: `Bearer ${auth.token}`
-        }
-      })
+      const urlAnexo = await getAnexoUrl(identificador)
+      const resposta = await fetch(urlAnexo)
 
       if (!resposta.ok) {
         throw new Error(`Erro ao obter anexo: HTTP ${resposta.status}`)
