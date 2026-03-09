@@ -4,6 +4,7 @@ export interface Usuario {
   login: string
   email: string
   telefone?: string | null
+  avatar_url?: string | null
 }
 
 export interface Dispositivo {

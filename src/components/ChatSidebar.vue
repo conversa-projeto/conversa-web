@@ -1,18 +1,34 @@
-<template>
+﻿<template>
   <aside
-    class="relative w-full flex-col border-r border-slate-200 bg-slate-50 md:flex md:max-w-sm"
+    class="relative w-full flex-col border-r border-slate-200 bg-slate-50 md:flex md:max-w-[334px]"
     :class="sidebarAberta ? 'flex' : 'hidden'"
   >
     <div class="border-b border-slate-200 p-4">
-      <div class="mb-3 flex items-center justify-between">
-        <div>
-          <p class="text-xs uppercase tracking-wide text-slate-500">Usu&aacute;rio</p>
-          <p class="font-semibold text-slate-800">{{ auth.user?.nome }}</p>
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <div class="flex min-w-0 items-center gap-2">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+            <img v-if="avatarUsuario" :src="avatarUsuario" alt="Perfil" class="h-full w-full object-cover" />
+            <span v-else>{{ inicialUsuario }}</span>
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs uppercase tracking-wide text-slate-500">Usuario</p>
+            <p class="truncate font-semibold text-slate-800">{{ auth.user?.nome }}</p>
+          </div>
         </div>
-        <button class="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900" @click="emit('logout')">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
-          Sair
-        </button>
+
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            class="flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+            title="Configuracoes"
+            @click="abrirConfiguracoes = true"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0 1 15 0m-15 0a7.5 7.5 0 0 0 15 0m-15 0H3m16.5 0H21m-9-9V3m0 18v-1.5m6.364-11.864 1.06-1.06M4.576 19.424l1.06-1.06m0-12.728-1.06-1.06m14.788 14.788-1.06-1.06" /></svg>
+          </button>
+          <button class="flex items-center gap-1 rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-200 hover:text-slate-900" @click="emit('logout')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+            Sair
+          </button>
+        </div>
       </div>
 
       <div class="flex gap-2">
@@ -41,31 +57,44 @@
             v-for="conversa in conversasFiltradas"
             :key="conversa.id"
             class="w-full border-b border-slate-100 px-3 py-2 text-left hover:bg-slate-50"
-            :class="conversa.id === chat.conversaAtivaId ? 'bg-blue-50' : ''"
+            :class="conversa.id === chat.conversaAtivaId ? 'bg-blue-100' : ''"
             @click="abrirConversa(conversa.id)"
           >
-            <div class="flex items-center justify-between text-sm font-medium text-slate-800">
-              <span>{{ conversa.descricao || conversa.nome || `Conversa #${conversa.id}` }}</span>
-              <span
-                v-if="(conversa.mensagens_sem_visualizar || 0) > 0"
-                class="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white"
-              >
-                {{ conversa.mensagens_sem_visualizar }}
-              </span>
+            <div class="flex items-center gap-2">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
+                <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" />
+                <span v-else>{{ inicialConversa(conversa) }}</span>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between text-sm font-medium text-slate-800">
+                  <div class="flex min-w-0 items-center gap-1.5">
+                    <span class="truncate">{{ tituloConversa(conversa) }}</span>
+                    <span
+                      v-if="conversa.tipo === 2"
+                      class="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700"
+                      title="Conversa em grupo"
+                    >
+                      Grupo
+                    </span>
+                  </div>
+                  <span
+                    v-if="(conversa.mensagens_sem_visualizar || 0) > 0"
+                    class="ml-2 rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white"
+                  >
+                    {{ conversa.mensagens_sem_visualizar }}
+                  </span>
+                </div>
+                <p class="truncate text-xs text-slate-500">{{ conversa.ultima_mensagem_texto || 'Sem mensagens' }}</p>
+              </div>
             </div>
-            <p class="truncate text-xs text-slate-500">{{ conversa.ultima_mensagem_texto || 'Sem mensagens' }}</p>
           </button>
         </div>
       </section>
     </div>
 
-    <!-- Overlay de busca de contatos -->
     <div v-if="mostrarBuscaContato" class="absolute inset-0 z-10 flex flex-col bg-slate-50">
       <div class="flex items-center gap-2 border-b border-slate-200 p-4">
-        <button
-          class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
-          @click="mostrarBuscaContato = false; filtroContato = ''"
-        >
+        <button class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200" @click="mostrarBuscaContato = false; filtroContato = ''">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
         </button>
         <h2 class="text-sm font-semibold text-slate-700">Nova conversa</h2>
@@ -91,6 +120,8 @@
         </div>
       </div>
     </div>
+
+    <ProfileSettingsModal :aberta="abrirConfiguracoes" @close="abrirConfiguracoes = false" />
   </aside>
 </template>
 
@@ -98,6 +129,8 @@
 import { computed, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
+import type { Conversa } from '../types/api'
+import ProfileSettingsModal from './ProfileSettingsModal.vue'
 
 defineProps<{
   sidebarAberta: boolean
@@ -116,6 +149,17 @@ const chat = useChatStore()
 const filtroContato = ref('')
 const filtroConversa = ref('')
 const mostrarBuscaContato = ref(false)
+const abrirConfiguracoes = ref(false)
+
+const avatarUsuario = computed(() => {
+  const user = auth.user as unknown as { avatar_url?: string | null; foto_url?: string | null; imagem_url?: string | null } | null
+  return user?.avatar_url || user?.foto_url || user?.imagem_url || ''
+})
+
+const inicialUsuario = computed(() => {
+  const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
+  return nome.charAt(0).toUpperCase()
+})
 
 const contatosFiltrados = computed(() => {
   const termo = filtroContato.value.trim().toLowerCase()
@@ -138,6 +182,20 @@ const conversasFiltradas = computed(() => {
     return titulo.includes(termo) || ultima.includes(termo)
   })
 })
+
+function tituloConversa(conversa: Conversa) {
+  return conversa.descricao || conversa.nome || `Conversa #${conversa.id}`
+}
+
+function inicialConversa(conversa: Conversa) {
+  const nome = tituloConversa(conversa).trim()
+  return (nome.charAt(0) || 'C').toUpperCase()
+}
+
+function avatarConversa(conversa: Conversa) {
+  const c = conversa as unknown as { avatar_url?: string | null; foto_url?: string | null; imagem_url?: string | null }
+  return c.avatar_url || c.foto_url || c.imagem_url || ''
+}
 
 async function abrirConversa(conversaId: number) {
   try {
@@ -164,3 +222,4 @@ async function selecionarContatoNovaConversa(contatoId: number) {
   }
 }
 </script>
+

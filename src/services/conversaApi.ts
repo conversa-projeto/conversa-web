@@ -20,6 +20,15 @@ export function login(loginValue: string, senha: string, dispositivoId?: number)
   })
 }
 
+
+export function alterarSenha(senhaAtual: string, senhaNova: string) {
+  return requestApi<{ sucesso: boolean }>('/alterar-senha', 'POST', {
+    body: {
+      senha_atual: senhaAtual,
+      senha_nova: senhaNova
+    }
+  })
+}
 export function getContatos() {
   return requestApi<Contato[]>('/usuario/contatos')
 }

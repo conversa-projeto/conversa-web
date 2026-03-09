@@ -163,80 +163,72 @@ export const useChatStore = defineStore('chat', () => {
     await selecionarConversa(criada.id)
   }
 
-  async function enviarTexto(texto: string) {
-    if (!conversaAtivaId.value) {
-      throw new Error('Nenhuma conversa ativa')
-    }
-
-    const auth = useAuthStore()
-    const tempId = Date.now() * -1
-    const conversaId = conversaAtivaId.value
-
-    const optimisticMsg: Mensagem = {
-      id: tempId,
-      remetente_id: auth.user!.id,
-      remetente: auth.user!.nome,
-      conversa_id: conversaId,
-      inserida: new Date().toISOString(),
-      alterada: new Date().toISOString(),
-      recebida: false,
-      visualizada: false,
-      reproduzida: false,
-      enviando: true,
-      conteudos: [
-        {
-          ordem: 1,
-          tipo: 1,
-          conteudo: texto
-        }
-      ]
-    }
-
-    if (!mensagensPorConversa.value[conversaId]) {
-      mensagensPorConversa.value[conversaId] = []
-    }
-    mensagensPorConversa.value[conversaId] = [...mensagensPorConversa.value[conversaId], optimisticMsg]
-
-    try {
-      const resp = await api.enviarMensagem(conversaId, [
-        {
-          ordem: 1,
-          tipo: 1,
-          conteudo: texto
-        }
-      ])
-
-      // Atualiza a mensagem otimista com os dados reais trocando o objeto para disparar reatividade
-      const msgs = mensagensPorConversa.value[conversaId]
-      const idx = msgs.findIndex(m => m.id === tempId)
-      if (idx !== -1) {
-        msgs[idx] = {
-          ...msgs[idx],
-          id: resp.id,
-          enviando: false
-        }
-      }
-
-      void carregarConversas()
-    } catch (e) {
-      // Remove a mensagem otimista em caso de erro
-      mensagensPorConversa.value[conversaId] = mensagensPorConversa.value[conversaId].filter(m => m.id !== tempId)
-      throw e
-    }
+  type ConteudoArquivoEntrada = {
+    blob: Blob
+    nomeArquivo: string
+    mimeType?: string
+    isAudio?: boolean
   }
 
-  async function enviarArquivo(blob: Blob, nomeArquivo: string, mimeType = '', isAudio = false) {
+  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = []) {
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
     }
 
-    const auth = useAuthStore()
-    const tempId = Date.now() * -1
-    const conversaId = conversaAtivaId.value
-    const extensao = (nomeArquivo.split('.').pop() || '').slice(0, 10)
-    const tipo = isAudio ? 4 : mimeType.startsWith('image/') ? 2 : 3
+    const textoLimpo = texto.trim()
+    if (!textoLimpo && arquivos.length === 0) {
+      return
+    }
 
-    const localUrl = URL.createObjectURL(blob)
+    const auth = useAuthStore()
+    const conversaId = conversaAtivaId.value
+    const tempId = Date.now() * -1
+
+    let ordem = 1
+    const conteudosOptimistas: Mensagem['conteudos'] = []
+    const conteudosApi: Array<{ ordem: number; tipo: number; conteudo: string }> = []
+    const localUrlsParaLimpar: string[] = []
+
+    if (textoLimpo) {
+      conteudosOptimistas.push({
+        ordem,
+        tipo: 1,
+        conteudo: textoLimpo
+      })
+      conteudosApi.push({
+        ordem,
+        tipo: 1,
+        conteudo: textoLimpo
+      })
+      ordem += 1
+    }
+
+    for (const arq of arquivos) {
+      const mimeType = arq.mimeType || ''
+      const nomeArquivo = arq.nomeArquivo
+      const extensao = (nomeArquivo.split('.').pop() || '').slice(0, 10)
+      const tipo = arq.isAudio ? 4 : mimeType.startsWith('image/') ? 2 : 3
+      const localUrl = URL.createObjectURL(arq.blob)
+      localUrlsParaLimpar.push(localUrl)
+
+      conteudosOptimistas.push({
+        ordem,
+        tipo,
+        conteudo: nomeArquivo,
+        nome: nomeArquivo,
+        extensao,
+        localUrl
+      })
+
+      const anexo = await api.uploadAnexo(tipo, nomeArquivo, extensao, arq.blob)
+      conteudosApi.push({
+        ordem,
+        tipo,
+        conteudo: anexo.identificador
+      })
+      ordem += 1
+    }
+
     const optimisticMsg: Mensagem = {
       id: tempId,
       remetente_id: auth.user!.id,
@@ -248,16 +240,7 @@ export const useChatStore = defineStore('chat', () => {
       visualizada: false,
       reproduzida: false,
       enviando: true,
-      conteudos: [
-        {
-          ordem: 1,
-          tipo,
-          conteudo: nomeArquivo,
-          nome: nomeArquivo,
-          extensao,
-          localUrl
-        }
-      ]
+      conteudos: conteudosOptimistas
     }
 
     if (!mensagensPorConversa.value[conversaId]) {
@@ -266,16 +249,20 @@ export const useChatStore = defineStore('chat', () => {
     mensagensPorConversa.value[conversaId] = [...mensagensPorConversa.value[conversaId], optimisticMsg]
 
     try {
-      const anexo = await api.uploadAnexo(tipo, nomeArquivo, extensao, blob)
-      const resp = await api.enviarMensagem(conversaId, [
-        {
-          ordem: 1,
-          tipo,
-          conteudo: anexo.identificador
-        }
-      ])
+      const resp = await api.enviarMensagem(conversaId, conteudosApi)
 
-      // Atualiza a mensagem otimista
+      const conteudosFinais = conteudosOptimistas.map((conteudo) => {
+        if (conteudo.tipo === 1) {
+          return conteudo
+        }
+        const correspondente = conteudosApi.find((c) => c.ordem === conteudo.ordem)
+        return {
+          ...conteudo,
+          conteudo: correspondente?.conteudo || conteudo.conteudo,
+          localUrl: undefined
+        }
+      })
+
       const msgs = mensagensPorConversa.value[conversaId]
       const idx = msgs.findIndex(m => m.id === tempId)
       if (idx !== -1) {
@@ -283,27 +270,31 @@ export const useChatStore = defineStore('chat', () => {
           ...msgs[idx],
           id: resp.id,
           enviando: false,
-          conteudos: [
-            {
-              ...msgs[idx].conteudos[0],
-              conteudo: anexo.identificador,
-              localUrl: undefined
-            }
-          ]
+          conteudos: conteudosFinais
         }
       }
 
-      // URL.revokeObjectURL(localUrl) // Opcional aqui, ou deixar para o componente se decidir
+      for (const url of localUrlsParaLimpar) {
+        URL.revokeObjectURL(url)
+      }
 
       void carregarConversas()
     } catch (e) {
       mensagensPorConversa.value[conversaId] = mensagensPorConversa.value[conversaId].filter(m => m.id !== tempId)
-      URL.revokeObjectURL(localUrl)
+      for (const url of localUrlsParaLimpar) {
+        URL.revokeObjectURL(url)
+      }
       throw e
     }
   }
 
-  
+  async function enviarTexto(texto: string) {
+    await enviarMensagemComConteudos(texto, [])
+  }
+
+  async function enviarArquivo(blob: Blob, nomeArquivo: string, mimeType = '', isAudio = false) {
+    await enviarMensagemComConteudos('', [{ blob, nomeArquivo, mimeType, isAudio }])
+  }
   async function carregarContextoMensagem(conversaId: number, mensagemId: number, previas = 30, seguintes = 30) {
     const atuais = mensagensPorConversa.value[conversaId] || []
     if (atuais.some(m => m.id === mensagemId)) {
@@ -740,6 +731,7 @@ export const useChatStore = defineStore('chat', () => {
     criarGrupo,
     enviarTexto,
     enviarArquivo,
+    enviarMensagemComConteudos,
     buscarNaConversa,
     carregarContextoMensagem,
     iniciarPolling,

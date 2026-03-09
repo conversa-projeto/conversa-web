@@ -1,14 +1,13 @@
-import { nextTick, ref, type Ref } from 'vue'
-import { useChatStore } from '../stores/chat'
+import { ref, type Ref } from 'vue'
 
-export function useAudioRecording(erro: Ref<string>, onSent: () => void) {
-  const chat = useChatStore()
-
+export function useAudioRecording(
+  erro: Ref<string>,
+  onReady: (blob: Blob, nome: string, mime: string) => void
+) {
   const gravandoAudio = ref(false)
   const mediaRecorder = ref<MediaRecorder | null>(null)
   const audioStream = ref<MediaStream | null>(null)
   let audioChunks: BlobPart[] = []
-  let audioInicioGravacao = 0
 
   function encerrarStreamAudio() {
     if (audioStream.value) {
@@ -23,12 +22,12 @@ export function useAudioRecording(erro: Ref<string>, onSent: () => void) {
     if (gravandoAudio.value) return
 
     if (!window.isSecureContext) {
-      erro.value = 'Para gravar Ã¡udio por navegador, use HTTPS (ou localhost).'
+      erro.value = 'Para gravar áudio por navegador, use HTTPS (ou localhost).'
       return
     }
 
     if (!navigator.mediaDevices || !window.MediaRecorder) {
-      erro.value = 'Grava\u00E7\u00E3o de \u00E1udio n\u00E3o suportada neste navegador.'
+      erro.value = 'Gravação de áudio não suportada neste navegador.'
       return
     }
 
@@ -43,39 +42,28 @@ export function useAudioRecording(erro: Ref<string>, onSent: () => void) {
         }
       }
 
-      recorder.onstop = async () => {
-        const duracaoMs = Date.now() - audioInicioGravacao
-        if (!audioChunks.length || duracaoMs < 1000) {
-          encerrarStreamAudio()
-          if (duracaoMs < 1000) {
-            erro.value = '\u00C1udio muito curto, segure por mais tempo.'
-            setTimeout(() => { if (erro.value === '\u00C1udio muito curto, segure por mais tempo.') erro.value = '' }, 2000)
-          }
-          return
-        }
-
-        const mime = recorder.mimeType || 'audio/webm'
-        const blob = new Blob(audioChunks, { type: mime })
-        const extension = mime.includes('ogg') ? 'ogg' : 'webm'
-        const nome = `audio-${Date.now()}.${extension}`
-
+      recorder.onstop = () => {
         try {
-          await chat.enviarArquivo(blob, nome, mime, true)
-          await nextTick()
-          onSent()
-        } catch (e) {
-          erro.value = e instanceof Error ? e.message : 'Erro ao enviar \u00E1udio'
+          if (!audioChunks.length) {
+            return
+          }
+
+          const mime = recorder.mimeType || 'audio/webm'
+          const blob = new Blob(audioChunks, { type: mime })
+          const extension = mime.includes('ogg') ? 'ogg' : 'webm'
+          const nome = `audio-${Date.now()}.${extension}`
+
+          onReady(blob, nome, mime)
         } finally {
           encerrarStreamAudio()
         }
       }
 
       recorder.start()
-      audioInicioGravacao = Date.now()
       mediaRecorder.value = recorder
       gravandoAudio.value = true
     } catch (e) {
-      erro.value = e instanceof Error ? e.message : 'N\u00E3o foi poss\u00EDvel iniciar a grava\u00E7\u00E3o'
+      erro.value = e instanceof Error ? e.message : 'Não foi possível iniciar a gravação'
       encerrarStreamAudio()
     }
   }
@@ -95,3 +83,4 @@ export function useAudioRecording(erro: Ref<string>, onSent: () => void) {
     encerrarStreamAudio
   }
 }
+

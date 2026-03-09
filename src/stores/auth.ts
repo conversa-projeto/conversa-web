@@ -24,7 +24,8 @@ function parseStoredUser(): Usuario | null {
       nome: String(parsed.nome || ''),
       login: String(parsed.login || ''),
       email: String(parsed.email || ''),
-      telefone: parsed.telefone ?? null
+      telefone: parsed.telefone ?? null,
+      avatar_url: (parsed as Partial<Usuario>).avatar_url ?? null
     }
   } catch {
     return null
@@ -70,7 +71,8 @@ export const useAuthStore = defineStore('auth', () => {
       nome: response.nome,
       login: response.login,
       email: response.email,
-      telefone: response.telefone
+      telefone: response.telefone,
+      avatar_url: (response as unknown as { avatar_url?: string | null }).avatar_url ?? null
     }
     dispositivoId.value = response.dispositivo?.id || null
 
