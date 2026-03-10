@@ -6,7 +6,10 @@ import type {
   Conversa,
   LoginResponse,
   Mensagem,
-  TipoChamada
+  MensagemStatusItem,
+  TipoChamada,
+  TipoConteudo,
+  TipoConversa,
 } from '../types/api'
 import { requestApi } from './http'
 
@@ -37,7 +40,13 @@ export function getConversas() {
   return requestApi<Conversa[]>('/conversas')
 }
 
-export function createConversa(descricao: string, tipo: number) {
+export function getUsuariosConversa(conversaId: number) {
+  return requestApi<Array<{ usuario_id: number; nome: string }>>('/conversa/usuarios', 'GET', {
+    query: { conversa: conversaId }
+  })
+}
+
+export function createConversa(descricao: string, tipo: TipoConversa) {
   return requestApi<Conversa>('/conversa', 'PUT', {
     body: {
       descricao,
@@ -66,7 +75,7 @@ export function getMensagens(conversaId: number, mensagemReferencia = 0, mensage
   })
 }
 
-export function enviarMensagem(conversaId: number, conteudos: Array<{ ordem: number; tipo: number; conteudo: string }>) {
+export function enviarMensagem(conversaId: number, conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>) {
   return requestApi<{ id: number; conversa_id: number; usuario_id: number }>('/mensagem', 'PUT', {
     body: {
       conversa_id: conversaId,
@@ -110,7 +119,7 @@ export async function uploadMinio(url: string, file: Blob, onProgress?: (percent
   })
 }
 
-export async function uploadAnexo(tipo: number, nome: string, extensao: string, data: Blob, onProgress?: (percent: number) => void) {
+export async function uploadAnexo(tipo: TipoConteudo, nome: string, extensao: string, data: Blob, onProgress?: (percent: number) => void): Promise<AnexoResponse> {
   const identificador = await sha256File(data)
 
   const existe = await requestApi<{ existe: boolean }>('/anexo/existe', 'GET', {
@@ -119,7 +128,7 @@ export async function uploadAnexo(tipo: number, nome: string, extensao: string, 
 
   if (existe.existe) {
     if (onProgress) onProgress(100)
-    return { identificador } as AnexoResponse
+    return { identificador }
   }
 
   const presign = await requestApi<{ identificador: string, upload_url: string }>('/anexo', 'PUT', {
@@ -133,7 +142,7 @@ export async function uploadAnexo(tipo: number, nome: string, extensao: string, 
   })
 
   await uploadMinio(presign.upload_url, data, onProgress)
-  return { identificador } as AnexoResponse
+  return { identificador }
 }
 
 export function getAnexoUrl(identificador: string) {
@@ -160,20 +169,12 @@ export function getMensagensNovas(ultimaMensagemId: number) {
 }
 
 export function mensagemVisualizar(conversaId: number, mensagemId: number) {
-  return requestApi<{ sucesso: boolean }>('/mensagem/visualizar', 'GET', {
-    query: {
+  return requestApi<{ sucesso: boolean }>('/mensagem/visualizar', 'POST', {
+    body: {
       conversa: conversaId,
       mensagem: mensagemId
     }
   })
-}
-
-export interface MensagemStatusItem {
-  conversa_id: number
-  mensagem_id: number
-  recebida: boolean
-  visualizada: boolean
-  reproduzida: boolean
 }
 
 export function mensagemStatus(conversaId: number, mensagemIds: number[]) {

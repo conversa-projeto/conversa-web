@@ -1,17 +1,18 @@
 import type { Directive } from 'vue'
 
 function bindAndPlay(el: HTMLMediaElement, stream: MediaStream | null) {
-  if (!stream) return
-  if (el.srcObject !== stream) {
-    el.srcObject = stream
+  if (!stream) {
+    el.srcObject = null
+    return
   }
+  if (el.srcObject === stream) return
 
-  const playPromise = el.play()
-  if (playPromise && typeof playPromise.catch === 'function') {
-    playPromise.catch(() => {
-      // Ignore autoplay policy rejections.
-    })
-  }
+  el.srcObject = stream
+  el.play().catch((err) => {
+    if (err.name !== 'NotAllowedError') {
+      console.warn('Media play failed:', err)
+    }
+  })
 }
 
 export const vSrcObject: Directive<HTMLMediaElement, MediaStream | null> = {
@@ -20,5 +21,8 @@ export const vSrcObject: Directive<HTMLMediaElement, MediaStream | null> = {
   },
   updated(el, binding) {
     bindAndPlay(el, binding.value)
+  },
+  unmounted(el) {
+    el.srcObject = null
   }
 }

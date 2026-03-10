@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import hljs from 'highlight.js/lib/core'
 import hljsJavascript from 'highlight.js/lib/languages/javascript'
 import hljsTypescript from 'highlight.js/lib/languages/typescript'
@@ -66,25 +66,35 @@ export function highlightCodigo(codigo: string, linguagem?: string): string {
 
 export function useCodeHighlight() {
   const codigosCopiados = ref<Set<string>>(new Set())
+  const timers: number[] = []
 
   async function copiarCodigo(codigo: string, chave: string) {
     try {
       await navigator.clipboard.writeText(codigo)
-      codigosCopiados.value.add(chave)
-      codigosCopiados.value = new Set(codigosCopiados.value)
-      setTimeout(() => {
-        codigosCopiados.value.delete(chave)
-        codigosCopiados.value = new Set(codigosCopiados.value)
-      }, 2000)
     } catch {
       const ta = document.createElement('textarea')
       ta.value = codigo
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
       document.body.appendChild(ta)
       ta.select()
       document.execCommand('copy')
       document.body.removeChild(ta)
     }
+
+    codigosCopiados.value = new Set([...codigosCopiados.value, chave])
+    const timer = window.setTimeout(() => {
+      const updated = new Set(codigosCopiados.value)
+      updated.delete(chave)
+      codigosCopiados.value = updated
+    }, 2000)
+    timers.push(timer)
   }
+
+  onUnmounted(() => {
+    for (const t of timers) window.clearTimeout(t)
+    timers.length = 0
+  })
 
   return {
     codigosCopiados,

@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { useChatStore } from '../stores/chat'
 
 export function useImagePreview(onSent: () => void) {
@@ -40,17 +40,16 @@ export function useImagePreview(onSent: () => void) {
     onSent()
   }
 
-  function atualizarBloqueioScroll() {
-    document.body.style.overflow = previewImagemAberta.value ? 'hidden' : ''
-  }
+  watch(previewImagemAberta, (aberta) => {
+    document.body.style.overflow = aberta ? 'hidden' : ''
+  })
 
-  watch(previewImagemAberta, atualizarBloqueioScroll)
-
-  function cleanup() {
+  onUnmounted(() => {
     if (previewImagemUrl.value) {
       URL.revokeObjectURL(previewImagemUrl.value)
     }
-  }
+    document.body.style.overflow = ''
+  })
 
   return {
     previewImagemAberta,
@@ -61,6 +60,5 @@ export function useImagePreview(onSent: () => void) {
     abrirPreviewImagem,
     fecharPreviewImagem,
     confirmarEnvioPreviewImagem,
-    cleanup
   }
 }

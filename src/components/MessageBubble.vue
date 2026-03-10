@@ -31,12 +31,56 @@
         <span :class="isOwn ? 'text-slate-200' : 'text-slate-500'">
           {{ formatarHora(mensagem.inserida) }}
         </span>
-        <span
-          v-if="isOwn"
-          :class="statusEntregaClasse(mensagem)"
+        <!-- Enviando -->
+        <svg
+          v-if="isOwn && (mensagem.enviando || mensagem.id < 0)"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          class="h-3 w-3 text-slate-300"
         >
-          {{ statusEntrega(mensagem) }}
-        </span>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+        <!-- Visualizado (check duplo azul) -->
+        <svg
+          v-else-if="isOwn && mensagem.visualizada"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2.5"
+          stroke="currentColor"
+          class="h-3 w-3 text-sky-300"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
+        </svg>
+        <!-- Recebido (check duplo cinza) -->
+        <svg
+          v-else-if="isOwn && mensagem.recebida"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2.5"
+          stroke="currentColor"
+          class="h-3 w-3 text-slate-300"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
+        </svg>
+        <!-- Enviado (check simples) -->
+        <svg
+          v-else-if="isOwn"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class="h-3 w-3 text-slate-300"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
       </div>
     </div>
   </div>
@@ -44,7 +88,7 @@
 
 <script setup lang="ts">
 import type { Mensagem } from '../types/api'
-import { formatarHora, statusEntrega, statusEntregaClasse } from '../utils/formatters'
+import { formatarHora } from '../utils/formatters'
 import MessageContent from './MessageContent.vue'
 
 defineProps<{

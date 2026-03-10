@@ -1,19 +1,22 @@
-function getApiBase(): string {
-  const local = localStorage.getItem('conversa.apiBase')
-  const fallback =
-    import.meta.env.VITE_API_BASE ||
-    (typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}`
-      : 'http://localhost')
-  let base = local || fallback
+const API_BASE_KEY = 'conversa.apiBase'
+const TOKEN_KEY = 'conversa.token'
 
-  if (typeof window !== 'undefined') {
-    const hostAtual = window.location.hostname
-    base = base.replace('://localhost:', `://${hostAtual}:`)
-    base = base.replace('://127.0.0.1:', `://${hostAtual}:`)
-  }
-  
-  return base.replace(/\/$/, '')
+export function getApiBase(): string {
+  const stored = localStorage.getItem(API_BASE_KEY)
+  const fallback = typeof window !== 'undefined'
+    ? window.location.origin
+    : 'http://localhost'
+
+  return (stored || fallback).replace(/\/$/, '')
+}
+
+export function setApiBase(base: string) {
+  const normalizado = base.trim().replace(/\/$/, '')
+  localStorage.setItem(API_BASE_KEY, normalizado)
+}
+
+export function getToken(): string {
+  return localStorage.getItem(TOKEN_KEY) || ''
 }
 
 function buildUrl(path: string, query?: Record<string, string | number | boolean | null | undefined>): string {
@@ -44,7 +47,7 @@ export async function requestApi<T>(
     ...(options?.headers || {})
   }
 
-  const token = options?.token || localStorage.getItem('conversa.token')
+  const token = options?.token || getToken()
   if (token) {
     headers.Authorization = `Bearer ${token}`
   }

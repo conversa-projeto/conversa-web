@@ -1,17 +1,25 @@
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
 
-export function useImageViewer(garantirAnexoUrl: (id: string) => Promise<void>, anexosUrl: { value: Record<string, string> }) {
+export function useImageViewer(
+  garantirAnexoUrl: (id: string) => Promise<void>,
+  anexosUrl: Ref<Record<string, string>>
+) {
   const imagemTelaCheiaAberta = ref(false)
   const imagemTelaCheiaUrl = ref('')
   const imagemTelaCheiaNome = ref('Imagem')
   const zoomImagemTelaCheia = ref(1)
 
-  // Estados de Transla&ccedil;&atilde;o (Arrastar)
   const translateX = ref(0)
   const translateY = ref(0)
   const isDragging = ref(false)
   const startMouseX = ref(0)
   const startMouseY = ref(0)
+
+  function resetarZoom() {
+    zoomImagemTelaCheia.value = 1
+    translateX.value = 0
+    translateY.value = 0
+  }
 
   function ajustarZoomImagem(delta: number) {
     const zoomAntigo = zoomImagemTelaCheia.value
@@ -22,8 +30,6 @@ export function useImageViewer(garantirAnexoUrl: (id: string) => Promise<void>, 
       translateX.value = 0
       translateY.value = 0
     } else if (zoomAntigo > 1) {
-      // Propor&ccedil;&atilde;o do "excesso" de zoom (zoom - 1)
-      // Se estamos diminuindo o zoom, reduzimos o deslocamento proporcionalmente
       const proporcao = (zoomImagemTelaCheia.value - 1) / (zoomAntigo - 1)
       translateX.value *= proporcao
       translateY.value *= proporcao
@@ -34,7 +40,6 @@ export function useImageViewer(garantirAnexoUrl: (id: string) => Promise<void>, 
     ajustarZoomImagem(event.deltaY < 0 ? 0.2 : -0.2)
   }
 
-  // L&oacute;gica de Arrasto
   function iniciarArrasto(event: MouseEvent) {
     if (zoomImagemTelaCheia.value <= 1) return
     isDragging.value = true
@@ -59,17 +64,13 @@ export function useImageViewer(garantirAnexoUrl: (id: string) => Promise<void>, 
 
     imagemTelaCheiaUrl.value = url
     imagemTelaCheiaNome.value = nome
-    zoomImagemTelaCheia.value = 1
-    translateX.value = 0
-    translateY.value = 0
+    resetarZoom()
     imagemTelaCheiaAberta.value = true
   }
 
   function fecharImagemTelaCheia() {
     imagemTelaCheiaAberta.value = false
-    zoomImagemTelaCheia.value = 1
-    translateX.value = 0
-    translateY.value = 0
+    resetarZoom()
   }
 
   function aoTeclaGlobal(event: KeyboardEvent) {
@@ -79,11 +80,9 @@ export function useImageViewer(garantirAnexoUrl: (id: string) => Promise<void>, 
     if (event.key === '-') ajustarZoomImagem(-0.2)
   }
 
-  function atualizarBloqueioScroll() {
-    document.body.style.overflow = imagemTelaCheiaAberta.value ? 'hidden' : ''
-  }
-
-  watch(imagemTelaCheiaAberta, atualizarBloqueioScroll)
+  watch(imagemTelaCheiaAberta, (aberta) => {
+    document.body.style.overflow = aberta ? 'hidden' : ''
+  })
 
   onMounted(() => window.addEventListener('keydown', aoTeclaGlobal))
   onUnmounted(() => {

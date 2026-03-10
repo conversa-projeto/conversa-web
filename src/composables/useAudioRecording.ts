@@ -1,20 +1,20 @@
-import { ref, type Ref } from 'vue'
+import { ref, onUnmounted, type Ref } from 'vue'
 
 export function useAudioRecording(
   erro: Ref<string>,
   onReady: (blob: Blob, nome: string, mime: string) => void
 ) {
   const gravandoAudio = ref(false)
-  const mediaRecorder = ref<MediaRecorder | null>(null)
-  const audioStream = ref<MediaStream | null>(null)
+  let mediaRecorder: MediaRecorder | null = null
+  let audioStream: MediaStream | null = null
   let audioChunks: BlobPart[] = []
 
   function encerrarStreamAudio() {
-    if (audioStream.value) {
-      audioStream.value.getTracks().forEach((track) => track.stop())
+    if (audioStream) {
+      audioStream.getTracks().forEach((track) => track.stop())
     }
-    audioStream.value = null
-    mediaRecorder.value = null
+    audioStream = null
+    mediaRecorder = null
     gravandoAudio.value = false
   }
 
@@ -22,18 +22,18 @@ export function useAudioRecording(
     if (gravandoAudio.value) return
 
     if (!window.isSecureContext) {
-      erro.value = 'Para gravar áudio por navegador, use HTTPS (ou localhost).'
+      erro.value = 'Para gravar \u00e1udio por navegador, use HTTPS (ou localhost).'
       return
     }
 
     if (!navigator.mediaDevices || !window.MediaRecorder) {
-      erro.value = 'Gravação de áudio não suportada neste navegador.'
+      erro.value = 'Grava\u00e7\u00e3o de \u00e1udio n\u00e3o suportada neste navegador.'
       return
     }
 
     try {
-      audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(audioStream.value)
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(audioStream)
       audioChunks = []
 
       recorder.ondataavailable = (event) => {
@@ -60,10 +60,10 @@ export function useAudioRecording(
       }
 
       recorder.start()
-      mediaRecorder.value = recorder
+      mediaRecorder = recorder
       gravandoAudio.value = true
     } catch (e) {
-      erro.value = e instanceof Error ? e.message : 'Não foi possível iniciar a gravação'
+      erro.value = e instanceof Error ? e.message : 'N\u00e3o foi poss\u00edvel iniciar a grava\u00e7\u00e3o'
       encerrarStreamAudio()
     }
   }
@@ -71,10 +71,14 @@ export function useAudioRecording(
   function pararAudio() {
     if (!gravandoAudio.value) return
     gravandoAudio.value = false
-    if (mediaRecorder.value && mediaRecorder.value.state !== 'inactive') {
-      mediaRecorder.value.stop()
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop()
     }
   }
+
+  onUnmounted(() => {
+    encerrarStreamAudio()
+  })
 
   return {
     gravandoAudio,
@@ -83,4 +87,3 @@ export function useAudioRecording(
     encerrarStreamAudio
   }
 }
-

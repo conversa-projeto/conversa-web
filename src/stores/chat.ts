@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { Contato, Conversa, EventoChamadaSocket, Mensagem } from '../types/api'
+import { TipoConversa, TipoConteudo, TipoEventoSocket } from '../types/api'
+import type { Contato, Conversa, EventoChamadaSocket, EventoSocket, Mensagem } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
@@ -20,6 +21,8 @@ export const useChatStore = defineStore('chat', () => {
   let reconnectTimer: number | null = null
   let reconnectAttempts = 0
   const marcandoVisualizacao = new Set<number>()
+
+  const usuariosConversa = ref<Record<number, Array<{ usuario_id: number; nome: string }>>>({})
 
   let digitandoDebounceTimer: number | null = null
   let ultimoDigitandoEnviado = 0
@@ -59,6 +62,20 @@ export const useChatStore = defineStore('chat', () => {
     return nomes
   })
 
+  const usuariosConversaAtiva = computed(() => {
+    if (!conversaAtivaId.value) return []
+    return usuariosConversa.value[conversaAtivaId.value] || []
+  })
+
+  async function carregarUsuariosConversa(conversaId: number) {
+    if (usuariosConversa.value[conversaId]) return
+    try {
+      usuariosConversa.value[conversaId] = await api.getUsuariosConversa(conversaId)
+    } catch {
+      // silencia erro - não é crítico
+    }
+  }
+
   async function inicializar() {
     await Promise.all([carregarContatos(), carregarConversas()])
     if (!conversaAtivaId.value && conversas.value.length > 0) {
@@ -95,12 +112,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function atualizarConversaAtiva() {
-    if (!conversaAtivaId.value) {
-      return
-    }
-    await carregarMensagens(conversaAtivaId.value)
-  }
   async function carregarMensagensAnteriores(conversaId: number, limite = 60) {
     const atuais = mensagensPorConversa.value[conversaId] || []
     if (atuais.length === 0) {
@@ -130,7 +141,7 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error('Usuário não autenticado')
     }
 
-    let conversa = conversas.value.find((item) => item.tipo === 1 && item.destinatario_id === contato.id)
+    let conversa = conversas.value.find((item) => item.tipo === TipoConversa.Direta && item.destinatario_id === contato.id)
 
     if (!conversa) {
       const criada = await api.createConversa('', 1)
@@ -152,12 +163,10 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error('Usuário não autenticado')
     }
 
-    const criada = await api.createConversa(nome, 2)
+    const criada = await api.createConversa(nome, TipoConversa.Grupo)
     const membros = Array.from(new Set([auth.user.id, ...usuarioIds]))
 
-    for (const usuarioId of membros) {
-      await api.addUsuarioConversa(criada.id, usuarioId)
-    }
+    await Promise.all(membros.map(usuarioId => api.addUsuarioConversa(criada.id, usuarioId)))
 
     await carregarConversas()
     await selecionarConversa(criada.id)
@@ -181,33 +190,38 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     const auth = useAuthStore()
+    if (!auth.user) {
+      throw new Error('Usuário não autenticado')
+    }
     const conversaId = conversaAtivaId.value
     const tempId = Date.now() * -1
 
     let ordem = 1
     const conteudosOptimistas: Mensagem['conteudos'] = []
-    const conteudosApi: Array<{ ordem: number; tipo: number; conteudo: string }> = []
+    const conteudosApi: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }> = []
     const localUrlsParaLimpar: string[] = []
 
     if (textoLimpo) {
       conteudosOptimistas.push({
         ordem,
-        tipo: 1,
+        tipo: TipoConteudo.Texto,
         conteudo: textoLimpo
       })
       conteudosApi.push({
         ordem,
-        tipo: 1,
+        tipo: TipoConteudo.Texto,
         conteudo: textoLimpo
       })
       ordem += 1
     }
 
+    const arquivosInfo: Array<{ blob: Blob; nomeArquivo: string; extensao: string; tipo: TipoConteudo; ordem: number }> = []
+
     for (const arq of arquivos) {
       const mimeType = arq.mimeType || ''
       const nomeArquivo = arq.nomeArquivo
       const extensao = (nomeArquivo.split('.').pop() || '').slice(0, 10)
-      const tipo = arq.isAudio ? 4 : mimeType.startsWith('image/') ? 2 : 3
+      const tipo = arq.isAudio ? TipoConteudo.Audio : mimeType.startsWith('image/') ? TipoConteudo.Imagem : TipoConteudo.Arquivo
       const localUrl = URL.createObjectURL(arq.blob)
       localUrlsParaLimpar.push(localUrl)
 
@@ -220,19 +234,15 @@ export const useChatStore = defineStore('chat', () => {
         localUrl
       })
 
-      const anexo = await api.uploadAnexo(tipo, nomeArquivo, extensao, arq.blob)
-      conteudosApi.push({
-        ordem,
-        tipo,
-        conteudo: anexo.identificador
-      })
+      arquivosInfo.push({ blob: arq.blob, nomeArquivo, extensao, tipo, ordem })
       ordem += 1
     }
 
+    // Adiciona mensagem otimista à UI imediatamente (antes dos uploads)
     const optimisticMsg: Mensagem = {
       id: tempId,
-      remetente_id: auth.user!.id,
-      remetente: auth.user!.nome,
+      remetente_id: auth.user.id,
+      remetente: auth.user.nome,
       conversa_id: conversaId,
       inserida: new Date().toISOString(),
       alterada: new Date().toISOString(),
@@ -249,10 +259,20 @@ export const useChatStore = defineStore('chat', () => {
     mensagensPorConversa.value[conversaId] = [...mensagensPorConversa.value[conversaId], optimisticMsg]
 
     try {
+      // Faz uploads após a mensagem já estar visível
+      for (const arq of arquivosInfo) {
+        const anexo = await api.uploadAnexo(arq.tipo, arq.nomeArquivo, arq.extensao, arq.blob)
+        conteudosApi.push({
+          ordem: arq.ordem,
+          tipo: arq.tipo,
+          conteudo: anexo.identificador
+        })
+      }
+
       const resp = await api.enviarMensagem(conversaId, conteudosApi)
 
       const conteudosFinais = conteudosOptimistas.map((conteudo) => {
-        if (conteudo.tipo === 1) {
+        if (conteudo.tipo === TipoConteudo.Texto) {
           return conteudo
         }
         const correspondente = conteudosApi.find((c) => c.ordem === conteudo.ordem)
@@ -342,7 +362,7 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     const pendentes = mensagens.filter((mensagem) => {
-      return mensagem.remetente_id !== usuarioId && !mensagem.visualizada && !marcandoVisualizacao.has(mensagem.id)
+      return mensagem.id > 0 && !mensagem.enviando && mensagem.remetente_id !== usuarioId && !mensagem.visualizada && !marcandoVisualizacao.has(mensagem.id)
     })
 
     if (pendentes.length === 0) {
@@ -386,8 +406,7 @@ export const useChatStore = defineStore('chat', () => {
   function getWebSocketUrl(): string {
     const isSecure = window.location.protocol === 'https:'
     const wsProtocol = isSecure ? 'wss:' : 'ws:'
-    const httpPort = Number(window.location.port || (isSecure ? 443 : 80))
-    const wsPort = 8000 + httpPort
+    const wsPort = import.meta.env.VITE_WS_PORT
     return `${wsProtocol}//${window.location.hostname}:${wsPort}`
   }
 
@@ -460,7 +479,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function tratarEventoSocket(raw: string) {
-    let evento: { tipo?: number; grupo?: number; conversa_id?: number; mensagens?: string; chamada_id?: number; usuario_id?: number } | null = null
+    let evento: EventoSocket | null = null
     try {
       evento = JSON.parse(raw)
     } catch {
@@ -471,12 +490,12 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    if (evento.tipo === 2) {
+    if (evento.tipo === TipoEventoSocket.NovaMensagem) {
       await tratarNovaMensagem()
       return
     }
 
-    if (evento.tipo === 3) {
+    if (evento.tipo === TipoEventoSocket.StatusMensagem) {
       const conversaId = evento.grupo || conversaAtivaId.value
       const mensagens = (evento.mensagens || '')
         .split(',')
@@ -495,18 +514,18 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    if (evento.tipo === 4 && evento.conversa_id && evento.usuario_id) {
+    if (evento.tipo === TipoEventoSocket.Digitando && evento.conversa_id && evento.usuario_id) {
       tratarDigitando(evento.conversa_id, evento.usuario_id)
       return
     }
 
-    if (evento.tipo === 40) {
+    if (evento.tipo === TipoEventoSocket.ConversaAtualizada) {
       await carregarConversas()
       return
     }
 
-    if (evento.tipo && evento.tipo >= 51 && evento.tipo <= 55 && _tratarEventoChamada) {
-      _tratarEventoChamada(evento as unknown as EventoChamadaSocket)
+    if (evento.tipo && evento.tipo >= TipoEventoSocket.ChamadaRecebida && evento.tipo <= TipoEventoSocket.UsuarioSaiu && _tratarEventoChamada) {
+      _tratarEventoChamada(evento as EventoChamadaSocket)
       return
     }
   }
@@ -566,9 +585,9 @@ export const useChatStore = defineStore('chat', () => {
       let texto = ''
       if (ultima.conteudos && ultima.conteudos.length > 0) {
         const c = ultima.conteudos[0]
-        if (c.tipo === 1) texto = c.conteudo
-        else if (c.tipo === 2) texto = '📷 Imagem'
-        else if (c.tipo === 4) texto = '🎤 Áudio'
+        if (c.tipo === TipoConteudo.Texto) texto = c.conteudo
+        else if (c.tipo === TipoConteudo.Imagem) texto = '📷 Imagem'
+        else if (c.tipo === TipoConteudo.Audio) texto = '🎤 Áudio'
         else texto = '📎 Arquivo'
       }
 
@@ -578,33 +597,25 @@ export const useChatStore = defineStore('chat', () => {
       })
     }
 
-    const conversaIds = conversaIdsRaw
-
-    await Promise.allSettled(
-      conversaIds
-        .filter((conversaId) => conversaId !== ativa)
-        .map((conversaId) => api.getMensagens(conversaId, 0, 1, 0))
-    )
-
     await carregarConversas()
 
     if (!ativa) {
       return
     }
 
-    const atualizada = conversaIds.includes(ativa)
+    const atualizada = conversaIdsRaw.includes(ativa)
     if (atualizada) {
       await carregarMensagens(ativa)
     }
 
-    for (const conversaId of conversaIds) {
+    for (const conversaId of conversaIdsRaw) {
       const mapa = digitandoPorConversa.value.get(conversaId)
       if (mapa) {
         for (const timer of mapa.values()) window.clearTimeout(timer)
         digitandoPorConversa.value.delete(conversaId)
       }
     }
-    if (conversaIds.length > 0) {
+    if (conversaIdsRaw.length > 0) {
       digitandoPorConversa.value = new Map(digitandoPorConversa.value)
     }
   }
@@ -744,6 +755,8 @@ export const useChatStore = defineStore('chat', () => {
     enviarDigitando,
     limparDigitandoConversaAtiva,
     registrarHandlerChamada,
-    removerHandlerChamada
+    removerHandlerChamada,
+    usuariosConversaAtiva,
+    carregarUsuariosConversa
   }
 })

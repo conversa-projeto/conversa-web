@@ -1,9 +1,10 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, triggerRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
 import { useChatStore } from './chat'
 import * as api from '../services/conversaApi'
-import type { Chamada, TipoChamada, EventoChamadaSocket } from '../types/api'
+import { TipoChamada, StatusUsuarioChamada, TipoEventoSocket } from '../types/api'
+import type { Chamada, EventoChamadaSocket } from '../types/api'
 
 export type EstadoChamada = 'inativo' | 'chamando' | 'recebendo' | 'ativa' | 'encerrando'
 
@@ -17,10 +18,7 @@ export interface PeerConexao {
 
 const ICE_SERVERS: RTCIceServer[] = (() => {
   const stunUrl = import.meta.env.VITE_STUN_URL
-  if (stunUrl === undefined || stunUrl === null) {
-    return [{ urls: 'stun:stun.l.google.com:19302' }]
-  }
-  if (stunUrl === '') return []
+  if (!stunUrl) return []
   return [{ urls: stunUrl }]
 })()
 
@@ -36,7 +34,7 @@ export const useCallStore = defineStore('call', () => {
 
   const streamLocal = shallowRef<MediaStream | null>(null)
   const streamTela = shallowRef<MediaStream | null>(null)
-  const peers = ref<Map<number, PeerConexao>>(new Map())
+  const peers = shallowRef<Map<number, PeerConexao>>(new Map())
 
   let tempoToqueChamada: number | null = null
   let trackCamera: MediaStreamTrack | null = null
@@ -103,7 +101,7 @@ export const useCallStore = defineStore('call', () => {
 
   const participantesAtivos = computed(() => {
     if (!chamada.value) return []
-    return chamada.value.usuarios.filter(u => u.status === 3)
+    return chamada.value.usuarios.filter(u => u.status === StatusUsuarioChamada.Entrou)
   })
 
   const chamadaRemetente = computed(() => {
@@ -121,7 +119,7 @@ export const useCallStore = defineStore('call', () => {
   })
 
   const somenteRecepcao = computed(() =>
-    estado.value === 'ativa' && tipoChamada.value === 2 && !streamLocal.value
+    estado.value === 'ativa' && tipoChamada.value === TipoChamada.Video && !streamLocal.value
   )
 
   // --- MediaMTX / WebRTC helpers ---
@@ -129,7 +127,7 @@ export const useCallStore = defineStore('call', () => {
   function getMediaMtxUrl(): string {
     const isSecure = window.location.protocol === 'https:'
     const proto = isSecure ? 'https' : 'http'
-    const port = import.meta.env.VITE_MEDIAMTX_PORT || '8889'
+    const port = import.meta.env.VITE_MEDIAMTX_PORT
     return `${proto}://${window.location.hostname}:${port}`
   }
 
@@ -159,10 +157,17 @@ export const useCallStore = defineStore('call', () => {
         resolve()
         return
       }
+      const timer = setTimeout(() => {
+        pc.onicegatheringstatechange = null
+        resolve()
+      }, 3000)
       pc.onicegatheringstatechange = () => {
-        if (pc.iceGatheringState === 'complete') resolve()
+        if (pc.iceGatheringState === 'complete') {
+          clearTimeout(timer)
+          pc.onicegatheringstatechange = null
+          resolve()
+        }
       }
-      setTimeout(resolve, 3000)
     })
   }
 
@@ -193,7 +198,7 @@ export const useCallStore = defineStore('call', () => {
       autoGainControl: true
     }
 
-    if (tipo !== 2) {
+    if (tipo !== TipoChamada.Video) {
       return { audio, video: false }
     }
 
@@ -267,7 +272,7 @@ export const useCallStore = defineStore('call', () => {
       for (const [, peer] of peers.value) {
         peer.txPc = pcPublicacaoLocal
       }
-      peers.value = new Map(peers.value)
+      triggerRef(peers)
 
       if (estado.value === 'ativa') {
         await sincronizarPeersComRetentativas(2)
@@ -304,7 +309,7 @@ export const useCallStore = defineStore('call', () => {
     const remoteStream = new MediaStream()
 
     pc.addTransceiver('audio', { direction: 'recvonly' })
-    if (tipoChamada.value === 2) {
+    if (tipoChamada.value === TipoChamada.Video) {
       pc.addTransceiver('video', { direction: 'recvonly' })
     }
 
@@ -319,7 +324,7 @@ export const useCallStore = defineStore('call', () => {
         videoTracks: remoteStream.getVideoTracks().length
       })
       // Forca reatividade para atualizar tile remoto quando o video chega depois.
-      peers.value = new Map(peers.value)
+      triggerRef(peers)
     }
 
     const offer = await pc.createOffer()
@@ -329,8 +334,8 @@ export const useCallStore = defineStore('call', () => {
     const caminhoStream = montarCaminhoStreamUsuario(chamadaId, fromUserId)
     let resposta: Response | null = null
     let tentativas = 0
-    const maxTentativas = tipoChamada.value === 2 ? 40 : 12
-    const atrasoTentativa = tipoChamada.value === 2 ? 1000 : 800
+    const maxTentativas = tipoChamada.value === TipoChamada.Video ? 40 : 12
+    const atrasoTentativa = tipoChamada.value === TipoChamada.Video ? 1000 : 800
 
     while (tentativas++ < maxTentativas) {
       try {
@@ -383,7 +388,7 @@ export const useCallStore = defineStore('call', () => {
     } else {
       entrada.usuarioNome = usuarioNome
     }
-    peers.value = new Map(peers.value)
+    triggerRef(peers)
 
     try {
       if (streamLocal.value && !pcPublicacaoLocal) {
@@ -397,7 +402,7 @@ export const useCallStore = defineStore('call', () => {
         entrada.stream = stream
       }
 
-      peers.value = new Map(peers.value)
+      triggerRef(peers)
     } catch (e) {
       if (!entrada.rxPc) {
         // Peer pode nao estar transmitindo (modo somente-recepcao)
@@ -434,7 +439,7 @@ export const useCallStore = defineStore('call', () => {
     for (const [, peer] of peers.value) {
       peer.txPc = null
     }
-    peers.value = new Map(peers.value)
+    triggerRef(peers)
   }
 
   function desconectarPeer(usuarioId: number) {
@@ -444,11 +449,12 @@ export const useCallStore = defineStore('call', () => {
     try { peer.rxPc?.close() } catch { /* ignore */ }
 
     peers.value.delete(usuarioId)
-    peers.value = new Map(peers.value)
+    triggerRef(peers)
   }
 
   function desconectarTodosPeers() {
-    for (const [userId] of peers.value) {
+    const ids = Array.from(peers.value.keys())
+    for (const userId of ids) {
       desconectarPeer(userId)
     }
     encerrarPublicacaoLocal()
@@ -462,7 +468,7 @@ export const useCallStore = defineStore('call', () => {
 
     const ativos = chamada.value.usuarios.filter((u) => {
       const id = normalizeUserId(u.usuario_id)
-      return id !== null && id !== meuUsuarioId && u.status === 3
+      return id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou
     })
     const idsAtivos = new Set(ativos.map(u => Number(u.usuario_id)))
     console.debug('[CALL] sincronizarPeersAtivos', { meuUsuarioId, ativos: Array.from(idsAtivos) })
@@ -511,7 +517,7 @@ export const useCallStore = defineStore('call', () => {
   }
 
   function resetarEstado() {
-    console.trace('[CALL] resetarEstado chamado, estado anterior:', estado.value)
+    console.debug('[CALL] resetarEstado, estado anterior:', estado.value)
     pararTimerDuracao()
     duracaoChamadaSegundos.value = 0
     estado.value = 'inativo'
@@ -534,7 +540,7 @@ export const useCallStore = defineStore('call', () => {
     tipoChamada.value = tipo
 
     try {
-      if (comTela && tipo === 2) {
+      if (comTela && tipo === TipoChamada.Video) {
         const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
         const audioStream = await navigator.mediaDevices.getUserMedia({
           audio: { sampleRate: 48000, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -574,8 +580,8 @@ export const useCallStore = defineStore('call', () => {
         try {
           streamLocal.value = await adquirirMidiaLocal(tipoChamada.value)
         } catch (erro) {
-          if (tipoChamada.value === 2) {
-            streamLocal.value = await adquirirMidiaLocal(1)
+          if (tipoChamada.value === TipoChamada.Video) {
+            streamLocal.value = await adquirirMidiaLocal(TipoChamada.Audio)
           } else {
             throw erro
           }
@@ -658,7 +664,7 @@ export const useCallStore = defineStore('call', () => {
   }
 
   function alternarCamera() {
-    if (!streamLocal.value || tipoChamada.value !== 2) return
+    if (!streamLocal.value || tipoChamada.value !== TipoChamada.Video) return
     cameraMutada.value = !cameraMutada.value
     streamLocal.value.getVideoTracks().forEach(t => {
       t.enabled = !cameraMutada.value
@@ -672,7 +678,7 @@ export const useCallStore = defineStore('call', () => {
   // --- Compartilhamento de tela ---
 
   async function compartilharTela() {
-    if (compartilhandoTela.value || tipoChamada.value !== 2 || !streamLocal.value) return
+    if (compartilhandoTela.value || tipoChamada.value !== TipoChamada.Video || !streamLocal.value) return
 
     const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
     const screenTrack = telaStream.getVideoTracks()[0]
@@ -741,8 +747,8 @@ export const useCallStore = defineStore('call', () => {
   async function iniciarTransmissaoLocal(opcoes?: { video?: boolean }) {
     if (estado.value !== 'ativa') return
 
-    const video = opcoes?.video ?? (tipoChamada.value === 2)
-    streamLocal.value = await adquirirMidiaLocal(video ? 2 : 1)
+    const video = opcoes?.video ?? (tipoChamada.value === TipoChamada.Video)
+    streamLocal.value = await adquirirMidiaLocal(video ? TipoChamada.Video : TipoChamada.Audio)
 
     // Reconecta todos os peers para incluir WHIP
     const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
@@ -758,7 +764,7 @@ export const useCallStore = defineStore('call', () => {
   // --- Upgrade audio → video ---
 
   async function upgradeParaVideo() {
-    if (tipoChamada.value !== 1 || estado.value !== 'ativa') return
+    if (tipoChamada.value !== TipoChamada.Audio || estado.value !== 'ativa') return
 
     const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
     const videoTrack = videoStream.getVideoTracks()[0]
@@ -767,10 +773,10 @@ export const useCallStore = defineStore('call', () => {
       streamLocal.value.addTrack(videoTrack)
     } else {
       // Se nao tinha stream local, adquire audio tambem
-      streamLocal.value = await adquirirMidiaLocal(2)
+      streamLocal.value = await adquirirMidiaLocal(TipoChamada.Video)
     }
 
-    tipoChamada.value = 2
+    tipoChamada.value = TipoChamada.Video
 
     // Reconecta peers para enviar video
     const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
@@ -798,11 +804,10 @@ export const useCallStore = defineStore('call', () => {
     const meuUsuarioId = getAuthUserId()
     if (meuUsuarioId === null) return
     const eventoUsuarioId = normalizeUserId(evento.usuario_id)
-    console.log('[CALL] Evento recebido:', evento.tipo, 'chamada_id:', evento.chamada_id, 'usuario_id:', (evento as any).usuario_id, 'estado atual:', estado.value)
+    console.log('[CALL] Evento recebido:', evento.tipo, 'chamada_id:', evento.chamada_id, 'usuario_id:', evento.usuario_id, 'estado atual:', estado.value)
 
     switch (evento.tipo) {
-      case 51: {
-        // ChamadaRecebida
+      case TipoEventoSocket.ChamadaRecebida: {
         if (eventoUsuarioId !== null && eventoUsuarioId === meuUsuarioId && estado.value === 'inativo') {
           return
         }
@@ -841,8 +846,7 @@ export const useCallStore = defineStore('call', () => {
         break
       }
 
-      case 52: {
-        // ChamadaFinalizada
+      case TipoEventoSocket.ChamadaFinalizada: {
         if (chamada.value?.id === evento.chamada_id) {
           cancelarTemporizadorToque()
           desconectarTodosPeers()
@@ -852,8 +856,7 @@ export const useCallStore = defineStore('call', () => {
         break
       }
 
-      case 53: {
-        // UsuarioRecusou
+      case TipoEventoSocket.UsuarioRecusou: {
         if (chamada.value?.id === evento.chamada_id) {
           chamada.value = await api.chamadaDados(evento.chamada_id)
 
@@ -861,7 +864,7 @@ export const useCallStore = defineStore('call', () => {
             const outroUsuario = chamada.value.usuarios.find(
               u => Number(u.usuario_id) !== meuUsuarioId
             )
-            if (outroUsuario?.status === 2) {
+            if (outroUsuario?.status === StatusUsuarioChamada.Recusou) {
               desconectarTodosPeers()
               liberarMidiaLocal()
               resetarEstado()
@@ -871,8 +874,7 @@ export const useCallStore = defineStore('call', () => {
         break
       }
 
-      case 54: {
-        // UsuarioEntrou
+      case TipoEventoSocket.UsuarioEntrou: {
         if (chamada.value?.id === evento.chamada_id && estado.value === 'chamando') {
           estado.value = 'ativa'
           iniciarTimerDuracao()
@@ -887,14 +889,13 @@ export const useCallStore = defineStore('call', () => {
         break
       }
 
-      case 55: {
-        // UsuarioSaiu
+      case TipoEventoSocket.UsuarioSaiu: {
         if (chamada.value?.id === evento.chamada_id) {
           desconectarPeer(Number(evento.usuario_id))
           chamada.value = await api.chamadaDados(evento.chamada_id)
 
           const outrosAtivos = chamada.value.usuarios.filter(
-            u => Number(u.usuario_id) !== meuUsuarioId && u.status === 3
+            u => Number(u.usuario_id) !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou
           )
           if (outrosAtivos.length === 0 && estado.value === 'ativa') {
             desconectarTodosPeers()

@@ -1,4 +1,4 @@
-import { ref, watch, type Ref, createApp, type App as VueApp } from 'vue'
+import { ref, watch, onUnmounted, type Ref, createApp, type App as VueApp } from 'vue'
 import { useCallStore } from '../stores/call'
 import { pinia } from '../pinia'
 import CallWindow from '../CallWindow.vue'
@@ -12,6 +12,7 @@ export function useCallPopup(erro: Ref<string>) {
   // Ringtone (Web Audio API)
   let toqueAudioCtx: AudioContext | null = null
   let toqueInterval: number | null = null
+  let toqueTimeout: number | null = null
 
   // Browser notification
   let notificacaoChamada: Notification | null = null
@@ -91,7 +92,7 @@ export function useCallPopup(erro: Ref<string>) {
         abrirJanelaChamada()
       }
     } catch (e) {
-      erro.value = e instanceof Error ? e.message : 'Erro ao ativar vídeo'
+      erro.value = e instanceof Error ? e.message : 'Erro ao ativar v\u00eddeo'
     }
   }
 
@@ -109,7 +110,10 @@ export function useCallPopup(erro: Ref<string>) {
       osc.frequency.value = 440
       gain.gain.value = 0.3
       osc.start()
-      setTimeout(() => { osc.stop(); osc.disconnect(); gain.disconnect() }, 1000)
+      toqueTimeout = window.setTimeout(() => {
+        toqueTimeout = null
+        try { osc.stop(); osc.disconnect(); gain.disconnect() } catch { /* ignore */ }
+      }, 1000)
     }
 
     tocar()
@@ -117,17 +121,21 @@ export function useCallPopup(erro: Ref<string>) {
   }
 
   function pararToque() {
+    if (toqueTimeout) { clearTimeout(toqueTimeout); toqueTimeout = null }
     if (toqueInterval) { clearInterval(toqueInterval); toqueInterval = null }
-    if (toqueAudioCtx) { toqueAudioCtx.close(); toqueAudioCtx = null }
+    if (toqueAudioCtx) {
+      void toqueAudioCtx.close().catch(() => {})
+      toqueAudioCtx = null
+    }
   }
 
   // Notification
   function mostrarNotificacaoChamada() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return
-    const remetente = call.chamadaRemetente?.usuario_nome || 'Alguém'
-    const tipo = call.tipoChamada === 2 ? 'Vídeo' : 'Áudio'
+    const remetente = call.chamadaRemetente?.usuario_nome || 'Algu\u00e9m'
+    const tipo = call.tipoChamada === 2 ? 'V\u00eddeo' : '\u00c1udio'
     notificacaoChamada = new Notification('Chamada recebida', {
-      body: `${remetente} está ligando (${tipo})`,
+      body: `${remetente} est\u00e1 ligando (${tipo})`,
       tag: 'conversa-chamada',
       requireInteraction: true
     })
@@ -168,6 +176,8 @@ export function useCallPopup(erro: Ref<string>) {
     pararToque()
     fecharNotificacaoChamada()
   }
+
+  onUnmounted(cleanup)
 
   return {
     janelaChamada,

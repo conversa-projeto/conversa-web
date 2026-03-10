@@ -12,7 +12,7 @@
     <div class="mx-auto w-full max-w-[1200px]">
       <p v-if="erro" class="mb-2 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erro }}</p>
 
-      <div v-if="arquivosFila.length" class="preview-grid mb-2 flex min-w-0 flex-wrap items-start gap-1 rounded border border-slate-300 bg-slate-50 p-2">
+      <div v-if="arquivosFila.length" class="preview-grid mb-2 flex max-h-48 min-w-0 flex-wrap items-start gap-1 overflow-y-auto rounded border border-slate-300 bg-slate-50 p-2">
         <div
           v-for="arq in arquivosFila"
           :key="arq.id"
@@ -107,7 +107,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
-import { extensaoPorMime } from '../utils/formatters'
+import { extensaoPorMime, formatarDuracao, formatarTamanho } from '../utils/formatters'
 import { useAudioRecording } from '../composables/useAudioRecording'
 
 const emit = defineEmits<{
@@ -223,24 +223,6 @@ function carregarDuracaoAudio(id: string, file: Blob, previewUrl: string) {
 
   audio.src = previewUrl
   audio.load()
-}
-
-function formatarDuracao(segundos?: number | null) {
-  if (segundos == null) return '--:--'
-  const total = Math.max(0, Math.floor(segundos))
-  const min = Math.floor(total / 60)
-  const seg = total % 60
-  return `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`
-}
-
-function formatarTamanho(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  const kb = bytes / 1024
-  if (kb < 1024) return `${kb.toFixed(1)} KB`
-  const mb = kb / 1024
-  if (mb < 1024) return `${mb.toFixed(1)} MB`
-  const gb = mb / 1024
-  return `${gb.toFixed(1)} GB`
 }
 
 function pararPreviewAtual() {

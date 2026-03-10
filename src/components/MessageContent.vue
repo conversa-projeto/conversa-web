@@ -1,6 +1,6 @@
 <template>
   <div class="mb-1 last:mb-0">
-    <template v-if="conteudo.tipo === 1">
+    <template v-if="conteudo.tipo === TipoConteudo.Texto">
       <template v-if="temCodigoFormatado(conteudo.conteudo)">
         <template v-for="(seg, segIdx) in parseCodeBlocks(conteudo.conteudo)" :key="segIdx">
           <p
@@ -51,7 +51,7 @@
     </template>
 
     <img
-      v-else-if="conteudo.tipo === 2"
+      v-else-if="conteudo.tipo === TipoConteudo.Imagem"
       :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
       alt="Imagem"
       class="max-h-64 cursor-zoom-in rounded border border-slate-200"
@@ -61,7 +61,7 @@
       @click="emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
     />
 
-    <template v-else-if="conteudo.tipo === 3">
+    <template v-else-if="conteudo.tipo === TipoConteudo.Arquivo">
       <template v-if="isVideoConteudo(conteudo)">
         <div class="w-[420px] max-w-full">
           <video
@@ -97,11 +97,12 @@
         </button>
       </div>
     </template>
-    <audio v-else-if="conteudo.tipo === 4" controls preload="metadata" :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)" class="w-64" />
+    <audio v-else-if="conteudo.tipo === TipoConteudo.Audio" controls preload="metadata" :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)" class="w-64" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
 import { useCodeHighlight } from '../composables/useCodeHighlight'

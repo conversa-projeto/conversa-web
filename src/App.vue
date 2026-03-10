@@ -1,5 +1,10 @@
 <template>
   <div class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-blue-50 p-1 md:p-4">
+    <div v-if="erro" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg bg-rose-600 px-4 py-2 text-sm text-white shadow-lg">
+      {{ erro }}
+      <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
+    </div>
+
     <LoginForm v-if="!auth.isAuthenticated" @login-success="onLoginSuccess" />
 
     <div v-else class="flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-white shadow md:h-[calc(100vh-2rem)]">
@@ -137,6 +142,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useCallStore } from './stores/call'
+import { TipoConversa } from './types/api'
 import type { TipoChamada } from './types/api'
 import { useCallPopup } from './composables/useCallPopup'
 import { useImageViewer } from './composables/useImageViewer'
@@ -169,9 +175,9 @@ const modalParticipantesChamada = ref(false)
 const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)
 const modalAdicionarUsuario = ref(false)
-const isMobile = computed(() => /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent))
+const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
 const mostrarChamadaNoPrincipal = computed(() =>
-  isMobile.value && call.emChamada && call.tipoChamada === 2
+  isMobile && call.emChamada && call.tipoChamada === 2
 )
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
@@ -212,7 +218,6 @@ const {
   abrirPreviewImagem,
   fecharPreviewImagem,
   confirmarEnvioPreviewImagem,
-  cleanup: cleanupImagePreview
 } = useImagePreview(() => {
   messageListRef.value?.rolarParaFinal()
 })
@@ -263,7 +268,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   cleanupCallPopup()
-  cleanupImagePreview()
   chat.removerHandlerChamada()
   call.encerrarChamada()
   chat.encerrarTempoReal()
@@ -290,9 +294,9 @@ async function onConversationOpened() {
 function solicitarChamada(tipo: TipoChamada, comTela = false) {
   if (!chat.conversaAtiva) return
 
-  if (chat.conversaAtiva.tipo === 1 && chat.conversaAtiva.destinatario_id) {
+  if (chat.conversaAtiva.tipo === TipoConversa.Direta && chat.conversaAtiva.destinatario_id) {
     void iniciarChamadaDireta(tipo, chat.conversaAtiva.destinatario_id, comTela)
-  } else if (chat.conversaAtiva.tipo === 2) {
+  } else if (chat.conversaAtiva.tipo === TipoConversa.Grupo) {
     tipoChamadaPendente.value = tipo
     comTelaPendente.value = comTela
     modalParticipantesChamada.value = true

@@ -19,7 +19,7 @@
           v-else
           :mensagem="item.mensagem"
           :is-own="item.mensagem.remetente_id === auth.user?.id"
-          :is-group="chat.conversaAtiva?.tipo === 2"
+          :is-group="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
           :get-anexo-url="anexoUrl"
           @open-image="(id, nome) => emit('open-image', id, nome)"
           @image-loaded="aoCarregarImagemNoChat"
@@ -45,6 +45,7 @@ import { formatarDiaSeparador } from '../utils/formatters'
 import { useScrollManager } from '../composables/useScrollManager'
 import { useAttachments } from '../composables/useAttachments'
 import MessageBubble from './MessageBubble.vue'
+import { TipoConversa } from '../types/api'
 import type { Mensagem } from '../types/api'
 
 const emit = defineEmits<{

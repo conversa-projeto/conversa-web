@@ -50,13 +50,17 @@ export function useScrollManager() {
     }
   }
 
+  let highlightTimer = 0
+
   function irParaMensagem(mensagemId: number) {
     const node = document.getElementById(`msg-${mensagemId}`)
     if (!node) return
     node.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      ; (node as HTMLElement).classList.add('ring-2', 'ring-amber-400')
-    window.setTimeout(() => {
-      ; (node as HTMLElement).classList.remove('ring-2', 'ring-amber-400')
+    node.classList.add('ring-2', 'ring-amber-400')
+    if (highlightTimer) window.clearTimeout(highlightTimer)
+    highlightTimer = window.setTimeout(() => {
+      node.classList.remove('ring-2', 'ring-amber-400')
+      highlightTimer = 0
     }, 1200)
   }
 
@@ -99,7 +103,8 @@ export function useScrollManager() {
 
       const box = node.getBoundingClientRect()
       const totalmenteVisivel = box.top >= limite.top && box.bottom <= limite.bottom
-      if (totalmenteVisivel) {
+      const fimVisivel = box.bottom <= limite.bottom && box.bottom >= limite.top
+      if (totalmenteVisivel || fimVisivel) {
         idsVisiveis.push(mensagem.id)
       }
     }
@@ -120,7 +125,7 @@ export function useScrollManager() {
     if (!conversaId || !container) return
     if (carregandoHistorico.value || chat.carregando) return
 
-    // Topo quase alcançado: busca página anterior.
+    // Topo quase alcanÃ§ado: busca pÃ¡gina anterior.
     if (container.scrollTop > 40) return
 
     carregandoHistorico.value = true
@@ -203,6 +208,10 @@ export function useScrollManager() {
     if (frameValidacaoVisualizacao) {
       cancelAnimationFrame(frameValidacaoVisualizacao)
       frameValidacaoVisualizacao = 0
+    }
+    if (highlightTimer) {
+      window.clearTimeout(highlightTimer)
+      highlightTimer = 0
     }
   })
 

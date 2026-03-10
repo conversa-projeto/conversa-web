@@ -70,7 +70,7 @@
                   <div class="flex min-w-0 items-center gap-1.5">
                     <span class="truncate">{{ tituloConversa(conversa) }}</span>
                     <span
-                      v-if="conversa.tipo === 2"
+                      v-if="conversa.tipo === TipoConversa.Grupo"
                       class="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700"
                       title="Conversa em grupo"
                     >
@@ -129,6 +129,7 @@
 import { computed, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
+import { TipoConversa } from '../types/api'
 import type { Conversa } from '../types/api'
 import ProfileSettingsModal from './ProfileSettingsModal.vue'
 
