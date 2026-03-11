@@ -287,12 +287,17 @@ export const useCallStore = defineStore('call', () => {
   function monitorarPublicacaoLocal(pc: RTCPeerConnection) {
     pc.onconnectionstatechange = () => {
       const estadoPc = pc.connectionState
+      console.debug('[CALL][WHIP] connectionState', { state: estadoPc })
       if (
         (estadoPc === 'failed' || estadoPc === 'disconnected') &&
         pcPublicacaoLocal === pc
       ) {
+        console.warn('[CALL][WHIP] conexão perdida, reestabelecendo publicação...')
         void reestabelecerPublicacaoLocal()
       }
+    }
+    pc.oniceconnectionstatechange = () => {
+      console.debug('[CALL][WHIP] iceConnectionState', { state: pc.iceConnectionState })
     }
   }
 
@@ -319,12 +324,33 @@ export const useCallStore = defineStore('call', () => {
         fromUserId,
         kind: e.track.kind,
         muted: e.track.muted,
+        enabled: e.track.enabled,
         readyState: e.track.readyState,
         totalTracks: remoteStream.getTracks().length,
         videoTracks: remoteStream.getVideoTracks().length
       })
+
+      e.track.onended = () => {
+        console.warn('[CALL][WHEP] track ended', { fromUserId, kind: e.track.kind })
+      }
+      e.track.onmute = () => {
+        console.warn('[CALL][WHEP] track muted', { fromUserId, kind: e.track.kind })
+      }
+      e.track.onunmute = () => {
+        console.debug('[CALL][WHEP] track unmuted', { fromUserId, kind: e.track.kind })
+        triggerRef(peers)
+      }
+
       // Forca reatividade para atualizar tile remoto quando o video chega depois.
       triggerRef(peers)
+    }
+
+    pc.onconnectionstatechange = () => {
+      console.debug('[CALL][WHEP] connectionState', { fromUserId, state: pc.connectionState })
+    }
+
+    pc.oniceconnectionstatechange = () => {
+      console.debug('[CALL][WHEP] iceConnectionState', { fromUserId, state: pc.iceConnectionState })
     }
 
     const offer = await pc.createOffer()
@@ -349,8 +375,8 @@ export const useCallStore = defineStore('call', () => {
           break
         }
         console.debug('[CALL][WHEP] tentativa sem stream', { fromUserId, caminhoStream, tentativa: tentativas, status: resposta.status })
-      } catch {
-        // retry
+      } catch (err) {
+        console.warn('[CALL][WHEP] erro na tentativa', { fromUserId, tentativa: tentativas, erro: err })
       }
       await atraso(atrasoTentativa)
     }
@@ -360,9 +386,14 @@ export const useCallStore = defineStore('call', () => {
       throw new Error(`WHEP erro: ${resposta?.status || 'timeout'}`)
     }
 
+    const answerSdp = await resposta.text()
+    const temVideo = answerSdp.includes('m=video')
+    const temAudio = answerSdp.includes('m=audio')
+    console.debug('[CALL][WHEP] answer SDP', { fromUserId, temVideo, temAudio })
+
     await pc.setRemoteDescription({
       type: 'answer',
-      sdp: await resposta.text()
+      sdp: answerSdp
     })
 
     return { pc, stream: remoteStream }
@@ -400,20 +431,66 @@ export const useCallStore = defineStore('call', () => {
         const { pc, stream } = await assinarDePeer(alvoId)
         entrada.rxPc = pc
         entrada.stream = stream
+
+        // Monitorar conexão WHEP e reconectar se falhar
+        pc.onconnectionstatechange = () => {
+          const estadoPc = pc.connectionState
+          console.debug('[CALL][WHEP] conexão estado', { userId: alvoId, nome: usuarioNome, estado: estadoPc })
+
+          if (estadoPc === 'failed' || estadoPc === 'disconnected') {
+            console.warn('[CALL][WHEP] conexão perdida, reconectando...', { userId: alvoId, nome: usuarioNome })
+            try { pc.close() } catch { /* ignore */ }
+            entrada.rxPc = null
+            entrada.stream = null
+            triggerRef(peers)
+
+            if (estado.value === 'ativa') {
+              window.setTimeout(() => {
+                if (estado.value === 'ativa') {
+                  void conectarPeer(alvoId, usuarioNome)
+                }
+              }, 2000)
+            }
+          }
+        }
+
+        // Verificar se tracks de vídeo chegaram após conexão estabelecida
+        if (tipoChamada.value === TipoChamada.Video) {
+          window.setTimeout(() => {
+            if (entrada.stream && entrada.stream.getVideoTracks().length === 0 && entrada.rxPc) {
+              console.warn('[CALL][WHEP] nenhuma track de vídeo após 5s, reconectando...', { userId: alvoId, nome: usuarioNome, connectionState: entrada.rxPc.connectionState })
+              try { entrada.rxPc.close() } catch { /* ignore */ }
+              entrada.rxPc = null
+              entrada.stream = null
+              triggerRef(peers)
+              if (estado.value === 'ativa') {
+                void conectarPeer(alvoId, usuarioNome)
+              }
+            }
+          }, 5000)
+        }
       }
 
       triggerRef(peers)
+      console.debug('[CALL] conectarPeer concluido', {
+        userId: alvoId,
+        nome: usuarioNome,
+        temRxPc: !!entrada.rxPc,
+        temStream: !!entrada.stream,
+        videoTracks: entrada.stream?.getVideoTracks().length ?? 0,
+        audioTracks: entrada.stream?.getAudioTracks().length ?? 0
+      })
     } catch (e) {
       if (!entrada.rxPc) {
         // Peer pode nao estar transmitindo (modo somente-recepcao)
-        console.warn(`WHEP: ${usuarioNome} pode nao estar transmitindo ainda`)
+        console.warn(`[CALL][WHEP] ${usuarioNome} pode nao estar transmitindo ainda`)
       }
 
       const msgErro = e instanceof Error ? e.message : String(e)
       if (msgErro.includes('WHEP erro: 404')) {
         // 404 costuma ser transitorio (peer ainda nao publicou) ou peer em modo somente-recepcao.
         // Nao elevamos para erro visual; novas sincronizacoes vao tentar novamente.
-        console.warn(`WHEP 404 para ${usuarioNome}, aguardando nova sincronizacao`)
+        console.warn(`[CALL][WHEP] 404 para ${usuarioNome}, aguardando nova sincronizacao`)
         window.setTimeout(() => {
           if (estado.value === 'ativa') {
             void sincronizarPeersAtivos()
@@ -423,7 +500,7 @@ export const useCallStore = defineStore('call', () => {
         erroMsg.value = `Erro ao conectar com ${usuarioNome}: ${msgErro}`
       }
 
-      console.error('Erro conectarPeer', e)
+      console.error('[CALL] Erro conectarPeer', e)
     }
   }
 
@@ -480,7 +557,30 @@ export const useCallStore = defineStore('call', () => {
     }
 
     for (const usuario of ativos) {
-      await conectarPeer(Number(usuario.usuario_id), usuario.usuario_nome)
+      const userId = Number(usuario.usuario_id)
+      const peerExistente = peers.value.get(userId)
+
+      // Reconectar se o peer existe mas a conexão WHEP falhou ou não tem tracks de vídeo
+      if (peerExistente?.rxPc) {
+        const estadoConexao = peerExistente.rxPc.connectionState
+        const semVideoEmChamadaVideo = tipoChamada.value === TipoChamada.Video &&
+          (!peerExistente.stream || peerExistente.stream.getVideoTracks().length === 0)
+
+        if (estadoConexao === 'failed' || estadoConexao === 'disconnected' || estadoConexao === 'closed' || semVideoEmChamadaVideo) {
+          console.warn('[CALL] reconectando peer com problema', {
+            userId,
+            nome: usuario.usuario_nome,
+            connectionState: estadoConexao,
+            videoTracks: peerExistente.stream?.getVideoTracks().length ?? 0
+          })
+          try { peerExistente.rxPc.close() } catch { /* ignore */ }
+          peerExistente.rxPc = null
+          peerExistente.stream = null
+          triggerRef(peers)
+        }
+      }
+
+      await conectarPeer(userId, usuario.usuario_nome)
     }
   }
 
@@ -560,6 +660,15 @@ export const useCallStore = defineStore('call', () => {
 
       estado.value = 'chamando'
       chamada.value = await api.chamadaIniciar(tipo, usuarios)
+
+      // Publicar stream local no MediaMTX imediatamente para que esteja disponível
+      // quando o receptor aceitar e tentar assinar via WHEP.
+      try {
+        pcPublicacaoLocal = await publicarLocalNaSala()
+        console.debug('[CALL] Stream local publicado após iniciar chamada')
+      } catch (whipErr) {
+        console.warn('[CALL] Falha ao publicar stream local após iniciar chamada', whipErr)
+      }
     } catch (e) {
       liberarMidiaLocal()
       resetarEstado()
