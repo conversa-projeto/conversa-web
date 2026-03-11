@@ -85,6 +85,13 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(USER_KEY)
   }
 
+  function atualizarAvatar(url: string) {
+    if (user.value) {
+      user.value = { ...user.value, avatar_url: url }
+      localStorage.setItem(USER_KEY, JSON.stringify(user.value))
+    }
+  }
+
   return {
     token,
     user,
@@ -93,6 +100,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     setApiBase,
     login,
-    logout
+    logout,
+    atualizarAvatar
   }
 })

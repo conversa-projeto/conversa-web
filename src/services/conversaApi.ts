@@ -32,6 +32,13 @@ export function alterarSenha(senhaAtual: string, senhaNova: string) {
     }
   })
 }
+
+export function atualizarUsuario(id: number, dados: Record<string, unknown>) {
+  return requestApi<{ sucesso: boolean }>('/usuario', 'PATCH', {
+    body: { id, ...dados }
+  })
+}
+
 export function getContatos() {
   return requestApi<Contato[]>('/usuario/contatos')
 }
@@ -122,16 +129,16 @@ export async function uploadMinio(url: string, file: Blob, onProgress?: (percent
 export async function uploadAnexo(tipo: TipoConteudo, nome: string, extensao: string, data: Blob, onProgress?: (percent: number) => void): Promise<AnexoResponse> {
   const identificador = await sha256File(data)
 
-  const existe = await requestApi<{ existe: boolean }>('/anexo/existe', 'GET', {
+  const existe = await requestApi<{ existe: boolean; id?: number }>('/anexo/existe', 'GET', {
     query: { identificador }
   })
 
-  if (existe.existe) {
+  if (existe.existe && existe.id) {
     if (onProgress) onProgress(100)
-    return { identificador }
+    return { id: existe.id, identificador }
   }
 
-  const presign = await requestApi<{ identificador: string, upload_url: string }>('/anexo', 'PUT', {
+  const presign = await requestApi<{ id: number; identificador: string; upload_url: string }>('/anexo', 'PUT', {
     body: {
       identificador,
       tipo,
@@ -142,7 +149,7 @@ export async function uploadAnexo(tipo: TipoConteudo, nome: string, extensao: st
   })
 
   await uploadMinio(presign.upload_url, data, onProgress)
-  return { identificador }
+  return { id: presign.id, identificador }
 }
 
 export function getAnexoUrl(identificador: string) {

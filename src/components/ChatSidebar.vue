@@ -153,8 +153,7 @@ const mostrarBuscaContato = ref(false)
 const abrirConfiguracoes = ref(false)
 
 const avatarUsuario = computed(() => {
-  const user = auth.user as unknown as { avatar_url?: string | null; foto_url?: string | null; imagem_url?: string | null } | null
-  return user?.avatar_url || user?.foto_url || user?.imagem_url || ''
+  return auth.user?.avatar_url || ''
 })
 
 const inicialUsuario = computed(() => {
@@ -194,8 +193,7 @@ function inicialConversa(conversa: Conversa) {
 }
 
 function avatarConversa(conversa: Conversa) {
-  const c = conversa as unknown as { avatar_url?: string | null; foto_url?: string | null; imagem_url?: string | null }
-  return c.avatar_url || c.foto_url || c.imagem_url || ''
+  return conversa.avatar_url || ''
 }
 
 async function abrirConversa(conversaId: number) {

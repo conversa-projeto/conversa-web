@@ -1,7 +1,7 @@
 <template>
   <div class="mx-auto mt-10 w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
     <div class="bg-slate-900/80 px-6 py-8 text-center">
-      <img src="/logo.png" alt="Logo" class="mx-auto p-2" />
+      <img src="/logo.png" alt="Logo" class="mx-auto h-[200px] w-[200px]" />
       <h1 class="mt-4 text-2xl font-bold text-white">Conversa</h1>
       <p class="mt-1 text-sm text-slate-300">Entre com seu usu&aacute;rio e senha</p>
     </div>

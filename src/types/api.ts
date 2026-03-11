@@ -92,6 +92,7 @@ export interface Conversa {
   ultima_mensagem?: string | null
   ultima_mensagem_texto?: string | null
   mensagens_sem_visualizar?: number
+  avatar_url?: string | null
 }
 
 export interface ConteudoMensagem {
@@ -119,6 +120,7 @@ export interface Mensagem {
 }
 
 export interface AnexoResponse {
+  id: number
   identificador: string
 }
 
