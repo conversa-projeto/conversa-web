@@ -20,15 +20,15 @@
             </template>
           </p>
           <div v-else-if="seg.tipo === 'codigo'" class="group relative my-1 max-w-full">
-            <div class="flex items-center justify-between rounded-t bg-slate-700 px-3 py-1">
-              <span class="text-[10px] text-slate-400">{{ seg.linguagem || 'code' }}</span>
+            <div class="flex items-center justify-between rounded-t bg-slate-200 px-3 py-1">
+              <span class="text-[10px] text-slate-500">{{ seg.linguagem || 'code' }}</span>
               <button
                 class="text-[10px] transition-opacity"
-                :class="codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'text-emerald-400' : 'text-slate-400 opacity-0 group-hover:opacity-100 hover:text-white'"
+                :class="codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'text-emerald-600' : 'text-slate-500 opacity-0 group-hover:opacity-100 hover:text-slate-800'"
                 @click="copiarCodigo(seg.conteudo, `${mensagemId}-${segIdx}`)"
               >{{ codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
             </div>
-            <pre class="overflow-x-auto rounded-b bg-slate-800 p-3 text-xs leading-relaxed text-slate-100"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+            <pre class="overflow-x-auto rounded-b bg-slate-50 p-3 text-xs leading-relaxed text-slate-800 border border-slate-200"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
           </div>
         </template>
       </template>
@@ -55,7 +55,6 @@
       :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
       alt="Imagem"
       class="max-h-64 cursor-zoom-in rounded border border-slate-200"
-      loading="lazy"
       decoding="async"
       @load="emit('image-loaded')"
       @click="emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"

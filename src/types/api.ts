@@ -18,6 +18,7 @@ export const TipoEventoSocket = {
   NovaMensagem: 2,
   StatusMensagem: 3,
   Digitando: 4,
+  GravandoAudio: 5,
   ConversaAtualizada: 40,
   ChamadaRecebida: 51,
   ChamadaFinalizada: 52,
@@ -63,6 +64,7 @@ export interface Usuario {
   email: string
   telefone?: string | null
   avatar_url?: string | null
+  avatar_identificador?: string | null
 }
 
 export interface Dispositivo {

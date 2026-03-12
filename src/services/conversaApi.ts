@@ -256,3 +256,9 @@ export function digitando(conversaId: number) {
     body: { id: conversaId }
   })
 }
+
+export function gravandoAudio(conversaId: number) {
+  return requestApi<{ sucesso: boolean }>('/conversa/gravando', 'POST', {
+    body: { id: conversaId }
+  })
+}

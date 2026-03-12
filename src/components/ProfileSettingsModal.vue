@@ -10,8 +10,8 @@
         <p class="mb-2 text-sm font-medium text-slate-700">Foto de perfil</p>
         <div class="flex items-center gap-3">
           <div class="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xl font-semibold text-blue-700">
-            <img v-if="avatarPreview || avatarAtual" :src="avatarPreview || avatarAtual" alt="Avatar" class="h-full w-full object-cover" />
-            <span v-else>{{ inicialUsuario }}</span>
+            <img v-if="avatarPreview || avatarAtual" :src="avatarPreview || avatarAtual" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+            <span v-if="!avatarPreview && !avatarAtual">{{ inicialUsuario }}</span>
             <div
               v-if="uploadProgresso > 0 && uploadProgresso < 100"
               class="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-bold text-white"
@@ -111,7 +111,7 @@ const erroAvatar = ref('')
 const enviandoAvatar = ref(false)
 const uploadProgresso = ref(0)
 
-const avatarAtual = computed(() => auth.user?.avatar_url || '')
+const avatarAtual = computed(() => auth.avatarUrl || '')
 const inicialUsuario = computed(() => {
   const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
   return nome.charAt(0).toUpperCase()
@@ -158,7 +158,7 @@ async function selecionarAvatar(event: Event) {
     await api.atualizarUsuario(auth.user.id, { avatar_anexo_id: anexo.id })
 
     const url = await api.getAnexoUrl(anexo.identificador)
-    auth.atualizarAvatar(url)
+    auth.atualizarAvatar(anexo.identificador, url)
 
     URL.revokeObjectURL(avatarPreview.value)
     avatarPreview.value = ''
@@ -180,7 +180,7 @@ async function removerAvatar() {
   enviandoAvatar.value = true
   try {
     await api.atualizarUsuario(auth.user.id, { avatar_anexo_id: null })
-    auth.atualizarAvatar('')
+    auth.removerAvatar()
   } catch (e) {
     erroAvatar.value = e instanceof Error ? e.message : 'Erro ao remover avatar'
   } finally {

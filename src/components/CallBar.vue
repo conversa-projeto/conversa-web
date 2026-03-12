@@ -11,7 +11,7 @@
       {{ call.duracaoChamadaFormatada }}
     </span>
     <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
-      {{ call.tipoChamada === 2 ? 'V\u00EDdeo' : '\u00C1udio' }}
+      {{ call.tipoChamada === 2 ? 'Vídeo' : 'Áudio' }}
     </span>
     <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-emerald-400">
       {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
@@ -36,8 +36,8 @@
       <audio v-if="peer.stream" v-src-object="peer.stream" autoplay :muted="call.saidaAudioMutada"></audio>
     </template>
 
-    <!-- Inline controls for audio call (no popup) -->
-    <template v-if="!janelaChamadaAberta && call.tipoChamada === 1">
+    <!-- Inline controls for audio call -->
+    <template v-if="call.tipoChamada === 1">
       <div class="ml-auto flex items-center gap-1.5">
         <CallControlButton
           size="xs"
@@ -89,35 +89,15 @@
       </div>
     </template>
 
-    <!-- Controls when popup is open -->
-    <template v-if="janelaChamadaAberta">
+    <!-- Controls for video call (shown when CallWindow is floating/minimized) -->
+    <template v-if="call.tipoChamada === 2">
       <div class="ml-auto flex items-center gap-1.5">
         <button
           class="flex items-center gap-1 rounded-full bg-slate-700 px-2 py-1 text-[10px] font-medium text-white hover:bg-slate-600"
-          @click="emit('focus-call-window')"
+          @click="emit('show-call-window')"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-          Focar janela
-        </button>
-        <CallControlButton
-          size="xs"
-          variant="danger"
-          icon="leave"
-          title="Sair da chamada"
-          @click="emit('leave-call')"
-        />
-      </div>
-    </template>
-
-    <!-- Controls for video/screen without popup -->
-    <template v-if="!janelaChamadaAberta && call.tipoChamada === 2">
-      <div class="ml-auto flex items-center gap-1.5">
-        <button
-          class="flex items-center gap-1 rounded-full bg-slate-700 px-2 py-1 text-[10px] font-medium text-white hover:bg-slate-600"
-          @click="emit('open-call-window')"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
-          Abrir janela
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
+          Abrir chamada
         </button>
         <CallControlButton
           size="xs"
@@ -142,16 +122,11 @@ import { iniciaisUsuario } from '../utils/formatters'
 import { vSrcObject } from '../directives/vSrcObject'
 import CallControlButton from './CallControlButton.vue'
 
-defineProps<{
-  janelaChamadaAberta: boolean
-}>()
-
 const emit = defineEmits<{
   'open-add-user-modal': []
   'upgrade-video': []
   'leave-call': []
-  'open-call-window': []
-  'focus-call-window': []
+  'show-call-window': []
 }>()
 
 const auth = useAuthStore()

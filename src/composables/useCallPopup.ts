@@ -1,13 +1,8 @@
-import { ref, watch, onUnmounted, type Ref, createApp, type App as VueApp } from 'vue'
+import { watch, onUnmounted, type Ref } from 'vue'
 import { useCallStore } from '../stores/call'
-import { pinia } from '../pinia'
-import CallWindow from '../CallWindow.vue'
 
 export function useCallPopup(erro: Ref<string>) {
   const call = useCallStore()
-
-  const janelaChamada = ref<Window | null>(null)
-  let appPopup: VueApp | null = null
 
   // Ringtone (Web Audio API)
   let toqueAudioCtx: AudioContext | null = null
@@ -17,67 +12,7 @@ export function useCallPopup(erro: Ref<string>) {
   // Browser notification
   let notificacaoChamada: Notification | null = null
 
-  function suportaPopupChamada() {
-    return !/Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
-  }
-
-  function abrirJanelaChamada() {
-    if (!suportaPopupChamada()) {
-      return
-    }
-
-    if (janelaChamada.value && !janelaChamada.value.closed) {
-      janelaChamada.value.focus()
-      return
-    }
-
-    const popup = window.open('', 'conversa-chamada', 'width=800,height=600,resizable=yes')
-    if (!popup) return
-
-    janelaChamada.value = popup
-
-    popup.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Chamada</title>')
-    for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
-      popup.document.write(link.outerHTML)
-    }
-    for (const style of document.querySelectorAll('style')) {
-      popup.document.write(style.outerHTML)
-    }
-    popup.document.write('</head><body><div id="call-app"></div></body></html>')
-    popup.document.close()
-
-    popup.addEventListener('DOMContentLoaded', () => mountPopupApp(popup))
-    if (popup.document.readyState !== 'loading') {
-      mountPopupApp(popup)
-    }
-
-    popup.addEventListener('beforeunload', () => {
-      fecharJanelaChamada(false)
-    })
-  }
-
-  function mountPopupApp(popup: Window) {
-    const container = popup.document.getElementById('call-app')
-    if (!container || appPopup) return
-
-    appPopup = createApp(CallWindow)
-    appPopup.use(pinia)
-    appPopup.mount(container)
-  }
-
-  function fecharJanelaChamada(fecharPopup = true) {
-    if (appPopup) {
-      appPopup.unmount()
-      appPopup = null
-    }
-    if (fecharPopup && janelaChamada.value && !janelaChamada.value.closed) {
-      janelaChamada.value.close()
-    }
-    janelaChamada.value = null
-  }
-
   function sairDaChamadaAtual() {
-    fecharJanelaChamada()
     if (call.estado === 'chamando') {
       void call.cancelarChamada()
     } else {
@@ -88,11 +23,8 @@ export function useCallPopup(erro: Ref<string>) {
   async function upgradeParaVideoUI() {
     try {
       await call.upgradeParaVideo()
-      if (suportaPopupChamada()) {
-        abrirJanelaChamada()
-      }
     } catch (e) {
-      erro.value = e instanceof Error ? e.message : 'Erro ao ativar v\u00eddeo'
+      erro.value = e instanceof Error ? e.message : 'Erro ao ativar vídeo'
     }
   }
 
@@ -132,10 +64,10 @@ export function useCallPopup(erro: Ref<string>) {
   // Notification
   function mostrarNotificacaoChamada() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return
-    const remetente = call.chamadaRemetente?.usuario_nome || 'Algu\u00e9m'
-    const tipo = call.tipoChamada === 2 ? 'V\u00eddeo' : '\u00c1udio'
+    const remetente = call.chamadaRemetente?.usuario_nome || 'Alguém'
+    const tipo = call.tipoChamada === 2 ? 'Vídeo' : 'Áudio'
     notificacaoChamada = new Notification('Chamada recebida', {
-      body: `${remetente} est\u00e1 ligando (${tipo})`,
+      body: `${remetente} está ligando (${tipo})`,
       tag: 'conversa-chamada',
       requireInteraction: true
     })
@@ -166,13 +98,11 @@ export function useCallPopup(erro: Ref<string>) {
 
   watch(() => call.emChamada, (em) => {
     if (!em) {
-      fecharJanelaChamada()
       pararToque()
     }
   })
 
   function cleanup() {
-    fecharJanelaChamada()
     pararToque()
     fecharNotificacaoChamada()
   }
@@ -180,13 +110,9 @@ export function useCallPopup(erro: Ref<string>) {
   onUnmounted(cleanup)
 
   return {
-    janelaChamada,
-    abrirJanelaChamada,
-    fecharJanelaChamada,
     sairDaChamadaAtual,
     upgradeParaVideoUI,
     pararToque,
-    fecharNotificacaoChamada,
     cleanup
   }
 }

@@ -45,11 +45,9 @@
 
         <CallBar
           v-if="call.emChamada && !mostrarChamadaNoPrincipal"
-          :janela-chamada-aberta="!!janelaChamada"
           @leave-call="sairDaChamadaAtual"
           @upgrade-video="upgradeParaVideoUI"
-          @open-call-window="abrirJanelaChamada"
-          @focus-call-window="janelaChamada?.focus()"
+          @show-call-window="chamadaFlutuante = false"
           @open-add-user-modal="modalAdicionarUsuario = true"
         />
 
@@ -57,6 +55,7 @@
           v-if="mostrarChamadaNoPrincipal"
           :fechar-ao-encerrar="false"
           class="h-full flex-1"
+          @toggle-float="chamadaFlutuante = true"
         />
 
         <ChatHeader
@@ -85,6 +84,13 @@
           @open-image-preview="abrirPreviewImagem"
         />
       </main>
+
+      <CallWindow
+        v-if="chamadaFlutuante && call.emChamada && call.tipoChamada === 2"
+        :fechar-ao-encerrar="false"
+        :flutuante="true"
+        @toggle-float="chamadaFlutuante = false"
+      />
     </div>
 
     <ImageViewerModal
@@ -175,9 +181,9 @@ const modalParticipantesChamada = ref(false)
 const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)
 const modalAdicionarUsuario = ref(false)
-const isMobile = /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
+const chamadaFlutuante = ref(false)
 const mostrarChamadaNoPrincipal = computed(() =>
-  isMobile && call.emChamada && call.tipoChamada === 2
+  call.emChamada && call.tipoChamada === 2 && !chamadaFlutuante.value
 )
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
@@ -185,9 +191,6 @@ const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
 const { garantirAnexoUrl, anexosUrl, limparAnexos } = useAttachments()
 
 const {
-  janelaChamada,
-  abrirJanelaChamada,
-  fecharJanelaChamada,
   sairDaChamadaAtual,
   upgradeParaVideoUI,
   pararToque,
@@ -253,6 +256,7 @@ onMounted(async () => {
   if (auth.isAuthenticated) {
     try {
       await chat.inicializar()
+      void auth.resolverAvatarUrl()
       chat.registrarHandlerChamada((evento) => {
         void call.tratarEventoChamada(evento)
       })
@@ -307,7 +311,6 @@ async function iniciarChamadaDireta(tipo: TipoChamada, destinatarioId: number, c
   if (!auth.user) return
   try {
     await call.iniciarChamada(tipo, [{ id: auth.user.id }, { id: destinatarioId }], comTela)
-    if (tipo === 2) abrirJanelaChamada()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao iniciar chamada'
   }
@@ -330,7 +333,6 @@ async function confirmarChamadaGrupo(participantes: number[]) {
 
   try {
     await call.iniciarChamada(tipoChamadaPendente.value, usuarios, comTelaPendente.value)
-    if (tipoChamadaPendente.value === 2) abrirJanelaChamada()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao iniciar chamada'
   }
@@ -338,12 +340,10 @@ async function confirmarChamadaGrupo(participantes: number[]) {
 
 async function aceitarChamadaRecebida() {
   pararToque()
-  const tipo = call.tipoChamada
+  chamadaFlutuante.value = false
   try {
-    if (tipo === 2) abrirJanelaChamada()
     await call.aceitarChamada()
   } catch (e) {
-    if (tipo === 2) fecharJanelaChamada()
     erro.value = e instanceof Error ? e.message : 'Erro ao aceitar chamada'
   }
 }

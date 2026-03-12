@@ -9,7 +9,15 @@ function bindAndPlay(el: HTMLMediaElement, stream: MediaStream | null) {
 
   el.srcObject = stream
   el.play().catch((err) => {
-    if (err.name !== 'NotAllowedError') {
+    if (err.name === 'NotAllowedError') {
+      // Popup windows may not have user interaction.
+      // Play muted first, then unmute to bypass autoplay policy.
+      const wasMuted = el.muted
+      el.muted = true
+      el.play().then(() => {
+        el.muted = wasMuted
+      }).catch(() => { /* ignore */ })
+    } else {
       console.warn('Media play failed:', err)
     }
   })

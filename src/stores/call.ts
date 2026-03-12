@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, triggerRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
 import { useChatStore } from './chat'
@@ -41,6 +41,12 @@ export const useCallStore = defineStore('call', () => {
   let pcPublicacaoLocal: RTCPeerConnection | null = null
   let repondoPublicacaoLocal = false
   let intervaloMonitoramentoPeers: number | null = null
+
+  // Notifica todos os assinantes de peers criando um novo Map.
+  // Necessário porque triggerRef não propaga para apps Vue em popup windows.
+  function notificarPeers() {
+    peers.value = new Map(peers.value)
+  }
 
   // Timer de duração
   const duracaoChamadaSegundos = ref(0)
@@ -272,7 +278,7 @@ export const useCallStore = defineStore('call', () => {
       for (const [, peer] of peers.value) {
         peer.txPc = pcPublicacaoLocal
       }
-      triggerRef(peers)
+      notificarPeers()
 
       if (estado.value === 'ativa') {
         await sincronizarPeersComRetentativas(2)
@@ -320,7 +326,7 @@ export const useCallStore = defineStore('call', () => {
 
     pc.ontrack = (e) => {
       remoteStream.addTrack(e.track)
-      console.debug('[CALL][WHEP] track recebida', {
+      console.log('[CALL][WHEP] track recebida', {
         fromUserId,
         kind: e.track.kind,
         muted: e.track.muted,
@@ -338,11 +344,11 @@ export const useCallStore = defineStore('call', () => {
       }
       e.track.onunmute = () => {
         console.debug('[CALL][WHEP] track unmuted', { fromUserId, kind: e.track.kind })
-        triggerRef(peers)
+        notificarPeers()
       }
 
       // Forca reatividade para atualizar tile remoto quando o video chega depois.
-      triggerRef(peers)
+      notificarPeers()
     }
 
     pc.onconnectionstatechange = () => {
@@ -419,7 +425,7 @@ export const useCallStore = defineStore('call', () => {
     } else {
       entrada.usuarioNome = usuarioNome
     }
-    triggerRef(peers)
+    notificarPeers()
 
     try {
       if (streamLocal.value && !pcPublicacaoLocal) {
@@ -442,7 +448,7 @@ export const useCallStore = defineStore('call', () => {
             try { pc.close() } catch { /* ignore */ }
             entrada.rxPc = null
             entrada.stream = null
-            triggerRef(peers)
+            notificarPeers()
 
             if (estado.value === 'ativa') {
               window.setTimeout(() => {
@@ -462,7 +468,7 @@ export const useCallStore = defineStore('call', () => {
               try { entrada.rxPc.close() } catch { /* ignore */ }
               entrada.rxPc = null
               entrada.stream = null
-              triggerRef(peers)
+              notificarPeers()
               if (estado.value === 'ativa') {
                 void conectarPeer(alvoId, usuarioNome)
               }
@@ -471,14 +477,16 @@ export const useCallStore = defineStore('call', () => {
         }
       }
 
-      triggerRef(peers)
-      console.debug('[CALL] conectarPeer concluido', {
+      notificarPeers()
+      console.log('[CALL] conectarPeer concluido', {
         userId: alvoId,
         nome: usuarioNome,
         temRxPc: !!entrada.rxPc,
         temStream: !!entrada.stream,
         videoTracks: entrada.stream?.getVideoTracks().length ?? 0,
-        audioTracks: entrada.stream?.getAudioTracks().length ?? 0
+        audioTracks: entrada.stream?.getAudioTracks().length ?? 0,
+        connectionState: entrada.rxPc?.connectionState,
+        iceConnectionState: entrada.rxPc?.iceConnectionState
       })
     } catch (e) {
       if (!entrada.rxPc) {
@@ -516,7 +524,7 @@ export const useCallStore = defineStore('call', () => {
     for (const [, peer] of peers.value) {
       peer.txPc = null
     }
-    triggerRef(peers)
+    notificarPeers()
   }
 
   function desconectarPeer(usuarioId: number) {
@@ -526,7 +534,7 @@ export const useCallStore = defineStore('call', () => {
     try { peer.rxPc?.close() } catch { /* ignore */ }
 
     peers.value.delete(usuarioId)
-    triggerRef(peers)
+    notificarPeers()
   }
 
   function desconectarTodosPeers() {
@@ -548,7 +556,22 @@ export const useCallStore = defineStore('call', () => {
       return id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou
     })
     const idsAtivos = new Set(ativos.map(u => Number(u.usuario_id)))
-    console.debug('[CALL] sincronizarPeersAtivos', { meuUsuarioId, ativos: Array.from(idsAtivos) })
+    console.log('[CALL] sincronizarPeersAtivos', {
+      meuUsuarioId,
+      ativos: Array.from(idsAtivos),
+      todosUsuarios: chamada.value.usuarios.map(u => ({
+        id: u.usuario_id,
+        status: u.status,
+        nome: u.usuario_nome
+      })),
+      peersAtuais: Array.from(peers.value.entries()).map(([id, p]) => ({
+        id,
+        temRxPc: !!p.rxPc,
+        temStream: !!p.stream,
+        videoTracks: p.stream?.getVideoTracks().length ?? 0,
+        connectionState: p.rxPc?.connectionState
+      }))
+    })
 
     for (const [userId] of peers.value) {
       if (!idsAtivos.has(userId)) {
@@ -576,7 +599,7 @@ export const useCallStore = defineStore('call', () => {
           try { peerExistente.rxPc.close() } catch { /* ignore */ }
           peerExistente.rxPc = null
           peerExistente.stream = null
-          triggerRef(peers)
+          notificarPeers()
         }
       }
 
@@ -699,6 +722,15 @@ export const useCallStore = defineStore('call', () => {
       await api.chamadaEntrar(chamada.value.id)
       estado.value = 'ativa'
       iniciarTimerDuracao()
+
+      // Publicar stream local no MediaMTX antes de sincronizar peers
+      // para que o caller já consiga assinar via WHEP.
+      try {
+        pcPublicacaoLocal = await publicarLocalNaSala()
+        console.debug('[CALL] Stream local publicado após aceitar chamada')
+      } catch (whipErr) {
+        console.warn('[CALL] Falha ao publicar stream local após aceitar chamada', whipErr)
+      }
 
       chamada.value = await api.chamadaDados(chamada.value.id)
       await sincronizarPeersComRetentativas()
@@ -984,6 +1016,13 @@ export const useCallStore = defineStore('call', () => {
       }
 
       case TipoEventoSocket.UsuarioEntrou: {
+        // Ignorar evento do próprio usuário (o caller recebe seu próprio UsuarioEntrou
+        // quando inicia a chamada, não deve transicionar para 'ativa' por isso)
+        if (eventoUsuarioId !== null && eventoUsuarioId === meuUsuarioId) {
+          console.debug('[CALL] Ignorando UsuarioEntrou do próprio usuário')
+          break
+        }
+
         if (chamada.value?.id === evento.chamada_id && estado.value === 'chamando') {
           estado.value = 'ativa'
           iniciarTimerDuracao()

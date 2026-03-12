@@ -30,6 +30,12 @@ export const useChatStore = defineStore('chat', () => {
   const DIGITANDO_EXPIRACAO_MS = 4000
   const digitandoPorConversa = ref<Map<number, Map<number, number>>>(new Map())
 
+  const GRAVANDO_DEBOUNCE_MS = 2500
+  const GRAVANDO_EXPIRACAO_MS = 4000
+  let gravandoDebounceTimer: number | null = null
+  let ultimoGravandoEnviado = 0
+  const gravandoPorConversa = ref<Map<number, Map<number, number>>>(new Map())
+
   let _tratarEventoChamada: ((evento: EventoChamadaSocket) => void) | null = null
 
   function registrarHandlerChamada(handler: (evento: EventoChamadaSocket) => void) {
@@ -51,6 +57,20 @@ export const useChatStore = defineStore('chat', () => {
   const digitandoNaConversaAtiva = computed<string[]>(() => {
     if (!conversaAtivaId.value) return []
     const mapa = digitandoPorConversa.value.get(conversaAtivaId.value)
+    if (!mapa || mapa.size === 0) return []
+    const auth = useAuthStore()
+    const nomes: string[] = []
+    for (const usuarioId of mapa.keys()) {
+      if (usuarioId === auth.user?.id) continue
+      const contato = contatos.value.find(c => c.id === usuarioId)
+      nomes.push(contato?.nome || `Usuário #${usuarioId}`)
+    }
+    return nomes
+  })
+
+  const gravandoNaConversaAtiva = computed<string[]>(() => {
+    if (!conversaAtivaId.value) return []
+    const mapa = gravandoPorConversa.value.get(conversaAtivaId.value)
     if (!mapa || mapa.size === 0) return []
     const auth = useAuthStore()
     const nomes: string[] = []
@@ -519,6 +539,11 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    if (evento.tipo === TipoEventoSocket.GravandoAudio && evento.conversa_id && evento.usuario_id) {
+      tratarGravando(evento.conversa_id, evento.usuario_id)
+      return
+    }
+
     if (evento.tipo === TipoEventoSocket.ConversaAtualizada) {
       await carregarConversas()
       return
@@ -719,6 +744,56 @@ export const useChatStore = defineStore('chat', () => {
     ultimoDigitandoEnviado = 0
   }
 
+  function enviarGravando() {
+    if (!conversaAtivaId.value) return
+    const agora = Date.now()
+    if (agora - ultimoGravandoEnviado < GRAVANDO_DEBOUNCE_MS) {
+      if (!gravandoDebounceTimer) {
+        gravandoDebounceTimer = window.setTimeout(() => {
+          gravandoDebounceTimer = null
+          enviarGravando()
+        }, GRAVANDO_DEBOUNCE_MS - (Date.now() - ultimoGravandoEnviado))
+      }
+      return
+    }
+    ultimoGravandoEnviado = agora
+    void api.gravandoAudio(conversaAtivaId.value).catch(() => { })
+  }
+
+  function tratarGravando(conversaId: number, usuarioId: number) {
+    const auth = useAuthStore()
+    if (usuarioId === auth.user?.id) return
+
+    let mapa = gravandoPorConversa.value.get(conversaId)
+    if (!mapa) {
+      mapa = new Map()
+      gravandoPorConversa.value.set(conversaId, mapa)
+    }
+
+    const timerExistente = mapa.get(usuarioId)
+    if (timerExistente) window.clearTimeout(timerExistente)
+
+    const timer = window.setTimeout(() => {
+      const m = gravandoPorConversa.value.get(conversaId)
+      if (m) {
+        m.delete(usuarioId)
+        if (m.size === 0) gravandoPorConversa.value.delete(conversaId)
+        gravandoPorConversa.value = new Map(gravandoPorConversa.value)
+      }
+    }, GRAVANDO_EXPIRACAO_MS)
+
+    mapa.set(usuarioId, timer)
+    gravandoPorConversa.value = new Map(gravandoPorConversa.value)
+  }
+
+  function limparGravandoConversaAtiva() {
+    if (gravandoDebounceTimer) {
+      window.clearTimeout(gravandoDebounceTimer)
+      gravandoDebounceTimer = null
+    }
+    ultimoGravandoEnviado = 0
+  }
+
   function encerrarTempoReal() {
     pararPolling()
     desconectarWebSocket()
@@ -754,6 +829,9 @@ export const useChatStore = defineStore('chat', () => {
     digitandoNaConversaAtiva,
     enviarDigitando,
     limparDigitandoConversaAtiva,
+    gravandoNaConversaAtiva,
+    enviarGravando,
+    limparGravandoConversaAtiva,
     registrarHandlerChamada,
     removerHandlerChamada,
     usuariosConversaAtiva,

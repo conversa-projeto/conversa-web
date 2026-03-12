@@ -27,9 +27,12 @@
         />
       </template>
 
-      <!-- Typing Indicator with reserved height -->
+      <!-- Status indicators -->
       <div class="h-6 flex items-end">
-        <p v-if="textoDigitando" class="text-xs text-emerald-600 animate-pulse">
+        <p v-if="textoGravando" class="text-xs text-rose-500 animate-pulse">
+          {{ textoGravando }}
+        </p>
+        <p v-else-if="textoDigitando" class="text-xs text-emerald-600 animate-pulse">
           {{ textoDigitando }}
         </p>
       </div>
@@ -61,6 +64,14 @@ const textoDigitando = computed(() => {
   if (nomes.length === 1) return `${nomes[0]} está digitando...`
   if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão digitando...`
   return `${nomes[0]} e mais ${nomes.length - 1} estão digitando...`
+})
+
+const textoGravando = computed(() => {
+  const nomes = chat.gravandoNaConversaAtiva
+  if (nomes.length === 0) return ''
+  if (nomes.length === 1) return `${nomes[0]} está gravando áudio...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão gravando áudio...`
+  return `${nomes[0]} e mais ${nomes.length - 1} estão gravando áudio...`
 })
 
 const {

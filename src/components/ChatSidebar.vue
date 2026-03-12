@@ -7,7 +7,7 @@
       <div class="mb-3 flex items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-            <img v-if="avatarUsuario" :src="avatarUsuario" alt="Perfil" class="h-full w-full object-cover" />
+            <img v-if="avatarUsuario" :src="avatarUsuario" alt="Perfil" class="h-full w-full object-cover" @error="onAvatarError" />
             <span v-else>{{ inicialUsuario }}</span>
           </div>
           <div class="min-w-0">
@@ -62,8 +62,8 @@
           >
             <div class="flex items-center gap-2">
               <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
-                <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" />
-                <span v-else>{{ inicialConversa(conversa) }}</span>
+                <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+                <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between text-sm font-medium text-slate-800">
@@ -153,7 +153,7 @@ const mostrarBuscaContato = ref(false)
 const abrirConfiguracoes = ref(false)
 
 const avatarUsuario = computed(() => {
-  return auth.user?.avatar_url || ''
+  return auth.avatarUrl || ''
 })
 
 const inicialUsuario = computed(() => {
@@ -194,6 +194,11 @@ function inicialConversa(conversa: Conversa) {
 
 function avatarConversa(conversa: Conversa) {
   return conversa.avatar_url || ''
+}
+
+function onAvatarError() {
+  // URL presigned expirou — tentar buscar nova
+  void auth.resolverAvatarUrl()
 }
 
 async function abrirConversa(conversaId: number) {

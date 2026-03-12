@@ -139,7 +139,7 @@ const arquivosFila = ref<ArquivoNaFila[]>([])
 const playersAudioPreview = new Map<string, HTMLAudioElement>()
 let audioPreviewTocandoId: string | null = null
 
-const linguagensDisponiveis = ['javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal']
+const linguagensDisponiveis = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal']
 const emojis = [0x1F600, 0x1F601, 0x1F602, 0x1F923, 0x1F60A, 0x1F60D, 0x1F60E, 0x1F622, 0x1F621, 0x1F44D, 0x1F64F, 0x2764].map((code) => String.fromCodePoint(code))
 
 function gerarIdArquivo() {
@@ -282,6 +282,17 @@ function limparRecursosArquivo(arq: ArquivoNaFila) {
 
 const { gravandoAudio, iniciarAudio, pararAudio } = useAudioRecording(erro, (blob, nome, mime) => {
   arquivosFila.value = [...arquivosFila.value, criarArquivoFila(blob, nome, mime, true)]
+})
+
+let gravandoInterval: ReturnType<typeof setInterval> | null = null
+watch(gravandoAudio, (gravando) => {
+  if (gravando) {
+    chat.enviarGravando()
+    gravandoInterval = setInterval(() => chat.enviarGravando(), 2500)
+  } else {
+    if (gravandoInterval) { clearInterval(gravandoInterval); gravandoInterval = null }
+    chat.limparGravandoConversaAtiva()
+  }
 })
 
 const AUDIO_HOLD_MS = 350

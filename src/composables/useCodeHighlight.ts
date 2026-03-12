@@ -11,6 +11,11 @@ import hljsBash from 'highlight.js/lib/languages/bash'
 import hljsCsharp from 'highlight.js/lib/languages/csharp'
 import hljsDelphi from 'highlight.js/lib/languages/delphi'
 
+hljs.registerLanguage('plaintext', () => ({ name: 'Plain Text', contains: [] }))
+hljs.registerLanguage('text', () => ({ name: 'Plain Text', contains: [] }))
+hljs.registerLanguage('texto', () => ({ name: 'Plain Text', contains: [] }))
+hljs.registerLanguage('plain', () => ({ name: 'Plain Text', contains: [] }))
+
 hljs.registerLanguage('javascript', hljsJavascript)
 hljs.registerLanguage('js', hljsJavascript)
 hljs.registerLanguage('typescript', hljsTypescript)
