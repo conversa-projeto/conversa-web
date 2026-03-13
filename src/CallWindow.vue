@@ -4,7 +4,7 @@
     class="flex flex-col bg-slate-900 text-white"
     :class="flutuante
       ? 'fixed z-[60] rounded-xl shadow-2xl ring-1 ring-slate-700 overflow-hidden'
-      : 'h-screen'"
+      : 'h-full'"
     :style="flutuante ? {
       left: drag.x.value + 'px',
       top: drag.y.value + 'px',
@@ -39,7 +39,7 @@
     </div>
 
     <!-- Video area -->
-    <div class="flex-1 overflow-hidden p-2">
+    <div class="flex-1 min-h-0 overflow-hidden p-2">
       <!-- Conference layout: 1 big + sidebar -->
       <template v-if="videoDestaque !== null">
         <div class="flex h-full gap-2">

@@ -96,7 +96,16 @@
         </button>
       </div>
     </template>
-    <audio v-else-if="conteudo.tipo === TipoConteudo.Audio" controls preload="metadata" :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)" class="w-64" />
+    <AudioPlayer
+      v-else-if="conteudo.tipo === TipoConteudo.Audio"
+      :src="conteudo.localUrl"
+      :identificador="conteudo.conteudo"
+      :conversa-id="conversaId"
+      :mensagem-id="mensagemId"
+      :reproduzida="reproduzida"
+      :nome="conteudo.nome || 'Audio'"
+      :is-own="isOwn"
+    />
   </div>
 </template>
 
@@ -105,10 +114,13 @@ import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
 import { useCodeHighlight } from '../composables/useCodeHighlight'
+import AudioPlayer from './AudioPlayer.vue'
 
 defineProps<{
   conteudo: ConteudoMensagem
   mensagemId: number
+  conversaId?: number
+  reproduzida?: boolean
   isOwn?: boolean
   getAnexoUrl: (identificador: string) => string
 }>()

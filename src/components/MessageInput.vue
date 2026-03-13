@@ -38,6 +38,19 @@
         </div>
       </div>
 
+      <!-- Reply preview -->
+      <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded border-l-2 border-blue-500 bg-blue-50 px-3 py-2">
+        <div class="min-w-0 flex-1">
+          <span class="text-xs font-semibold text-blue-600">{{ chat.mensagemRespondendo.remetente }}</span>
+          <p class="truncate text-xs text-slate-500">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
+        </div>
+        <button class="shrink-0 text-slate-400 hover:text-slate-600" @click="chat.cancelarResposta()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+          </svg>
+        </button>
+      </div>
+
       <div class="composer-row flex flex-nowrap items-end gap-2">
         <button class="shrink-0 flex items-center gap-1 rounded bg-slate-200 px-2 py-2 text-sm hover:bg-slate-300 md:px-3" title="Anexar arquivo" @click="inputArquivo?.click()">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>
@@ -107,7 +120,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
-import { extensaoPorMime, formatarDuracao, formatarTamanho } from '../utils/formatters'
+import { extensaoPorMime, formatarDuracao, formatarTamanho, resumoMensagem } from '../utils/formatters'
 import { useAudioRecording } from '../composables/useAudioRecording'
 
 const emit = defineEmits<{
@@ -302,6 +315,10 @@ const ignoreNextAudioClick = ref(false)
 
 watch(() => chat.conectadoTempoReal, (conectado) => {
   if (conectado) erro.value = ''
+})
+
+watch(() => chat.mensagemRespondendo, (msg) => {
+  if (msg) nextTick(() => textareaMsg.value?.focus())
 })
 
 async function enviarMensagem() {

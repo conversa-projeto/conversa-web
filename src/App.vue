@@ -7,7 +7,7 @@
 
     <LoginForm v-if="!auth.isAuthenticated" @login-success="onLoginSuccess" />
 
-    <div v-else class="flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-white shadow md:h-[calc(100vh-2rem)]">
+    <div v-else class="relative flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-white shadow md:h-[calc(100vh-2rem)]">
       <ChatSidebar
         :sidebar-aberta="sidebarAberta"
         @update:sidebar-aberta="sidebarAberta = $event"
@@ -51,12 +51,6 @@
           @open-add-user-modal="modalAdicionarUsuario = true"
         />
 
-        <CallWindow
-          v-if="mostrarChamadaNoPrincipal"
-          :fechar-ao-encerrar="false"
-          class="h-full flex-1"
-          @toggle-float="chamadaFlutuante = true"
-        />
 
         <ChatHeader
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
@@ -84,6 +78,13 @@
           @open-image-preview="abrirPreviewImagem"
         />
       </main>
+
+      <CallWindow
+        v-if="mostrarChamadaNoPrincipal"
+        :fechar-ao-encerrar="false"
+        class="fixed inset-0 z-20"
+        @toggle-float="chamadaFlutuante = true"
+      />
 
       <CallWindow
         v-if="chamadaFlutuante && call.emChamada && call.tipoChamada === 2"

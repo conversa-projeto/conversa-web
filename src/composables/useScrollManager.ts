@@ -103,7 +103,7 @@ export function useScrollManager() {
 
       const box = node.getBoundingClientRect()
       const totalmenteVisivel = box.top >= limite.top && box.bottom <= limite.bottom
-      const fimVisivel = box.bottom <= limite.bottom && box.bottom >= limite.top
+      const fimVisivel = box.bottom <= limite.bottom + 2 && box.bottom >= limite.top
       if (totalmenteVisivel || fimVisivel) {
         idsVisiveis.push(mensagem.id)
       }

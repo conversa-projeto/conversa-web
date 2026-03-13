@@ -119,6 +119,12 @@ export interface Mensagem {
   reproduzida: boolean
   conteudos: ConteudoMensagem[]
   enviando?: boolean
+  resposta_mensagem_id?: number | null
+  resposta_mensagem?: {
+    id: number
+    remetente: string
+    conteudo_resumo: string
+  } | null
 }
 
 export interface AnexoResponse {

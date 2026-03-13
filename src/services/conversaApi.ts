@@ -82,13 +82,14 @@ export function getMensagens(conversaId: number, mensagemReferencia = 0, mensage
   })
 }
 
-export function enviarMensagem(conversaId: number, conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>) {
-  return requestApi<{ id: number; conversa_id: number; usuario_id: number }>('/mensagem', 'PUT', {
-    body: {
-      conversa_id: conversaId,
-      conteudos
-    }
-  })
+export function enviarMensagem(
+  conversaId: number,
+  conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>,
+  respostaMensagemId?: number,
+) {
+  const body: Record<string, unknown> = { conversa_id: conversaId, conteudos }
+  if (respostaMensagemId) body.resposta_mensagem_id = respostaMensagemId
+  return requestApi<{ id: number; conversa_id: number; usuario_id: number }>('/mensagem', 'PUT', { body })
 }
 
 export async function sha256File(file: Blob): Promise<string> {
@@ -177,6 +178,15 @@ export function getMensagensNovas(ultimaMensagemId: number) {
 
 export function mensagemVisualizar(conversaId: number, mensagemId: number) {
   return requestApi<{ sucesso: boolean }>('/mensagem/visualizar', 'POST', {
+    body: {
+      conversa: conversaId,
+      mensagem: mensagemId
+    }
+  })
+}
+
+export function mensagemReproduzir(conversaId: number, mensagemId: number) {
+  return requestApi<{ sucesso: boolean }>('/mensagem/reproduzir', 'POST', {
     body: {
       conversa: conversaId,
       mensagem: mensagemId

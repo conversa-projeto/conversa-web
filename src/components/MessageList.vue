@@ -24,6 +24,8 @@
           @open-image="(id, nome) => emit('open-image', id, nome)"
           @image-loaded="aoCarregarImagemNoChat"
           @download="(id, nome) => abrirAnexo(id, nome)"
+          @reply="(msg) => chat.responderMensagem(msg)"
+          @go-to-message="(id) => irParaMensagem(id)"
         />
       </template>
 

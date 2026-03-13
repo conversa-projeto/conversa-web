@@ -6,6 +6,7 @@ import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { playNotificationSound, showNotification, requestNotificationPermission } from '../utils/sound'
+import { resumoMensagem as _resumoMensagem } from '../utils/formatters'
 
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
@@ -22,6 +23,7 @@ export const useChatStore = defineStore('chat', () => {
   let reconnectAttempts = 0
   const marcandoVisualizacao = new Set<number>()
 
+  const mensagemRespondendo = ref<Mensagem | null>(null)
   const usuariosConversa = ref<Record<number, Array<{ usuario_id: number; nome: string }>>>({})
 
   let digitandoDebounceTimer: number | null = null
@@ -199,6 +201,14 @@ export const useChatStore = defineStore('chat', () => {
     isAudio?: boolean
   }
 
+  function responderMensagem(msg: Mensagem) {
+    mensagemRespondendo.value = msg
+  }
+
+  function cancelarResposta() {
+    mensagemRespondendo.value = null
+  }
+
   async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = []) {
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
@@ -258,6 +268,11 @@ export const useChatStore = defineStore('chat', () => {
       ordem += 1
     }
 
+    // Captura resposta antes de limpar
+    const respostaMsg = mensagemRespondendo.value
+    const respostaMensagemId = respostaMsg?.id && respostaMsg.id > 0 ? respostaMsg.id : undefined
+    mensagemRespondendo.value = null
+
     // Adiciona mensagem otimista à UI imediatamente (antes dos uploads)
     const optimisticMsg: Mensagem = {
       id: tempId,
@@ -270,7 +285,15 @@ export const useChatStore = defineStore('chat', () => {
       visualizada: false,
       reproduzida: false,
       enviando: true,
-      conteudos: conteudosOptimistas
+      conteudos: conteudosOptimistas,
+      ...(respostaMensagemId && respostaMsg ? {
+        resposta_mensagem_id: respostaMensagemId,
+        resposta_mensagem: {
+          id: respostaMsg.id,
+          remetente: respostaMsg.remetente,
+          conteudo_resumo: _resumoMensagem(respostaMsg)
+        }
+      } : {})
     }
 
     if (!mensagensPorConversa.value[conversaId]) {
@@ -289,7 +312,7 @@ export const useChatStore = defineStore('chat', () => {
         })
       }
 
-      const resp = await api.enviarMensagem(conversaId, conteudosApi)
+      const resp = await api.enviarMensagem(conversaId, conteudosApi, respostaMensagemId)
 
       const conteudosFinais = conteudosOptimistas.map((conteudo) => {
         if (conteudo.tipo === TipoConteudo.Texto) {
@@ -835,6 +858,9 @@ export const useChatStore = defineStore('chat', () => {
     registrarHandlerChamada,
     removerHandlerChamada,
     usuariosConversaAtiva,
-    carregarUsuariosConversa
+    carregarUsuariosConversa,
+    mensagemRespondendo,
+    responderMensagem,
+    cancelarResposta
   }
 })
