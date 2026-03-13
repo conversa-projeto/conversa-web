@@ -30,7 +30,7 @@
       <!-- Citação da mensagem respondida -->
       <div
         v-if="mensagem.resposta_mensagem"
-        class="mb-1 cursor-pointer rounded border-l-2 px-2 py-1"
+        class="mb-1 max-w-52 cursor-pointer rounded border-l-2 px-2 py-1"
         :class="isOwn ? 'border-blue-300 bg-white/10' : 'border-blue-400 bg-black/5'"
         @click="emit('go-to-message', mensagem.resposta_mensagem!.id)"
       >

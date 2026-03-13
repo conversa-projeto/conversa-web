@@ -25,6 +25,7 @@ export const TipoEventoSocket = {
   UsuarioRecusou: 53,
   UsuarioEntrou: 54,
   UsuarioSaiu: 55,
+  VideoAtivado: 56,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -169,7 +170,7 @@ export interface ChamadaPendente {
 }
 
 export interface EventoChamadaSocket {
-  tipo: 51 | 52 | 53 | 54 | 55
+  tipo: 51 | 52 | 53 | 54 | 55 | 56
   chamada_id: number
   usuario_id: number
 }

@@ -137,6 +137,8 @@
       @reject="recusarChamadaRecebida"
     />
 
+    <VideoUpgradeModal />
+
     <AddUserToCallModal
       :aberta="modalAdicionarUsuario"
       @close="modalAdicionarUsuario = false"
@@ -168,6 +170,7 @@ import ImagePreviewModal from './components/ImagePreviewModal.vue'
 import CreateGroupModal from './components/CreateGroupModal.vue'
 import CallParticipantsModal from './components/CallParticipantsModal.vue'
 import IncomingCallModal from './components/IncomingCallModal.vue'
+import VideoUpgradeModal from './components/VideoUpgradeModal.vue'
 import AddUserToCallModal from './components/AddUserToCallModal.vue'
 import CallWindow from './CallWindow.vue'
 

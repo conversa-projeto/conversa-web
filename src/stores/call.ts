@@ -31,6 +31,8 @@ export const useCallStore = defineStore('call', () => {
   const saidaAudioMutada = ref(false)
   const compartilhandoTela = ref(false)
   const erroMsg = ref('')
+  const videoAtivadoPor = ref<{ usuarioId: number; usuarioNome: string } | null>(null)
+  let videoAtivadoTimeout: number | null = null
 
   const streamLocal = shallowRef<MediaStream | null>(null)
   const streamTela = shallowRef<MediaStream | null>(null)
@@ -650,6 +652,11 @@ export const useCallStore = defineStore('call', () => {
     saidaAudioMutada.value = false
     compartilhandoTela.value = false
     erroMsg.value = ''
+    videoAtivadoPor.value = null
+    if (videoAtivadoTimeout !== null) {
+      window.clearTimeout(videoAtivadoTimeout)
+      videoAtivadoTimeout = null
+    }
   }
 
   // --- Acoes de chamada ---
@@ -904,7 +911,7 @@ export const useCallStore = defineStore('call', () => {
 
   // --- Upgrade audio → video ---
 
-  async function upgradeParaVideo() {
+  async function upgradeParaVideo(notificar = true) {
     if (tipoChamada.value !== TipoChamada.Audio || estado.value !== 'ativa') return
 
     const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
@@ -927,6 +934,30 @@ export const useCallStore = defineStore('call', () => {
     desconectarTodosPeers()
     for (const peer of peersAtuais) {
       await conectarPeer(peer.id, peer.nome)
+    }
+
+    // Notifica outros participantes sobre o upgrade
+    if (notificar && chamada.value) {
+      api.chamadaVideo(chamada.value.id).catch(() => { /* ignore */ })
+    }
+  }
+
+  async function responderUpgradeVideo(transmitir: boolean) {
+    videoAtivadoPor.value = null
+    if (videoAtivadoTimeout !== null) {
+      window.clearTimeout(videoAtivadoTimeout)
+      videoAtivadoTimeout = null
+    }
+
+    // Sempre faz upgrade completo (adquire camera + reconecta) sem notificar
+    await upgradeParaVideo(false)
+
+    if (!transmitir) {
+      // Apenas assistir: desabilita camera, usuario pode ativar depois pelo botao
+      if (streamLocal.value) {
+        streamLocal.value.getVideoTracks().forEach(t => { t.enabled = false })
+      }
+      cameraMutada.value = true
     }
   }
 
@@ -1054,6 +1085,26 @@ export const useCallStore = defineStore('call', () => {
         }
         break
       }
+
+      case TipoEventoSocket.VideoAtivado: {
+        if (chamada.value?.id === evento.chamada_id && eventoUsuarioId !== meuUsuarioId) {
+          // Busca nome do usuario que ativou video
+          const peer = peers.value.get(eventoUsuarioId!)
+          const nome = peer?.usuarioNome
+            || chamada.value?.usuarios.find(u => Number(u.usuario_id) === eventoUsuarioId)?.usuario_nome
+            || 'Alguém'
+          videoAtivadoPor.value = { usuarioId: eventoUsuarioId!, usuarioNome: nome }
+
+          // Auto-dismiss apos 15s escolhendo "apenas assistir"
+          if (videoAtivadoTimeout !== null) window.clearTimeout(videoAtivadoTimeout)
+          videoAtivadoTimeout = window.setTimeout(() => {
+            if (videoAtivadoPor.value) {
+              void responderUpgradeVideo(false)
+            }
+          }, 15000)
+        }
+        break
+      }
     }
   }
 
@@ -1123,6 +1174,8 @@ export const useCallStore = defineStore('call', () => {
     adicionarUsuario,
     iniciarTransmissaoLocal,
     upgradeParaVideo,
+    videoAtivadoPor,
+    responderUpgradeVideo,
     tratarEventoChamada,
     verificarChamadasPendentes,
     encerrarChamada

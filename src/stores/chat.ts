@@ -397,11 +397,11 @@ export const useChatStore = defineStore('chat', () => {
     resultadosBuscaConversa.value = resultado.filter((mensagem) => mensagem.conversa_id === conversaAtivaId.value)
   }
 
-  async function marcarVisualizadas(conversaId: number, mensagens: Mensagem[]) {
+  async function marcarVisualizadas(conversaId: number, mensagens: Mensagem[]): Promise<number> {
     const auth = useAuthStore()
     const usuarioId = auth.user?.id
     if (!usuarioId) {
-      return false
+      return 0
     }
 
     const pendentes = mensagens.filter((mensagem) => {
@@ -409,7 +409,7 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     if (pendentes.length === 0) {
-      return false
+      return 0
     }
 
     for (const mensagem of pendentes) {
@@ -420,16 +420,18 @@ export const useChatStore = defineStore('chat', () => {
       pendentes.map((mensagem) => api.mensagemVisualizar(conversaId, mensagem.id))
     )
 
+    let marcadas = 0
     for (let idx = 0; idx < pendentes.length; idx += 1) {
       const mensagem = pendentes[idx]
       marcandoVisualizacao.delete(mensagem.id)
       if (resultados[idx]?.status === 'fulfilled') {
         mensagem.visualizada = true
         mensagem.recebida = true
+        marcadas++
       }
     }
 
-    return resultados.some((item) => item.status === 'fulfilled')
+    return marcadas
   }
 
   async function marcarMensagensComoVisualizadas(conversaId: number, mensagemIds: number[]) {
@@ -439,11 +441,16 @@ export const useChatStore = defineStore('chat', () => {
 
     const mensagens = mensagensPorConversa.value[conversaId] || []
     const alvo = mensagens.filter((mensagem) => mensagemIds.includes(mensagem.id))
-    const alterou = await marcarVisualizadas(conversaId, alvo)
-    if (alterou) {
-      await carregarConversas()
+    const marcadas = await marcarVisualizadas(conversaId, alvo)
+    if (marcadas > 0) {
+      // Atualiza o contador otimisticamente para feedback imediato na sidebar
+      const conversa = conversas.value.find(c => c.id === conversaId)
+      if (conversa) {
+        conversa.mensagens_sem_visualizar = Math.max(0, (conversa.mensagens_sem_visualizar || 0) - marcadas)
+      }
+      void carregarConversas()
     }
-    return alterou
+    return marcadas > 0
   }
 
   function getWebSocketUrl(): string {
@@ -572,7 +579,7 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    if (evento.tipo && evento.tipo >= TipoEventoSocket.ChamadaRecebida && evento.tipo <= TipoEventoSocket.UsuarioSaiu && _tratarEventoChamada) {
+    if (evento.tipo && evento.tipo >= TipoEventoSocket.ChamadaRecebida && evento.tipo <= TipoEventoSocket.VideoAtivado && _tratarEventoChamada) {
       _tratarEventoChamada(evento as EventoChamadaSocket)
       return
     }

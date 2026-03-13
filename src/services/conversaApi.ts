@@ -257,6 +257,12 @@ export function chamadaAdicionarUsuario(chamadaId: number, usuarioId: number) {
   })
 }
 
+export function chamadaVideo(chamadaId: number) {
+  return requestApi<{ id: number }>('/chamada/video', 'POST', {
+    body: { id: chamadaId }
+  })
+}
+
 export function getChamadasPendentes() {
   return requestApi<ChamadaPendente[]>('/chamadas/pendentes')
 }
