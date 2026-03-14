@@ -60,6 +60,7 @@
           @update:sidebar-aberta="sidebarAberta = $event"
           @start-call="solicitarChamada"
           @go-to-message="abrirResultadoBusca"
+          @open-group-members="modalMembrosGrupo = true"
         />
 
         <MessageList
@@ -128,6 +129,11 @@
       @created="onConversationOpened"
     />
 
+    <GroupMembersModal
+      :aberta="modalMembrosGrupo"
+      @close="modalMembrosGrupo = false"
+    />
+
     <CallParticipantsModal
       :aberta="modalParticipantesChamada"
       :tipo-chamada="tipoChamadaPendente"
@@ -172,6 +178,7 @@ import MessageInput from './components/MessageInput.vue'
 import ImageViewerModal from './components/ImageViewerModal.vue'
 import ImagePreviewModal from './components/ImagePreviewModal.vue'
 import CreateGroupModal from './components/CreateGroupModal.vue'
+import GroupMembersModal from './components/GroupMembersModal.vue'
 import CallParticipantsModal from './components/CallParticipantsModal.vue'
 import IncomingCallModal from './components/IncomingCallModal.vue'
 import VideoUpgradeModal from './components/VideoUpgradeModal.vue'
@@ -186,6 +193,7 @@ const erro = ref('')
 const telaCadastro = ref(false)
 const sidebarAberta = ref(true)
 const abrirModalGrupo = ref(false)
+const modalMembrosGrupo = ref(false)
 const modalParticipantesChamada = ref(false)
 const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)

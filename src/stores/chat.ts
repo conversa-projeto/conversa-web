@@ -24,7 +24,7 @@ export const useChatStore = defineStore('chat', () => {
   const marcandoVisualizacao = new Set<number>()
 
   const mensagemRespondendo = ref<Mensagem | null>(null)
-  const usuariosConversa = ref<Record<number, Array<{ usuario_id: number; nome: string }>>>({})
+  const usuariosConversa = ref<Record<number, Array<{ id: number; usuario_id: number; nome: string }>>>({})
 
   let digitandoDebounceTimer: number | null = null
   let ultimoDigitandoEnviado = 0
@@ -89,8 +89,8 @@ export const useChatStore = defineStore('chat', () => {
     return usuariosConversa.value[conversaAtivaId.value] || []
   })
 
-  async function carregarUsuariosConversa(conversaId: number) {
-    if (usuariosConversa.value[conversaId]) return
+  async function carregarUsuariosConversa(conversaId: number, forcar = false) {
+    if (!forcar && usuariosConversa.value[conversaId]) return
     try {
       usuariosConversa.value[conversaId] = await api.getUsuariosConversa(conversaId)
     } catch {
@@ -824,6 +824,18 @@ export const useChatStore = defineStore('chat', () => {
     ultimoGravandoEnviado = 0
   }
 
+  async function adicionarMembroGrupo(conversaId: number, usuarioId: number) {
+    await api.addUsuarioConversa(conversaId, usuarioId)
+    delete usuariosConversa.value[conversaId]
+    await carregarUsuariosConversa(conversaId)
+  }
+
+  async function removerMembroGrupo(conversaId: number, conversaUsuarioId: number) {
+    await api.removeUsuarioConversa(conversaUsuarioId)
+    delete usuariosConversa.value[conversaId]
+    await carregarUsuariosConversa(conversaId)
+  }
+
   function encerrarTempoReal() {
     pararPolling()
     desconectarWebSocket()
@@ -868,6 +880,8 @@ export const useChatStore = defineStore('chat', () => {
     carregarUsuariosConversa,
     mensagemRespondendo,
     responderMensagem,
-    cancelarResposta
+    cancelarResposta,
+    adicionarMembroGrupo,
+    removerMembroGrupo
   }
 })

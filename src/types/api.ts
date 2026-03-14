@@ -133,6 +133,20 @@ export interface AnexoResponse {
   identificador: string
 }
 
+export interface SipConfig {
+  id: number
+  usuario_id: number
+  sip_user: string
+  auth_user: string | null
+  sip_password: string
+  display_name: string | null
+  domain: string
+  ws_server: string
+  ativo: boolean
+  criado_em?: string
+  criado_por?: number | null
+}
+
 // === Chamada (Call) ===
 
 export interface ChamadaUsuario {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <aside
     class="relative w-full flex-col border-r border-slate-200 bg-slate-50 md:flex md:max-w-[334px]"
     :class="sidebarAberta ? 'flex' : 'hidden'"
@@ -6,13 +6,17 @@
     <div class="border-b border-slate-200 p-4">
       <div class="mb-3 flex items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+          <button
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700 transition hover:ring-2 hover:ring-blue-200"
+            title="Ver perfil"
+            @click="abrirUsuarioInfo(perfilUsuarioLogado)"
+          >
             <img v-if="avatarUsuario" :src="avatarUsuario" alt="Perfil" class="h-full w-full object-cover" @error="onAvatarError" />
             <span v-else>{{ inicialUsuario }}</span>
-          </div>
+          </button>
           <div class="min-w-0">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Usuario</p>
-            <p class="truncate font-semibold text-slate-800">{{ auth.user?.nome }}</p>
+            <p class="truncate select-none font-semibold text-slate-800">{{ auth.user?.nome }}</p>
           </div>
         </div>
 
@@ -45,7 +49,7 @@
 
     <div class="flex-1 overflow-hidden p-4">
       <section class="flex h-full flex-col">
-        <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Conversas</h2>
+        <h2 class="mb-2 select-none text-xs font-semibold uppercase tracking-wide text-slate-500">Conversas</h2>
         <input
           v-model="filtroConversa"
           type="text"
@@ -53,15 +57,29 @@
           placeholder="Pesquisar conversa"
         />
         <div class="flex-1 overflow-auto rounded border border-slate-200 bg-white">
-          <button
+          <div
             v-for="conversa in conversasFiltradas"
             :key="conversa.id"
-            class="w-full border-b border-slate-100 px-3 py-2 text-left hover:bg-slate-50"
+            class="border-b border-slate-100 px-3 py-2 hover:bg-slate-50"
             :class="conversa.id === chat.conversaAtivaId ? 'bg-blue-100' : ''"
+            role="button"
+            tabindex="0"
             @click="abrirConversa(conversa.id)"
+            @keydown.enter.prevent="abrirConversa(conversa.id)"
+            @keydown.space.prevent="abrirConversa(conversa.id)"
           >
             <div class="flex items-center gap-2">
-              <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
+              <button
+                v-if="perfilConversa(conversa)"
+                type="button"
+                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-700 transition hover:ring-2 hover:ring-blue-200"
+                title="Ver perfil"
+                @click.stop="abrirUsuarioInfo(perfilConversa(conversa))"
+              >
+                <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+                <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
+              </button>
+              <div v-else class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
                 <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                 <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
               </div>
@@ -87,8 +105,20 @@
                 <p class="truncate text-xs text-slate-500">{{ conversa.ultima_mensagem_texto || 'Sem mensagens' }}</p>
               </div>
             </div>
-          </button>
+          </div>
         </div>
+
+        <button
+          v-if="sipDisponivel"
+          type="button"
+          class="mt-3 flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
+          @click="abrirDiscador = true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 4.5A2.25 2.25 0 0 1 4.5 2.25h15A2.25 2.25 0 0 1 21.75 4.5v15A2.25 2.25 0 0 1 19.5 21.75h-15A2.25 2.25 0 0 1 2.25 19.5v-15ZM6 6.75h.008v.008H6V6.75Zm0 4.5h.008v.008H6v-.008Zm0 4.5h.008v.008H6v-.008Zm6-9h.008v.008H12V6.75Zm0 4.5h.008v.008H12v-.008Zm0 4.5h.008v.008H12v-.008Zm6-9h.008v.008H18V6.75Zm0 4.5h.008v.008H18v-.008Zm0 4.5h.008v.008H18v-.008Z" />
+          </svg>
+          Discador SIP
+        </button>
       </section>
     </div>
 
@@ -121,17 +151,25 @@
       </div>
     </div>
 
-    <ProfileSettingsModal :aberta="abrirConfiguracoes" @close="abrirConfiguracoes = false" />
+    <ProfileSettingsModal :aberta="abrirConfiguracoes" @close="fecharConfiguracoes" />
+    <SipDialerModal :aberta="abrirDiscador" :sip-config="sipConfig" @close="abrirDiscador = false" />
+    <UserInfoModal :aberta="mostrarUsuarioInfo" :usuario="usuarioSelecionado" @close="fecharUsuarioInfo" />
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'
-import type { Conversa } from '../types/api'
+import type { Conversa, SipConfig } from '../types/api'
+import { sipAtivo } from '../utils/sip'
+import { criarUsuarioPopup, resolverUsuarioDaConversa } from '../utils/userProfile'
+import type { UsuarioPopup } from '../utils/userProfile'
 import ProfileSettingsModal from './ProfileSettingsModal.vue'
+import UserInfoModal from './UserInfoModal.vue'
+const SipDialerModal = defineAsyncComponent(() => import('./SipDialerModal.vue'))
 
 defineProps<{
   sidebarAberta: boolean
@@ -151,9 +189,21 @@ const filtroContato = ref('')
 const filtroConversa = ref('')
 const mostrarBuscaContato = ref(false)
 const abrirConfiguracoes = ref(false)
+const abrirDiscador = ref(false)
+const sipConfig = ref<SipConfig | null>(null)
+const mostrarUsuarioInfo = ref(false)
+const usuarioSelecionado = ref<UsuarioPopup | null>(null)
 
 const avatarUsuario = computed(() => {
   return auth.avatarUrl || ''
+})
+
+const perfilUsuarioLogado = computed(() => {
+  if (!auth.user) return null
+  return criarUsuarioPopup({
+    ...auth.user,
+    avatar_url: avatarUsuario.value || auth.user.avatar_url || ''
+  })
 })
 
 const inicialUsuario = computed(() => {
@@ -183,6 +233,16 @@ const conversasFiltradas = computed(() => {
   })
 })
 
+const sipDisponivel = computed(() => sipAtivo(sipConfig.value?.ativo))
+
+watch(() => auth.user?.id, () => {
+  void carregarSip()
+})
+
+onMounted(() => {
+  void carregarSip()
+})
+
 function tituloConversa(conversa: Conversa) {
   return conversa.descricao || conversa.nome || `Conversa #${conversa.id}`
 }
@@ -196,9 +256,36 @@ function avatarConversa(conversa: Conversa) {
   return conversa.avatar_url || ''
 }
 
+function perfilConversa(conversa: Conversa) {
+  return resolverUsuarioDaConversa(conversa, chat.contatos)
+}
+
+function abrirUsuarioInfo(usuario: UsuarioPopup | null) {
+  if (!usuario) return
+  usuarioSelecionado.value = usuario
+  mostrarUsuarioInfo.value = true
+}
+
+function fecharUsuarioInfo() {
+  mostrarUsuarioInfo.value = false
+  usuarioSelecionado.value = null
+}
+
 function onAvatarError() {
-  // URL presigned expirou — tentar buscar nova
   void auth.resolverAvatarUrl()
+}
+
+async function carregarSip() {
+  if (!auth.user) {
+    sipConfig.value = null
+    return
+  }
+
+  try {
+    sipConfig.value = await api.getSip()
+  } catch {
+    sipConfig.value = null
+  }
 }
 
 async function abrirConversa(conversaId: number) {
@@ -225,5 +312,9 @@ async function selecionarContatoNovaConversa(contatoId: number) {
     // handled by parent
   }
 }
-</script>
 
+function fecharConfiguracoes() {
+  abrirConfiguracoes.value = false
+  void carregarSip()
+}
+</script>

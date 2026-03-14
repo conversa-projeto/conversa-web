@@ -320,6 +320,16 @@ watch(() => chat.conectadoTempoReal, (conectado) => {
 watch(() => chat.mensagemRespondendo, (msg) => {
   if (msg) nextTick(() => textareaMsg.value?.focus())
 })
+function focarTextarea(posicao?: number) {
+  nextTick(() => {
+    if (!textareaMsg.value) return
+    textareaMsg.value.focus()
+    if (typeof posicao === 'number') {
+      textareaMsg.value.selectionStart = posicao
+      textareaMsg.value.selectionEnd = posicao
+    }
+  })
+}
 
 async function enviarMensagem() {
   const texto = textoMensagem.value.trim()
@@ -367,10 +377,13 @@ function aoDigitar(event: Event) {
 function inserirEmoji(emoji: string) {
   textoMensagem.value = `${textoMensagem.value}${emoji}`
   mostrarEmoji.value = false
+  focarTextarea(textoMensagem.value.length)
 }
 
 function inserirCodigo(linguagem: string) {
   const ta = textareaMsg.value
+  let posicaoCursor: number | undefined
+
   if (ta) {
     const start = ta.selectionStart
     const end = ta.selectionEnd
@@ -379,21 +392,17 @@ function inserirCodigo(linguagem: string) {
       const antes = texto.slice(0, start)
       const selecao = texto.slice(start, end)
       const depois = texto.slice(end)
-      textoMensagem.value = `${antes}\`\`\`${linguagem}\n${selecao}\n\`\`\`${depois}`
+      textoMensagem.value = antes + '```' + linguagem + '\n' + selecao + '\n```' + depois
+      posicaoCursor = start + linguagem.length + selecao.length + 8
     } else if (texto.trim()) {
-      textoMensagem.value = `\`\`\`${linguagem}\n${texto}\n\`\`\``
+      textoMensagem.value = '```' + linguagem + '\n' + texto + '\n```'
+      posicaoCursor = textoMensagem.value.length
     } else {
-      textoMensagem.value = `\`\`\`${linguagem}\n\n\`\`\``
-      nextTick(() => {
-        if (textareaMsg.value) {
-          const pos = linguagem.length + 4
-          textareaMsg.value.selectionStart = pos
-          textareaMsg.value.selectionEnd = pos
-          textareaMsg.value.focus()
-        }
-      })
+      textoMensagem.value = '```' + linguagem + '\n\n```'
+      posicaoCursor = linguagem.length + 4
     }
   }
+
   mostrarLinguagens.value = false
   nextTick(() => {
     if (textareaMsg.value) {
@@ -401,6 +410,7 @@ function inserirCodigo(linguagem: string) {
       textareaMsg.value.style.height = Math.min(textareaMsg.value.scrollHeight, 120) + 'px'
     }
   })
+  focarTextarea(posicaoCursor)
 }
 
 function selecionarArquivo(event: Event) {
@@ -532,6 +542,7 @@ onBeforeUnmount(() => {
   margin-left: 0;
 }
 </style>
+
 
 
 

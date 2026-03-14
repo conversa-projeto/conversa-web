@@ -9,8 +9,18 @@
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           </button>
-          <div class="group relative">
-            <h2 class="text-lg font-semibold text-slate-800">
+          <button
+            type="button"
+            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700 transition hover:ring-2 hover:ring-blue-200"
+            :disabled="!perfilConversaAtiva"
+            :class="perfilConversaAtiva ? 'cursor-pointer' : 'cursor-default'"
+            @click="abrirUsuarioInfo(perfilConversaAtiva)"
+          >
+            <img v-if="avatarConversa" :src="avatarConversa" alt="Avatar" class="h-full w-full object-cover" @error="ocultarAvatar = true" />
+            <span v-else>{{ inicialConversa }}</span>
+          </button>
+          <div class="group relative min-w-0">
+            <h2 class="truncate select-none text-lg font-semibold text-slate-800">
               {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
             </h2>
             <p
@@ -46,11 +56,11 @@
           <button
             v-if="!call.emChamada && !call.recebendoChamada"
             class="flex items-center gap-1 rounded-lg bg-blue-100 px-2.5 py-1.5 text-sm text-blue-700 hover:bg-blue-200"
-            title="Chamada de v&iacute;deo"
+            title="Chamada de video"
             @click="emit('start-call', 2)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
-            <span class="hidden md:inline">V&iacute;deo</span>
+            <span class="hidden md:inline">Video</span>
           </button>
           <button
             v-if="!call.emChamada && !call.recebendoChamada"
@@ -60,6 +70,14 @@
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
             <span class="hidden md:inline">Tela</span>
+          </button>
+          <button
+            v-if="isGrupo"
+            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
+            title="Gerenciar membros"
+            @click="emit('open-group-members')"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-slate-600"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
           </button>
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
@@ -102,6 +120,8 @@
         </div>
       </div>
     </div>
+
+    <UserInfoModal :aberta="mostrarUsuarioInfo" :usuario="usuarioSelecionado" @close="fecharUsuarioInfo" />
   </div>
 </template>
 
@@ -112,19 +132,42 @@ import { useCallStore } from '../stores/call'
 import { resumoMensagem } from '../utils/formatters'
 import { TipoConversa } from '../types/api'
 import type { TipoChamada } from '../types/api'
+import { resolverUsuarioDaConversa } from '../utils/userProfile'
+import type { UsuarioPopup } from '../utils/userProfile'
+import UserInfoModal from './UserInfoModal.vue'
 
 const emit = defineEmits<{
   'update:sidebar-aberta': [value: boolean]
   'start-call': [tipo: TipoChamada, comTela?: boolean]
   'go-to-message': [id: number]
+  'open-group-members': []
 }>()
 
 const chat = useChatStore()
 const call = useCallStore()
 
 const isGrupo = computed(() => chat.conversaAtiva?.tipo === TipoConversa.Grupo)
+const ocultarAvatar = ref(false)
+const mostrarUsuarioInfo = ref(false)
+const usuarioSelecionado = ref<UsuarioPopup | null>(null)
+
+const avatarConversa = computed(() => {
+  if (ocultarAvatar.value) return ''
+  return chat.conversaAtiva?.avatar_url || ''
+})
+
+const perfilConversaAtiva = computed(() => {
+  if (!chat.conversaAtiva) return null
+  return resolverUsuarioDaConversa(chat.conversaAtiva, chat.contatos)
+})
+
+const inicialConversa = computed(() => {
+  const nome = chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id || ''}`
+  return (nome.trim().charAt(0) || 'C').toUpperCase()
+})
 
 watch(() => chat.conversaAtiva, (conversa) => {
+  ocultarAvatar.value = false
   if (conversa && conversa.tipo === TipoConversa.Grupo) {
     void chat.carregarUsuariosConversa(conversa.id)
   }
@@ -132,6 +175,17 @@ watch(() => chat.conversaAtiva, (conversa) => {
 
 const painelBuscaChat = ref(false)
 const buscaNoChat = ref('')
+
+function abrirUsuarioInfo(usuario: UsuarioPopup | null) {
+  if (!usuario) return
+  usuarioSelecionado.value = usuario
+  mostrarUsuarioInfo.value = true
+}
+
+function fecharUsuarioInfo() {
+  mostrarUsuarioInfo.value = false
+  usuarioSelecionado.value = null
+}
 
 async function pesquisarNoChat() {
   await chat.buscarNaConversa(buscaNoChat.value)

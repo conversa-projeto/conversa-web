@@ -44,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
   })())
   const apiBase = ref(getApiBase())
 
-  // Avatar URL resolvida (presigned, pode expirar — por isso resolvemos sob demanda)
+  // Avatar URL resolvida (presigned, pode expirar por isso resolvemos sob demanda)
   const avatarUrl = ref('')
   let avatarCarregando = false
 
@@ -119,7 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.login(loginValue, senha, dispositivoId.value || undefined)
 
     if (!response.token) {
-      throw new Error('Resposta de login inválida: token ausente')
+      throw new Error('Resposta de login invalida: token ausente')
     }
 
     token.value = response.token
@@ -162,6 +162,13 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(USER_KEY)
   }
 
+  function atualizarPerfil(dados: Partial<Pick<Usuario, 'nome' | 'email' | 'telefone'>>) {
+    if (user.value) {
+      user.value = { ...user.value, ...dados }
+      persistirUser()
+    }
+  }
+
   function atualizarAvatar(identificador: string, url: string) {
     if (user.value) {
       user.value = { ...user.value, avatar_identificador: identificador, avatar_url: url }
@@ -188,6 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
     setApiBase,
     login,
     logout,
+    atualizarPerfil,
     atualizarAvatar,
     removerAvatar,
     resolverAvatarUrl,

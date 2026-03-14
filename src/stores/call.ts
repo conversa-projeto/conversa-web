@@ -43,6 +43,7 @@ export const useCallStore = defineStore('call', () => {
   let pcPublicacaoLocal: RTCPeerConnection | null = null
   let repondoPublicacaoLocal = false
   let intervaloMonitoramentoPeers: number | null = null
+  let sincronizando = false
 
   // Notifica todos os assinantes de peers criando um novo Map.
   // Necessário porque triggerRef não propaga para apps Vue em popup windows.
@@ -549,68 +550,81 @@ export const useCallStore = defineStore('call', () => {
 
   async function sincronizarPeersAtivos() {
     if (!chamada.value || estado.value !== 'ativa') return
+    if (sincronizando) return
+    sincronizando = true
 
-    const meuUsuarioId = getAuthUserId()
-    if (meuUsuarioId === null) return
+    try {
+      // Atualizar dados da chamada para ter a lista mais recente de participantes
+      chamada.value = await api.chamadaDados(chamada.value.id)
 
-    const ativos = chamada.value.usuarios.filter((u) => {
-      const id = normalizeUserId(u.usuario_id)
-      return id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou
-    })
-    const idsAtivos = new Set(ativos.map(u => Number(u.usuario_id)))
-    console.log('[CALL] sincronizarPeersAtivos', {
-      meuUsuarioId,
-      ativos: Array.from(idsAtivos),
-      todosUsuarios: chamada.value.usuarios.map(u => ({
-        id: u.usuario_id,
-        status: u.status,
-        nome: u.usuario_nome
-      })),
-      peersAtuais: Array.from(peers.value.entries()).map(([id, p]) => ({
-        id,
-        temRxPc: !!p.rxPc,
-        temStream: !!p.stream,
-        videoTracks: p.stream?.getVideoTracks().length ?? 0,
-        connectionState: p.rxPc?.connectionState
-      }))
-    })
+      const meuUsuarioId = getAuthUserId()
+      if (meuUsuarioId === null) return
 
-    for (const [userId] of peers.value) {
-      if (!idsAtivos.has(userId)) {
-        desconectarPeer(userId)
-      }
-    }
+      const ativos = chamada.value.usuarios.filter((u) => {
+        const id = normalizeUserId(u.usuario_id)
+        return id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou
+      })
+      const idsAtivos = new Set(ativos.map(u => Number(u.usuario_id)))
+      console.log('[CALL] sincronizarPeersAtivos', {
+        meuUsuarioId,
+        ativos: Array.from(idsAtivos),
+        todosUsuarios: chamada.value.usuarios.map(u => ({
+          id: u.usuario_id,
+          status: u.status,
+          nome: u.usuario_nome
+        })),
+        peersAtuais: Array.from(peers.value.entries()).map(([id, p]) => ({
+          id,
+          temRxPc: !!p.rxPc,
+          temStream: !!p.stream,
+          audioTracks: p.stream?.getAudioTracks().length ?? 0,
+          videoTracks: p.stream?.getVideoTracks().length ?? 0,
+          connectionState: p.rxPc?.connectionState
+        }))
+      })
 
-    for (const usuario of ativos) {
-      const userId = Number(usuario.usuario_id)
-      const peerExistente = peers.value.get(userId)
-
-      // Reconectar se o peer existe mas a conexão WHEP falhou ou não tem tracks de vídeo
-      if (peerExistente?.rxPc) {
-        const estadoConexao = peerExistente.rxPc.connectionState
-        const semVideoEmChamadaVideo = tipoChamada.value === TipoChamada.Video &&
-          (!peerExistente.stream || peerExistente.stream.getVideoTracks().length === 0)
-
-        if (estadoConexao === 'failed' || estadoConexao === 'disconnected' || estadoConexao === 'closed' || semVideoEmChamadaVideo) {
-          console.warn('[CALL] reconectando peer com problema', {
-            userId,
-            nome: usuario.usuario_nome,
-            connectionState: estadoConexao,
-            videoTracks: peerExistente.stream?.getVideoTracks().length ?? 0
-          })
-          try { peerExistente.rxPc.close() } catch { /* ignore */ }
-          peerExistente.rxPc = null
-          peerExistente.stream = null
-          notificarPeers()
+      for (const [userId] of peers.value) {
+        if (!idsAtivos.has(userId)) {
+          desconectarPeer(userId)
         }
       }
 
-      await conectarPeer(userId, usuario.usuario_nome)
+      for (const usuario of ativos) {
+        const userId = Number(usuario.usuario_id)
+        const peerExistente = peers.value.get(userId)
+
+        // Reconectar se o peer existe mas a conexão falhou ou não tem tracks
+        if (peerExistente?.rxPc) {
+          const estadoConexao = peerExistente.rxPc.connectionState
+          const semAudio = !peerExistente.stream || peerExistente.stream.getAudioTracks().length === 0
+          const semVideoEmChamadaVideo = tipoChamada.value === TipoChamada.Video &&
+            (!peerExistente.stream || peerExistente.stream.getVideoTracks().length === 0)
+
+          if (estadoConexao === 'failed' || estadoConexao === 'disconnected' || estadoConexao === 'closed' || semAudio || semVideoEmChamadaVideo) {
+            console.warn('[CALL] reconectando peer com problema', {
+              userId,
+              nome: usuario.usuario_nome,
+              connectionState: estadoConexao,
+              audioTracks: peerExistente.stream?.getAudioTracks().length ?? 0,
+              videoTracks: peerExistente.stream?.getVideoTracks().length ?? 0
+            })
+            try { peerExistente.rxPc.close() } catch { /* ignore */ }
+            peerExistente.rxPc = null
+            peerExistente.stream = null
+            notificarPeers()
+          }
+        }
+
+        await conectarPeer(userId, usuario.usuario_nome)
+      }
+    } finally {
+      sincronizando = false
     }
   }
 
   async function sincronizarPeersComRetentativas(totalTentativas = 3) {
     for (let tentativa = 1; tentativa <= totalTentativas; tentativa++) {
+      sincronizando = false // Libera guard para cada tentativa
       await sincronizarPeersAtivos()
       if (tentativa < totalTentativas) {
         await atraso(tentativa * 1000)
@@ -712,17 +726,24 @@ export const useCallStore = defineStore('call', () => {
     cancelarTemporizadorToque()
 
     try {
-      // Em chamadas de video, tentamos publicar camera+audio.
-      // Se camera nao estiver disponivel/permitida, fazemos fallback para audio
-      // para evitar que o usuario entre "mudo" para os demais participantes.
+      // Tenta adquirir midia: video+audio → audio → sem midia (somente recepcao).
+      // Permite entrar mesmo sem webcam/microfone para assistir a transmissao.
       if (!streamLocal.value) {
         try {
           streamLocal.value = await adquirirMidiaLocal(tipoChamada.value)
-        } catch (erro) {
+        } catch {
           if (tipoChamada.value === TipoChamada.Video) {
-            streamLocal.value = await adquirirMidiaLocal(TipoChamada.Audio)
+            try {
+              streamLocal.value = await adquirirMidiaLocal(TipoChamada.Audio)
+            } catch {
+              console.warn('[CALL] Sem dispositivos de midia, entrando em modo somente recepcao')
+            }
           } else {
-            throw erro
+            try {
+              streamLocal.value = await adquirirMidiaLocal(TipoChamada.Audio)
+            } catch {
+              console.warn('[CALL] Sem dispositivos de midia, entrando em modo somente recepcao')
+            }
           }
         }
       }
@@ -732,11 +753,13 @@ export const useCallStore = defineStore('call', () => {
 
       // Publicar stream local no MediaMTX antes de sincronizar peers
       // para que o caller já consiga assinar via WHEP.
-      try {
-        pcPublicacaoLocal = await publicarLocalNaSala()
-        console.debug('[CALL] Stream local publicado após aceitar chamada')
-      } catch (whipErr) {
-        console.warn('[CALL] Falha ao publicar stream local após aceitar chamada', whipErr)
+      if (streamLocal.value) {
+        try {
+          pcPublicacaoLocal = await publicarLocalNaSala()
+          console.debug('[CALL] Stream local publicado após aceitar chamada')
+        } catch (whipErr) {
+          console.warn('[CALL] Falha ao publicar stream local após aceitar chamada', whipErr)
+        }
       }
 
       chamada.value = await api.chamadaDados(chamada.value.id)
@@ -988,7 +1011,6 @@ export const useCallStore = defineStore('call', () => {
           (emChamada.value || estado.value === 'recebendo')
         ) {
           try {
-            chamada.value = await api.chamadaDados(evento.chamada_id)
             await sincronizarPeersComRetentativas(2)
           } catch {
             // ignore
@@ -1059,11 +1081,8 @@ export const useCallStore = defineStore('call', () => {
           iniciarTimerDuracao()
         }
 
-        if (chamada.value?.id === evento.chamada_id) {
-          chamada.value = await api.chamadaDados(evento.chamada_id)
-          if (estado.value === 'ativa') {
-            await sincronizarPeersComRetentativas()
-          }
+        if (chamada.value?.id === evento.chamada_id && estado.value === 'ativa') {
+          await sincronizarPeersComRetentativas()
         }
         break
       }

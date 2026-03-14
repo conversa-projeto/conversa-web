@@ -1,10 +1,11 @@
-import type {
+﻿import type {
   AnexoResponse,
   Chamada,
   ChamadaPendente,
   Contato,
   Conversa,
   LoginResponse,
+  SipConfig,
   Mensagem,
   MensagemStatusItem,
   TipoChamada,
@@ -58,8 +59,14 @@ export function getConversas() {
 }
 
 export function getUsuariosConversa(conversaId: number) {
-  return requestApi<Array<{ usuario_id: number; nome: string }>>('/conversa/usuarios', 'GET', {
+  return requestApi<Array<{ id: number; usuario_id: number; nome: string }>>('/conversa/usuarios', 'GET', {
     query: { conversa: conversaId }
+  })
+}
+
+export function removeUsuarioConversa(conversaUsuarioId: number) {
+  return requestApi<{ id: number }>('/conversa/usuario', 'DELETE', {
+    query: { id: conversaUsuarioId }
   })
 }
 
@@ -286,5 +293,21 @@ export function digitando(conversaId: number) {
 export function gravandoAudio(conversaId: number) {
   return requestApi<{ sucesso: boolean }>('/conversa/gravando', 'POST', {
     body: { id: conversaId }
+  })
+}
+
+export function getSip() {
+  return requestApi<SipConfig>('/sip')
+}
+
+export function criarSip(dados: Omit<SipConfig, 'id' | 'usuario_id' | 'criado_em' | 'criado_por'>) {
+  return requestApi<SipConfig>('/sip', 'PUT', {
+    body: dados
+  })
+}
+
+export function atualizarSip(dados: Partial<SipConfig> & { id: number }) {
+  return requestApi<{ sucesso: boolean }>('/sip', 'PATCH', {
+    body: dados
   })
 }

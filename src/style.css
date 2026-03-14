@@ -20,3 +20,20 @@ body {
 button {
   @apply transition disabled:cursor-not-allowed disabled:opacity-60;
 }
+
+button,
+[role='button'],
+.cursor-pointer,
+img,
+svg {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+pre,
+code {
+  user-select: text;
+  -webkit-user-select: text;
+}
