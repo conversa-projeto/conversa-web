@@ -5,7 +5,10 @@
       <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
     </div>
 
-    <LoginForm v-if="!auth.isAuthenticated" @login-success="onLoginSuccess" />
+    <template v-if="!auth.isAuthenticated">
+      <RegisterForm v-if="telaCadastro" @go-login="telaCadastro = false" />
+      <LoginForm v-else @login-success="onLoginSuccess" @go-register="telaCadastro = true" />
+    </template>
 
     <div v-else class="relative flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-white shadow md:h-[calc(100vh-2rem)]">
       <ChatSidebar
@@ -160,6 +163,7 @@ import { useAttachments } from './composables/useAttachments'
 import { useDragAndDrop } from './composables/useDragAndDrop'
 
 import LoginForm from './components/LoginForm.vue'
+import RegisterForm from './components/RegisterForm.vue'
 import ChatSidebar from './components/ChatSidebar.vue'
 import CallBar from './components/CallBar.vue'
 import ChatHeader from './components/ChatHeader.vue'
@@ -179,6 +183,7 @@ const chat = useChatStore()
 const call = useCallStore()
 
 const erro = ref('')
+const telaCadastro = ref(false)
 const sidebarAberta = ref(true)
 const abrirModalGrupo = ref(false)
 const modalParticipantesChamada = ref(false)

@@ -24,6 +24,16 @@ export function login(loginValue: string, senha: string, dispositivoId?: number)
 }
 
 
+export function cadastrar(nome: string, loginValue: string, email: string, senha: string) {
+  return requestApi<{ id: number; nome: string; login: string; email: string }>('/cadastro', 'POST', {
+    body: { nome, login: loginValue, email, senha }
+  })
+}
+
+export function dispositivoAlterar(dispositivo: { id: number; nome?: string; modelo?: string; versao_so?: string; plataforma?: string }) {
+  return requestApi<Record<string, unknown>>('/dispositivo', 'PATCH', { body: dispositivo })
+}
+
 export function alterarSenha(senhaAtual: string, senhaNova: string) {
   return requestApi<{ sucesso: boolean }>('/alterar-senha', 'POST', {
     body: {

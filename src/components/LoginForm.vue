@@ -38,6 +38,11 @@
       >
         {{ carregandoLogin ? 'Entrando...' : 'Entrar' }}
       </button>
+
+      <p class="text-center text-sm text-slate-500">
+        Não tem conta?
+        <button type="button" class="font-medium text-blue-600 hover:underline" @click="emit('go-register')">Criar conta</button>
+      </p>
     </form>
   </div>
 </template>
@@ -50,6 +55,7 @@ import { useCallStore } from '../stores/call'
 
 const emit = defineEmits<{
   'login-success': []
+  'go-register': []
 }>()
 
 const auth = useAuthStore()
