@@ -1,12 +1,11 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { TipoConversa, TipoConteudo, TipoEventoSocket } from '../types/api'
-import type { Contato, Conversa, EventoChamadaSocket, EventoSocket, Mensagem } from '../types/api'
+import { TipoConversa, TipoConteudo, TipoEventoSocket, TipoMensagemReferencia } from '../types/api'
+import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { playNotificationSound, showNotification, requestNotificationPermission } from '../utils/sound'
-import { resumoMensagem as _resumoMensagem } from '../utils/formatters'
 
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
@@ -157,10 +156,10 @@ export const useChatStore = defineStore('chat', () => {
     return Math.max(0, merged.length - antes)
   }
 
-  async function iniciarConversaDireta(contato: Contato) {
+  async function obterOuCriarConversaDireta(contato: Contato) {
     const auth = useAuthStore()
     if (!auth.user) {
-      throw new Error('Usuário não autenticado')
+      throw new Error('Usu??rio n??o autenticado')
     }
 
     let conversa = conversas.value.find((item) => item.tipo === TipoConversa.Direta && item.destinatario_id === contato.id)
@@ -176,13 +175,18 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
 
+    return conversa
+  }
+
+  async function iniciarConversaDireta(contato: Contato) {
+    const conversa = await obterOuCriarConversaDireta(contato)
     await selecionarConversa(conversa.id)
   }
 
   async function criarGrupo(nome: string, usuarioIds: number[]) {
     const auth = useAuthStore()
     if (!auth.user) {
-      throw new Error('Usuário não autenticado')
+      throw new Error('Usu??rio n??o autenticado')
     }
 
     const criada = await api.createConversa(nome, TipoConversa.Grupo)
@@ -194,11 +198,17 @@ export const useChatStore = defineStore('chat', () => {
     await selecionarConversa(criada.id)
   }
 
+  async function renomearGrupo(conversaId: number, descricao: string) {
+    await api.atualizarConversa(conversaId, { descricao })
+    await carregarConversas()
+  }
+
   type ConteudoArquivoEntrada = {
     blob: Blob
     nomeArquivo: string
     mimeType?: string
     isAudio?: boolean
+    isGravacaoAudio?: boolean
   }
 
   function responderMensagem(msg: Mensagem) {
@@ -209,7 +219,57 @@ export const useChatStore = defineStore('chat', () => {
     mensagemRespondendo.value = null
   }
 
+  function criarMensagemReferenciaResumo(origem: Mensagem, tipo: TipoMensagemReferencia) {
+    return {
+      tipo,
+      origem_mensagem_id: origem.id,
+      mensagem: {
+        id: origem.id,
+        conversa_id: origem.conversa_id,
+        remetente: origem.remetente,
+        conteudos: origem.conteudos
+      }
+    }
+  }
+
+  function clonarConteudosParaEnvio(conteudos: ConteudoMensagem[]) {
+    return conteudos
+      .slice()
+      .sort((a, b) => a.ordem - b.ordem)
+      .map((conteudo, index) => ({
+        ordem: index + 1,
+        tipo: conteudo.tipo,
+        conteudo: conteudo.conteudo
+      }))
+  }
+
+  async function encaminharMensagemParaConversa(origem: Mensagem, conversaDestinoId: number) {
+    const auth = useAuthStore()
+    if (!auth.user) {
+      throw new Error('Usu??rio n??o autenticado')
+    }
+
+    const conteudos = clonarConteudosParaEnvio(origem.conteudos)
+    if (conteudos.length === 0) {
+      throw new Error('A mensagem selecionada nao possui conteudo para encaminhar.')
+    }
+
+    await api.enviarMensagem(conversaDestinoId, conteudos, {
+      tipo: TipoMensagemReferencia.Encaminhada,
+      origem_mensagem_id: origem.id
+    })
+
+    await carregarConversas()
+    await selecionarConversa(conversaDestinoId)
+  }
+
+  async function encaminharMensagemParaContato(origem: Mensagem, contato: Contato) {
+    const conversa = await obterOuCriarConversaDireta(contato)
+    await encaminharMensagemParaConversa(origem, conversa.id)
+  }
+
   async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = []) {
+
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
     }
@@ -251,7 +311,7 @@ export const useChatStore = defineStore('chat', () => {
       const mimeType = arq.mimeType || ''
       const nomeArquivo = arq.nomeArquivo
       const extensao = (nomeArquivo.split('.').pop() || '').slice(0, 10)
-      const tipo = arq.isAudio ? TipoConteudo.Audio : mimeType.startsWith('image/') ? TipoConteudo.Imagem : TipoConteudo.Arquivo
+      const tipo = arq.isGravacaoAudio ? TipoConteudo.GravacaoAudio : arq.isAudio ? TipoConteudo.Audio : mimeType.startsWith('image/') ? TipoConteudo.Imagem : TipoConteudo.Arquivo
       const localUrl = URL.createObjectURL(arq.blob)
       localUrlsParaLimpar.push(localUrl)
 
@@ -268,12 +328,14 @@ export const useChatStore = defineStore('chat', () => {
       ordem += 1
     }
 
-    // Captura resposta antes de limpar
+    // Captura referencia antes de limpar
     const respostaMsg = mensagemRespondendo.value
-    const respostaMensagemId = respostaMsg?.id && respostaMsg.id > 0 ? respostaMsg.id : undefined
+    const mensagemReferencia = respostaMsg?.id && respostaMsg.id > 0
+      ? { tipo: TipoMensagemReferencia.Resposta, origem_mensagem_id: respostaMsg.id }
+      : undefined
     mensagemRespondendo.value = null
 
-    // Adiciona mensagem otimista à UI imediatamente (antes dos uploads)
+    // Adiciona mensagem otimista ? UI imediatamente (antes dos uploads)
     const optimisticMsg: Mensagem = {
       id: tempId,
       remetente_id: auth.user.id,
@@ -286,13 +348,8 @@ export const useChatStore = defineStore('chat', () => {
       reproduzida: false,
       enviando: true,
       conteudos: conteudosOptimistas,
-      ...(respostaMensagemId && respostaMsg ? {
-        resposta_mensagem_id: respostaMensagemId,
-        resposta_mensagem: {
-          id: respostaMsg.id,
-          remetente: respostaMsg.remetente,
-          conteudo_resumo: _resumoMensagem(respostaMsg)
-        }
+      ...(mensagemReferencia && respostaMsg ? {
+        mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, TipoMensagemReferencia.Resposta),
       } : {})
     }
 
@@ -312,7 +369,7 @@ export const useChatStore = defineStore('chat', () => {
         })
       }
 
-      const resp = await api.enviarMensagem(conversaId, conteudosApi, respostaMensagemId)
+      const resp = await api.enviarMensagem(conversaId, conteudosApi, mensagemReferencia)
 
       const conteudosFinais = conteudosOptimistas.map((conteudo) => {
         if (conteudo.tipo === TipoConteudo.Texto) {
@@ -641,9 +698,10 @@ export const useChatStore = defineStore('chat', () => {
       if (ultima.conteudos && ultima.conteudos.length > 0) {
         const c = ultima.conteudos[0]
         if (c.tipo === TipoConteudo.Texto) texto = c.conteudo
-        else if (c.tipo === TipoConteudo.Imagem) texto = '📷 Imagem'
-        else if (c.tipo === TipoConteudo.Audio) texto = '🎤 Áudio'
-        else texto = '📎 Arquivo'
+        else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
+        else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
+        else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
+        else texto = 'Arquivo'
       }
 
       showNotification(nomeRemetente, {
@@ -856,7 +914,10 @@ export const useChatStore = defineStore('chat', () => {
     selecionarConversa,
     carregarMensagensAnteriores,
     iniciarConversaDireta,
+    encaminharMensagemParaConversa,
+    encaminharMensagemParaContato,
     criarGrupo,
+    renomearGrupo,
     enviarTexto,
     enviarArquivo,
     enviarMensagemComConteudos,
@@ -885,3 +946,4 @@ export const useChatStore = defineStore('chat', () => {
     removerMembroGrupo
   }
 })
+

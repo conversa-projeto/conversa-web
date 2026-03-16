@@ -163,7 +163,7 @@ import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'
-import type { Conversa, SipConfig } from '../types/api'
+import type { Contato, Conversa, SipConfig } from '../types/api'
 import { sipAtivo } from '../utils/sip'
 import { criarUsuarioPopup, resolverUsuarioDaConversa } from '../utils/userProfile'
 import type { UsuarioPopup } from '../utils/userProfile'
@@ -214,7 +214,7 @@ const inicialUsuario = computed(() => {
 const contatosFiltrados = computed(() => {
   const termo = filtroContato.value.trim().toLowerCase()
   if (!termo) return chat.contatos
-  return chat.contatos.filter((item) => {
+  return chat.contatos.filter((item: Contato) => {
     return (
       item.nome.toLowerCase().includes(termo) ||
       item.login.toLowerCase().includes(termo) ||
@@ -226,7 +226,7 @@ const contatosFiltrados = computed(() => {
 const conversasFiltradas = computed(() => {
   const termo = filtroConversa.value.trim().toLowerCase()
   if (!termo) return chat.conversas
-  return chat.conversas.filter((item) => {
+  return chat.conversas.filter((item: Conversa) => {
     const titulo = (item.descricao || item.nome || '').toLowerCase()
     const ultima = (item.ultima_mensagem_texto || '').toLowerCase()
     return titulo.includes(termo) || ultima.includes(termo)
@@ -301,7 +301,7 @@ async function abrirConversa(conversaId: number) {
 async function selecionarContatoNovaConversa(contatoId: number) {
   mostrarBuscaContato.value = false
   filtroContato.value = ''
-  const contato = chat.contatos.find((item) => item.id === contatoId)
+  const contato = chat.contatos.find((item: Contato) => item.id === contatoId)
   if (!contato) return
 
   try {

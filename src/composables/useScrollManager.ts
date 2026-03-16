@@ -1,6 +1,7 @@
 import { nextTick, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
+import type { Mensagem } from '../types/api'
 
 export function useScrollManager() {
   const auth = useAuthStore()
@@ -160,7 +161,7 @@ export function useScrollManager() {
     posicionandoAberturaConversa.value = true
     try {
       const usuarioId = auth.user?.id
-      const primeiraNaoLida = chat.mensagensAtivas.find((mensagem) => {
+      const primeiraNaoLida = chat.mensagensAtivas.find((mensagem: Mensagem) => {
         return mensagem.remetente_id !== usuarioId && !mensagem.visualizada
       })
 
@@ -181,7 +182,7 @@ export function useScrollManager() {
 
   // Auto-scroll on new messages
   watch(
-    () => chat.mensagensAtivas.map((mensagem) => mensagem.id),
+    () => chat.mensagensAtivas.map((mensagem: Mensagem) => mensagem.id),
     async (atual, anterior) => {
       if (posicionandoAberturaConversa.value) return
 

@@ -25,11 +25,11 @@
           @image-loaded="aoCarregarImagemNoChat"
           @download="(id, nome) => abrirAnexo(id, nome)"
           @reply="(msg) => chat.responderMensagem(msg)"
+          @forward="(msg) => emit('forward', msg)"
           @go-to-message="(id) => irParaMensagem(id)"
         />
       </template>
 
-      <!-- Status indicators -->
       <div class="h-6 flex items-end">
         <p v-if="textoGravando" class="text-xs text-rose-500 animate-pulse">
           {{ textoGravando }}
@@ -55,6 +55,7 @@ import type { Mensagem } from '../types/api'
 
 const emit = defineEmits<{
   'open-image': [identificador: string, nome: string]
+  'forward': [mensagem: Mensagem]
 }>()
 
 const auth = useAuthStore()
@@ -63,17 +64,17 @@ const chat = useChatStore()
 const textoDigitando = computed(() => {
   const nomes = chat.digitandoNaConversaAtiva
   if (nomes.length === 0) return ''
-  if (nomes.length === 1) return `${nomes[0]} está digitando...`
-  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão digitando...`
-  return `${nomes[0]} e mais ${nomes.length - 1} estão digitando...`
+  if (nomes.length === 1) return `${nomes[0]} esta digitando...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estao digitando...`
+  return `${nomes[0]} e mais ${nomes.length - 1} estao digitando...`
 })
 
 const textoGravando = computed(() => {
   const nomes = chat.gravandoNaConversaAtiva
   if (nomes.length === 0) return ''
-  if (nomes.length === 1) return `${nomes[0]} está gravando áudio...`
-  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estão gravando áudio...`
-  return `${nomes[0]} e mais ${nomes.length - 1} estão gravando áudio...`
+  if (nomes.length === 1) return `${nomes[0]} esta gravando audio...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estao gravando audio...`
+  return `${nomes[0]} e mais ${nomes.length - 1} estao gravando audio...`
 })
 
 const {

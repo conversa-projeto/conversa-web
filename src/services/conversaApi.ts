@@ -79,6 +79,15 @@ export function createConversa(descricao: string, tipo: TipoConversa) {
   })
 }
 
+export function atualizarConversa(conversaId: number, dados: Partial<Pick<Conversa, 'descricao'>>) {
+  return requestApi<Conversa>('/conversa', 'PATCH', {
+    body: {
+      id: conversaId,
+      ...dados
+    }
+  })
+}
+
 export function addUsuarioConversa(conversaId: number, usuarioId: number) {
   return requestApi<{ id: number; conversa_id: number; usuario_id: number }>('/conversa/usuario', 'PUT', {
     body: {
@@ -102,10 +111,10 @@ export function getMensagens(conversaId: number, mensagemReferencia = 0, mensage
 export function enviarMensagem(
   conversaId: number,
   conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>,
-  respostaMensagemId?: number,
+  mensagemReferencia?: { tipo: number; origem_mensagem_id: number },
 ) {
   const body: Record<string, unknown> = { conversa_id: conversaId, conteudos }
-  if (respostaMensagemId) body.resposta_mensagem_id = respostaMensagemId
+  if (mensagemReferencia) body.mensagem_referencia = mensagemReferencia
   return requestApi<{ id: number; conversa_id: number; usuario_id: number }>('/mensagem', 'PUT', { body })
 }
 

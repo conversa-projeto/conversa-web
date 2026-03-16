@@ -11,8 +11,15 @@ export const TipoConteudo = {
   Imagem: 2,
   Arquivo: 3,
   Audio: 4,
+  GravacaoAudio: 5,
 } as const
 export type TipoConteudo = (typeof TipoConteudo)[keyof typeof TipoConteudo]
+
+export const TipoMensagemReferencia = {
+  Resposta: 1,
+  Encaminhada: 2,
+} as const
+export type TipoMensagemReferencia = (typeof TipoMensagemReferencia)[keyof typeof TipoMensagemReferencia]
 
 export const TipoEventoSocket = {
   NovaMensagem: 2,
@@ -108,6 +115,18 @@ export interface ConteudoMensagem {
   localUrl?: string
 }
 
+export interface MensagemReferencia {
+  id?: number
+  tipo: TipoMensagemReferencia | number
+  origem_mensagem_id?: number
+  mensagem?: {
+    id: number
+    conversa_id?: number
+    remetente?: string
+    conteudos: ConteudoMensagem[]
+  } | null
+}
+
 export interface Mensagem {
   id: number
   remetente_id: number
@@ -119,13 +138,8 @@ export interface Mensagem {
   visualizada: boolean
   reproduzida: boolean
   conteudos: ConteudoMensagem[]
+  mensagem_referencia?: MensagemReferencia | null
   enviando?: boolean
-  resposta_mensagem_id?: number | null
-  resposta_mensagem?: {
-    id: number
-    remetente: string
-    conteudo_resumo: string
-  } | null
 }
 
 export interface AnexoResponse {

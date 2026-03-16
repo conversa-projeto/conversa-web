@@ -22,7 +22,7 @@
       </button>
 
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span class="truncate text-[11px]" :class="isOwn ? 'text-blue-200' : 'text-slate-400'" :title="nome">
+        <span v-if="props.mostrarNome !== false" class="truncate text-[11px]" :class="isOwn ? 'text-blue-200' : 'text-slate-400'" :title="nome">
           {{ nome }}
         </span>
         <div class="flex items-center gap-2">
@@ -71,6 +71,7 @@ const props = defineProps<{
   reproduzida?: boolean
   nome: string
   isOwn?: boolean
+  mostrarNome?: boolean
 }>()
 
 const audioRef = ref<HTMLAudioElement | null>(null)

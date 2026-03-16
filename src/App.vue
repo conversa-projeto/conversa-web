@@ -26,7 +26,6 @@
         @dragover.prevent="onDragOver"
         @dragleave.prevent="onDragLeave"
       >
-        <!-- Overlay de Drag and Drop -->
         <div
           v-if="isDragging"
           class="absolute inset-0 z-50 flex items-center justify-center bg-blue-600/20 backdrop-blur-sm"
@@ -42,7 +41,7 @@
               </svg>
             </div>
             <span class="text-xl font-semibold text-slate-800">Solte para enviar o arquivo</span>
-            <span class="text-sm text-slate-500">Imagens mostrar\u00E3o uma pr\u00E9via antes de enviar</span>
+            <span class="text-sm text-slate-500">Imagens mostrarao uma previa antes de enviar</span>
           </div>
         </div>
 
@@ -53,7 +52,6 @@
           @show-call-window="chamadaFlutuante = false"
           @open-add-user-modal="modalAdicionarUsuario = true"
         />
-
 
         <ChatHeader
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
@@ -67,10 +65,11 @@
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           ref="messageListRef"
           @open-image="handleOpenImage"
+          @forward="abrirModalEncaminhamento"
         />
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-slate-500">
-          <span>Selecione uma conversa para come&ccedil;ar.</span>
+          <span>Selecione uma conversa para comecar.</span>
           <button class="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 md:hidden" @click="sidebarAberta = true">
             Ver conversas
           </button>
@@ -134,6 +133,14 @@
       @close="modalMembrosGrupo = false"
     />
 
+    <ForwardMessageModal
+      :aberta="modalEncaminhamentoAberto"
+      :mensagem="mensagemParaEncaminhar"
+      @close="fecharModalEncaminhamento"
+      @select-conversation="encaminharParaConversa"
+      @select-contact="encaminharParaContato"
+    />
+
     <CallParticipantsModal
       :aberta="modalParticipantesChamada"
       :tipo-chamada="tipoChamadaPendente"
@@ -161,7 +168,7 @@ import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useCallStore } from './stores/call'
 import { TipoConversa } from './types/api'
-import type { TipoChamada } from './types/api'
+import type { Contato, EventoChamadaSocket, Mensagem, TipoChamada } from './types/api'
 import { useCallPopup } from './composables/useCallPopup'
 import { useImageViewer } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
@@ -179,6 +186,7 @@ import ImageViewerModal from './components/ImageViewerModal.vue'
 import ImagePreviewModal from './components/ImagePreviewModal.vue'
 import CreateGroupModal from './components/CreateGroupModal.vue'
 import GroupMembersModal from './components/GroupMembersModal.vue'
+import ForwardMessageModal from './components/ForwardMessageModal.vue'
 import CallParticipantsModal from './components/CallParticipantsModal.vue'
 import IncomingCallModal from './components/IncomingCallModal.vue'
 import VideoUpgradeModal from './components/VideoUpgradeModal.vue'
@@ -199,6 +207,8 @@ const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)
 const modalAdicionarUsuario = ref(false)
 const chamadaFlutuante = ref(false)
+const modalEncaminhamentoAberto = ref(false)
+const mensagemParaEncaminhar = ref<Mensagem | null>(null)
 const mostrarChamadaNoPrincipal = computed(() =>
   call.emChamada && call.tipoChamada === 2 && !chamadaFlutuante.value
 )
@@ -254,9 +264,6 @@ async function handleFilesDropped(files: FileList) {
     try {
       if (isImagem) {
         abrirPreviewImagem(file, file.name, file.type || 'image/png')
-        // Se houver mais de um arquivo, paramos no primeiro se for imagem para mostrar o preview
-        // Mas o ideal seria processar os demais se não fossem imagens.
-        // Para simplificar, focamos no primeiro.
         break
       } else {
         await chat.enviarArquivo(file, file.name, file.type, isAudio)
@@ -274,13 +281,13 @@ onMounted(async () => {
     try {
       await chat.inicializar()
       void auth.resolverAvatarUrl()
-      chat.registrarHandlerChamada((evento) => {
+      chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
         void call.tratarEventoChamada(evento)
       })
       void call.verificarChamadasPendentes()
       await messageListRef.value?.posicionarAberturaConversaAtiva()
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Falha ao iniciar sess\u00E3o'
+      const message = e instanceof Error ? e.message : 'Falha ao iniciar sessao'
       erro.value = message
       auth.logout()
     }
@@ -305,6 +312,16 @@ function sair() {
   chat.removerHandlerChamada()
   chat.encerrarTempoReal()
   auth.logout()
+}
+
+function abrirModalEncaminhamento(mensagem: Mensagem) {
+  mensagemParaEncaminhar.value = mensagem
+  modalEncaminhamentoAberto.value = true
+}
+
+function fecharModalEncaminhamento() {
+  modalEncaminhamentoAberto.value = false
+  mensagemParaEncaminhar.value = null
 }
 
 async function onConversationOpened() {
@@ -370,7 +387,6 @@ function recusarChamadaRecebida() {
   void call.recusarChamada()
 }
 
-
 async function abrirResultadoBusca(mensagemId: number) {
   const conversaId = chat.conversaAtivaId
   if (!conversaId) return
@@ -387,11 +403,38 @@ async function abrirResultadoBusca(mensagemId: number) {
     erro.value = e instanceof Error ? e.message : 'Erro ao abrir resultado da pesquisa'
   }
 }
+
 async function handleOpenImage(identificador: string, nome: string) {
   try {
     await abrirImagemTelaCheia(identificador, nome)
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao abrir imagem'
+  }
+}
+
+async function encaminharParaConversa(conversaId: number) {
+  if (!mensagemParaEncaminhar.value) return
+
+  try {
+    await chat.encaminharMensagemParaConversa(mensagemParaEncaminhar.value, conversaId)
+    fecharModalEncaminhamento()
+    await nextTick()
+    await messageListRef.value?.posicionarAberturaConversaAtiva()
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao encaminhar mensagem'
+  }
+}
+
+async function encaminharParaContato(contato: Contato) {
+  if (!mensagemParaEncaminhar.value) return
+
+  try {
+    await chat.encaminharMensagemParaContato(mensagemParaEncaminhar.value, contato)
+    fecharModalEncaminhamento()
+    await nextTick()
+    await messageListRef.value?.posicionarAberturaConversaAtiva()
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao encaminhar mensagem'
   }
 }
 </script>

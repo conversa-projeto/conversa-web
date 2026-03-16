@@ -143,6 +143,7 @@ interface ArquivoNaFila {
   nome: string
   tipo: string
   isAudio: boolean
+  isGravacaoAudio?: boolean
   previewUrl?: string
   duracaoSegundos?: number | null
   reproduzindo?: boolean
@@ -164,13 +165,14 @@ function atualizarArquivoFila(id: string, patch: Partial<ArquivoNaFila>) {
   arquivosFila.value = arquivosFila.value.map((arq) => (arq.id === id ? { ...arq, ...patch } : arq))
 }
 
-function criarArquivoFila(file: Blob, nome: string, tipo: string, isAudio: boolean): ArquivoNaFila {
+function criarArquivoFila(file: Blob, nome: string, tipo: string, isAudio: boolean, isGravacaoAudio = false): ArquivoNaFila {
   const item: ArquivoNaFila = {
     id: gerarIdArquivo(),
     file,
     nome,
     tipo,
     isAudio,
+    isGravacaoAudio,
     previewUrl: isAudio ? URL.createObjectURL(file) : undefined,
     duracaoSegundos: isAudio ? null : undefined,
     reproduzindo: false
@@ -294,7 +296,7 @@ function limparRecursosArquivo(arq: ArquivoNaFila) {
 }
 
 const { gravandoAudio, iniciarAudio, pararAudio } = useAudioRecording(erro, (blob, nome, mime) => {
-  arquivosFila.value = [...arquivosFila.value, criarArquivoFila(blob, nome, mime, true)]
+  arquivosFila.value = [...arquivosFila.value, criarArquivoFila(blob, nome, mime, true, true)]
 })
 
 let gravandoInterval: ReturnType<typeof setInterval> | null = null
@@ -348,7 +350,8 @@ async function enviarMensagem() {
         blob: arq.file,
         nomeArquivo: arq.nome,
         mimeType: arq.tipo,
-        isAudio: arq.isAudio
+        isAudio: arq.isAudio,
+        isGravacaoAudio: arq.isGravacaoAudio === true
       }))
     )
 
@@ -362,6 +365,7 @@ async function enviarMensagem() {
     erro.value = e instanceof Error ? e.message : 'Erro ao enviar'
   }
 }
+
 
 function autoResizeTextarea(event: Event) {
   const el = event.target as HTMLTextAreaElement
@@ -421,7 +425,7 @@ function selecionarArquivo(event: Event) {
   const novos: ArquivoNaFila[] = []
   for (const file of files) {
     const isAudio = file.type.startsWith('audio/')
-    novos.push(criarArquivoFila(file, file.name, file.type, isAudio))
+      novos.push(criarArquivoFila(file, file.name, file.type, isAudio, false))
   }
   if (novos.length) arquivosFila.value = [...arquivosFila.value, ...novos]
   target.value = ''

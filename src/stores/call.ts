@@ -124,7 +124,7 @@ export const useCallStore = defineStore('call', () => {
     const auth = useAuthStore()
     const idsNaChamada = new Set(chamada.value.usuarios.map(u => normalizeUserId(u.usuario_id)).filter((id): id is number => id !== null))
     if (auth.user) idsNaChamada.add(Number(auth.user.id))
-    return chat.contatos.filter(c => !idsNaChamada.has(c.id))
+    return chat.contatos.filter((c: { id: number }) => !idsNaChamada.has(c.id))
   })
 
   const somenteRecepcao = computed(() =>

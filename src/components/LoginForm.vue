@@ -52,6 +52,7 @@ import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useCallStore } from '../stores/call'
+import type { EventoChamadaSocket } from '../types/api'
 
 const emit = defineEmits<{
   'login-success': []
@@ -74,7 +75,7 @@ async function fazerLogin() {
   try {
     await auth.login(login.value.trim(), senha.value)
     await chat.inicializar()
-    chat.registrarHandlerChamada((evento) => {
+    chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
       void call.tratarEventoChamada(evento)
     })
     void call.verificarChamadasPendentes()

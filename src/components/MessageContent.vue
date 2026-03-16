@@ -1,6 +1,6 @@
 <template>
   <div class="mb-1 last:mb-0">
-    <template v-if="conteudo.tipo === TipoConteudo.Texto">
+    <template v-if="ehTipo(conteudo.tipo, TipoConteudo.Texto)">
       <template v-if="temCodigoFormatado(conteudo.conteudo)">
         <template v-for="(seg, segIdx) in parseCodeBlocks(conteudo.conteudo)" :key="segIdx">
           <p
@@ -51,7 +51,7 @@
     </template>
 
     <img
-      v-else-if="conteudo.tipo === TipoConteudo.Imagem"
+      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Imagem)"
       :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
       alt="Imagem"
       class="max-h-64 cursor-zoom-in rounded border border-slate-200"
@@ -60,7 +60,7 @@
       @click="emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
     />
 
-    <template v-else-if="conteudo.tipo === TipoConteudo.Arquivo">
+    <template v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Arquivo)">
       <template v-if="isVideoConteudo(conteudo)">
         <div class="w-[420px] max-w-full">
           <video
@@ -97,7 +97,7 @@
       </div>
     </template>
     <AudioPlayer
-      v-else-if="conteudo.tipo === TipoConteudo.Audio"
+      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Audio) || ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)"
       :src="conteudo.localUrl"
       :identificador="conteudo.conteudo"
       :conversa-id="conversaId"
@@ -105,6 +105,7 @@
       :reproduzida="reproduzida"
       :nome="conteudo.nome || 'Audio'"
       :is-own="isOwn"
+      :mostrar-nome="!ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)"
     />
   </div>
 </template>
@@ -132,4 +133,8 @@ const emit = defineEmits<{
 }>()
 
 const { codigosCopiados, copiarCodigo, temCodigoFormatado, parseCodeBlocks, highlightCodigo } = useCodeHighlight()
+
+function ehTipo(valor: number | string, tipo: number) {
+  return Number(valor) === tipo
+}
 </script>

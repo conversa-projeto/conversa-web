@@ -3,8 +3,26 @@
     <div class="w-full max-w-md rounded-xl bg-white p-4">
       <h3 class="mb-3 text-lg font-semibold text-slate-800">Membros do grupo</h3>
 
-      <!-- Lista de membros atuais -->
-      <div class="max-h-52 overflow-auto rounded border border-slate-200">
+      <div class="rounded border border-slate-200 bg-slate-50 p-3">
+        <p class="mb-2 text-sm font-medium text-slate-700">Nome do grupo</p>
+        <div class="flex gap-2">
+          <input
+            v-model.trim="nomeGrupo"
+            type="text"
+            class="flex-1 rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            placeholder="Digite o nome do grupo"
+          />
+          <button
+            class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            :disabled="!podeRenomear"
+            @click="renomear"
+          >
+            {{ renomeando ? 'Salvando...' : 'Renomear' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 max-h-52 overflow-auto rounded border border-slate-200">
         <div
           v-for="membro in chat.usuariosConversaAtiva"
           :key="`membro-${membro.usuario_id}`"
@@ -25,7 +43,6 @@
         </p>
       </div>
 
-      <!-- Adicionar membro -->
       <div class="mt-3">
         <p class="mb-2 text-sm font-medium text-slate-700">Adicionar participante</p>
         <div class="flex gap-2">
@@ -53,6 +70,7 @@
       </div>
 
       <p v-if="erro" class="mt-2 rounded bg-rose-50 px-2 py-1 text-sm text-rose-700">{{ erro }}</p>
+      <p v-if="sucesso" class="mt-2 rounded bg-emerald-50 px-2 py-1 text-sm text-emerald-700">{{ sucesso }}</p>
 
       <div class="mt-4 flex justify-end">
         <button class="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100" @click="emit('close')">Fechar</button>
@@ -65,6 +83,7 @@
 import { computed, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
+import type { Contato } from '../types/api'
 
 defineProps<{
   aberta: boolean
@@ -78,28 +97,59 @@ const chat = useChatStore()
 const auth = useAuthStore()
 
 const usuarioSelecionado = ref<number | null>(null)
+const nomeGrupo = ref('')
 const adicionando = ref(false)
+const renomeando = ref(false)
 const removendo = ref<number | null>(null)
 const erro = ref('')
+const sucesso = ref('')
 
 const contatosDisponiveis = computed(() => {
-  const idsAtuais = new Set(chat.usuariosConversaAtiva.map(u => u.usuario_id))
-  return chat.contatos.filter(c => !idsAtuais.has(c.id))
+  const idsAtuais = new Set(chat.usuariosConversaAtiva.map((u: { usuario_id: number }) => u.usuario_id))
+  return chat.contatos.filter((c: Contato) => !idsAtuais.has(c.id))
 })
 
-watch(() => chat.conversaAtiva, () => {
-  if (chat.conversaAtiva) {
-    void chat.carregarUsuariosConversa(chat.conversaAtiva.id, true)
-  }
+const podeRenomear = computed(() => {
+  const nomeAtual = (chat.conversaAtiva?.descricao || '').trim()
+  const novoNome = nomeGrupo.value.trim()
+  return Boolean(chat.conversaAtiva && novoNome && novoNome !== nomeAtual && !renomeando.value)
 })
+
+watch(() => chat.conversaAtiva, (conversa) => {
+  nomeGrupo.value = conversa?.descricao || ''
+  erro.value = ''
+  sucesso.value = ''
+  usuarioSelecionado.value = null
+  if (conversa) {
+    void chat.carregarUsuariosConversa(conversa.id, true)
+  }
+}, { immediate: true })
+
+async function renomear() {
+  if (!chat.conversaAtiva || !podeRenomear.value) return
+  erro.value = ''
+  sucesso.value = ''
+  renomeando.value = true
+  try {
+    await chat.renomearGrupo(chat.conversaAtiva.id, nomeGrupo.value.trim())
+    nomeGrupo.value = chat.conversaAtiva?.descricao || nomeGrupo.value.trim()
+    sucesso.value = 'Grupo renomeado com sucesso.'
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao renomear o grupo'
+  } finally {
+    renomeando.value = false
+  }
+}
 
 async function adicionar() {
   if (!usuarioSelecionado.value || !chat.conversaAtiva) return
   erro.value = ''
+  sucesso.value = ''
   adicionando.value = true
   try {
     await chat.adicionarMembroGrupo(chat.conversaAtiva.id, usuarioSelecionado.value)
     usuarioSelecionado.value = null
+    sucesso.value = 'Participante adicionado com sucesso.'
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao adicionar'
   } finally {
@@ -110,9 +160,11 @@ async function adicionar() {
 async function remover(membro: { id: number; usuario_id: number; nome: string }) {
   if (!chat.conversaAtiva) return
   erro.value = ''
+  sucesso.value = ''
   removendo.value = membro.id
   try {
     await chat.removerMembroGrupo(chat.conversaAtiva.id, membro.id)
+    sucesso.value = 'Participante removido com sucesso.'
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao remover'
   } finally {

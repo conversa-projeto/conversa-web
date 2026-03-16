@@ -107,16 +107,6 @@
                   </div>
                 </div>
 
-                <div class="mt-4 grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label class="mb-1 block text-sm text-slate-700">Login</label>
-                    <input :value="auth.user?.login || ''" type="text" disabled class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" />
-                  </div>
-                  <div>
-                    <label class="mb-1 block text-sm text-slate-700">ID do dispositivo atual</label>
-                    <input :value="auth.dispositivoId ? String(auth.dispositivoId) : 'Nao informado'" type="text" disabled class="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" />
-                  </div>
-                </div>
 
                 <p v-if="erroPerfil" class="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erroPerfil }}</p>
                 <p v-if="sucessoPerfil" class="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ sucessoPerfil }}</p>

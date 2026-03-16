@@ -27,7 +27,7 @@
               v-if="isGrupo && chat.usuariosConversaAtiva.length"
               class="max-w-[300px] truncate text-xs text-slate-500"
             >
-              {{ chat.usuariosConversaAtiva.map(u => u.nome).join(', ') }}
+              {{ nomesMembrosGrupo }}
             </p>
             <div
               v-if="isGrupo && chat.usuariosConversaAtiva.length"
@@ -164,6 +164,10 @@ const perfilConversaAtiva = computed(() => {
 const inicialConversa = computed(() => {
   const nome = chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id || ''}`
   return (nome.trim().charAt(0) || 'C').toUpperCase()
+})
+
+const nomesMembrosGrupo = computed(() => {
+  return chat.usuariosConversaAtiva.map((u: { nome: string }) => u.nome).join(', ')
 })
 
 watch(() => chat.conversaAtiva, (conversa) => {
