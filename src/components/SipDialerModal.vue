@@ -1,38 +1,38 @@
 <template>
-  <div v-if="aberta" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-    <div class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
-      <div class="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+  <div v-if="aberta" class="fixed inset-0 z-50 flex items-center justify-center bg-surface-900/50 p-4">
+    <div class="w-full max-w-md overflow-hidden rounded-3xl bg-surface-base shadow-2xl">
+      <div class="flex items-start justify-between border-b border-surface-200 px-5 py-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Discador SIP</p>
-          <h2 class="mt-1 text-lg font-semibold text-slate-900">Ramal {{ sipConfig?.sip_user || 'indisponivel' }}</h2>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-surface-500">Discador SIP</p>
+          <h2 class="mt-1 text-lg font-semibold text-surface-900">Ramal {{ sip.sipConfig?.sip_user || 'indisponivel' }}</h2>
         </div>
-        <button class="flex h-10 w-10 items-center justify-center rounded-full text-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" @click="emit('close')">&times;</button>
+        <button class="flex h-10 w-10 items-center justify-center rounded-full text-lg text-surface-500 transition hover:bg-surface-100 hover:text-surface-800" @click="emit('close')">&times;</button>
       </div>
 
       <div class="space-y-5 px-5 py-5">
-        <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+        <div class="flex items-center justify-between rounded-2xl bg-surface-50 px-4 py-3">
           <div>
-            <p class="text-xs uppercase tracking-wide text-slate-500">Status do ramal</p>
+            <p class="text-xs uppercase tracking-wide text-surface-500">Status do ramal</p>
             <p class="mt-1 text-sm font-semibold" :class="statusClasse">{{ statusTexto }}</p>
           </div>
           <span class="h-3 w-3 rounded-full" :class="statusBadgeClasse"></span>
         </div>
 
-        <div v-if="erro" class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erro }}</div>
+        <div v-if="sip.erro" class="rounded-xl bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">{{ sip.erro }}</div>
 
-        <div class="rounded-2xl border border-slate-200 p-4">
-          <label class="mb-2 block text-sm font-medium text-slate-700">Numero para discagem</label>
-          <div class="flex items-center gap-3 rounded-2xl border border-slate-300 px-4 py-3 focus-within:border-blue-500">
+        <div class="rounded-2xl border border-surface-200 p-4">
+          <label class="mb-2 block text-sm font-medium text-surface-700">Numero para discagem</label>
+          <div class="flex items-center gap-3 rounded-2xl border border-surface-300 px-4 py-3 focus-within:border-primary-500">
             <input
               v-model="numero"
               type="text"
               inputmode="tel"
-              class="min-w-0 flex-1 bg-transparent text-center text-2xl tracking-[0.18em] text-slate-900 outline-none"
+              class="min-w-0 flex-1 bg-transparent text-center text-2xl tracking-[0.18em] text-surface-900 outline-none text-surface-800"
               placeholder="Digite o numero"
             />
             <button
               type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-100 hover:text-surface-900 disabled:opacity-50"
               :disabled="!numero"
               @click="apagarUltimoDigito"
             >
@@ -48,38 +48,37 @@
             v-for="tecla in teclas"
             :key="tecla.valor"
             type="button"
-            class="rounded-2xl border border-slate-200 bg-white px-3 py-4 text-center shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+            class="rounded-2xl border border-surface-200 bg-surface-base px-3 py-4 text-center shadow-sm transition hover:border-primary-300 hover:bg-primary-50"
             @click="pressionarTecla(tecla.valor)"
           >
-            <span class="block text-2xl font-semibold text-slate-900">{{ tecla.valor }}</span>
-            <span class="mt-1 block text-[11px] uppercase tracking-[0.24em] text-slate-400">{{ tecla.subtitulo }}</span>
+            <span class="block text-2xl font-semibold text-surface-900">{{ tecla.valor }}</span>
+            <span class="mt-1 block text-[11px] uppercase tracking-[0.24em] text-surface-400">{{ tecla.subtitulo }}</span>
           </button>
         </div>
 
-        <div v-if="chamadaEmAndamento" class="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-          <p class="text-sm font-semibold text-blue-900">Chamada em andamento</p>
-          <p class="mt-1 text-sm text-blue-700">{{ chamadaDestino }}</p>
+        <div v-if="sip.chamadaEmAndamento" class="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
+          <p class="text-sm font-semibold text-primary-900">Chamada em andamento</p>
+          <p class="mt-1 text-sm text-primary-700">{{ chamadaDestino }}</p>
         </div>
 
         <div class="flex items-center gap-3">
           <button
-            v-if="!chamadaEmAndamento"
+            v-if="!sip.chamadaEmAndamento"
             type="button"
-            class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-60"
-            :disabled="!podeLigar || processando"
+            class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-success-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-success-700 disabled:opacity-60"
+            :disabled="!podeLigar || sip.processandoConexao"
             @click="iniciarDiscagem"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 7.318 5.932 13.25 13.25 13.25h1.5a2.25 2.25 0 0 0 2.244-2.077l.245-2.72a1.5 1.5 0 0 0-1.345-1.63l-2.902-.322a1.5 1.5 0 0 0-1.473.805l-.813 1.466a10.5 10.5 0 0 1-4.674-4.674l1.466-.813a1.5 1.5 0 0 0 .805-1.473l-.322-2.902a1.5 1.5 0 0 0-1.63-1.345l-2.72.245A2.25 2.25 0 0 0 2.25 6.75Z" />
             </svg>
-            {{ processando ? 'Conectando...' : 'Ligar' }}
+            {{ sip.processandoConexao ? 'Conectando...' : 'Ligar' }}
           </button>
 
           <button
             v-else
             type="button"
-            class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700 disabled:opacity-60"
-            :disabled="processando"
+            class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-danger-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-danger-700"
             @click="encerrarChamadaAtual"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
@@ -94,14 +93,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { useCallSession, useSipClient, type SipClient, type SipClientConfig } from 'vuesip'
-import type { SipConfig } from '../types/api'
-import { sipAtivo } from '../utils/sip'
+import { computed, ref } from 'vue'
+import { useSipStore } from '../stores/sip'
 
-const props = defineProps<{
+defineProps<{
   aberta: boolean
-  sipConfig: SipConfig | null
 }>()
 
 const emit = defineEmits<{
@@ -123,116 +119,47 @@ const teclas = [
   { valor: '#', subtitulo: '' },
 ]
 
+const sip = useSipStore()
 const numero = ref('')
-const erro = ref('')
-const processando = ref(false)
-const sipClientRef = shallowRef<SipClient | null>(null)
-const sipClient = useSipClient(undefined, { autoCleanup: false })
-const chamada = useCallSession(sipClientRef)
 
 const statusTexto = computed(() => {
-  if (!sipAtivo(props.sipConfig?.ativo)) return 'Ramal inativo'
-  if (sipClient.isRegistered.value) return 'Registrado'
-  if (sipClient.isConnecting.value) return 'Conectando'
-  if (sipClient.isConnected.value) return 'Conectado sem registro'
+  if (!sip.sipConfig) return 'Sem configuracao'
+  if (!sip.sipDisponivel) return 'Ramal inativo'
+  if (sip.isRegistered) return 'Registrado'
+  if (sip.isConnecting || sip.processandoConexao) return 'Conectando'
+  if (sip.isConnected) return 'Conectado sem registro'
+  if (sip.erro) return 'Falha na conexao'
   return 'Desconectado'
 })
 
 const statusClasse = computed(() => {
-  if (sipClient.isRegistered.value) return 'text-emerald-700'
-  if (sipClient.isConnecting.value) return 'text-amber-700'
-  return 'text-slate-700'
+  if (!sip.sipDisponivel) return 'text-surface-700'
+  if (sip.isRegistered) return 'text-success-700 dark:text-success-400'
+  if (sip.isConnecting || sip.processandoConexao) return 'text-amber-700 dark:text-amber-400'
+  if (sip.erro) return 'text-danger-700 dark:text-danger-400'
+  return 'text-surface-700'
 })
 
 const statusBadgeClasse = computed(() => {
-  if (sipClient.isRegistered.value) return 'bg-emerald-500'
-  if (sipClient.isConnecting.value) return 'bg-amber-400'
-  return 'bg-slate-300'
+  if (!sip.sipDisponivel) return 'bg-surface-300'
+  if (sip.isRegistered) return 'bg-success-500'
+  if (sip.isConnecting || sip.processandoConexao) return 'bg-amber-400'
+  if (sip.erro) return 'bg-danger-500'
+  return 'bg-surface-300'
 })
 
-const chamadaEmAndamento = computed(() => !['idle', 'terminated', 'failed'].includes(String(chamada.state.value)))
-const chamadaDestino = computed(() => chamada.remoteUri.value || destinoFormatado.value)
 const destinoFormatado = computed(() => {
   if (!numero.value) return 'sip:numero@dominio'
-  const dominio = props.sipConfig?.domain || 'dominio'
+  const dominio = sip.sipConfig?.domain || 'dominio'
   return `sip:${numero.value}@${dominio}`
 })
-const podeLigar = computed(() => !!numero.value.trim() && sipAtivo(props.sipConfig?.ativo))
 
-watch(() => props.aberta, (aberta) => {
-  if (!aberta) return
-  erro.value = ''
-  if (sipAtivo(props.sipConfig?.ativo)) {
-    void prepararRamal()
-  }
-})
-
-watch(() => props.sipConfig, () => {
-  erro.value = ''
-}, { deep: true })
-
-onUnmounted(() => {
-  void sipClient.disconnect().catch(() => undefined)
-})
-
-function montarConfiguracao(): SipClientConfig {
-  const config = props.sipConfig
-  if (!config) {
-    throw new Error('Configuracao SIP indisponivel.')
-  }
-
-  return {
-    uri: config.ws_server,
-    sipUri: `sip:${config.sip_user}@${config.domain}`,
-    password: config.sip_password,
-    displayName: config.display_name || config.sip_user,
-    authorizationUsername: config.auth_user || config.sip_user,
-    realm: config.domain,
-    registrationOptions: {
-      autoRegister: true,
-    },
-    mediaConfiguration: {
-      audio: true,
-      video: false,
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  }
-}
-
-async function prepararRamal() {
-  if (!sipAtivo(props.sipConfig?.ativo)) return
-  if (sipClient.isRegistered.value || sipClient.isConnecting.value) return
-
-  processando.value = true
-  erro.value = ''
-
-  try {
-    const resultado = sipClient.updateConfig(montarConfiguracao())
-    if (!resultado.valid) {
-      throw new Error(resultado.errors?.join(', ') || 'Configuracao SIP invalida.')
-    }
-
-    if (!sipClient.isConnected.value) {
-      await sipClient.connect()
-    }
-
-    sipClientRef.value = sipClient.getClient()
-
-    if (!sipClient.isRegistered.value) {
-      await sipClient.register()
-    }
-  } catch (e) {
-    erro.value = e instanceof Error ? e.message : 'Nao foi possivel conectar o ramal SIP.'
-  } finally {
-    processando.value = false
-  }
-}
+const chamadaDestino = computed(() => sip.chamada.remoteUri || "" || destinoFormatado.value)
+const podeLigar = computed(() => !!numero.value.trim() && sip.sipDisponivel)
 
 function pressionarTecla(valor: string) {
-  erro.value = ''
-  if (chamadaEmAndamento.value) {
+  sip.limparErro()
+  if (sip.chamadaEmAndamento) {
     void enviarDtmf(valor)
     return
   }
@@ -241,9 +168,9 @@ function pressionarTecla(valor: string) {
 
 async function enviarDtmf(valor: string) {
   try {
-    await chamada.sendDTMF(valor)
+    await sip.enviarDtmf(valor)
   } catch (e) {
-    erro.value = e instanceof Error ? e.message : 'Nao foi possivel enviar DTMF.'
+    sip.erro = e instanceof Error ? e.message : 'Nao foi possivel enviar DTMF.'
   }
 }
 
@@ -253,36 +180,22 @@ function apagarUltimoDigito() {
 
 async function iniciarDiscagem() {
   if (!podeLigar.value) return
-
-  processando.value = true
-  erro.value = ''
+  sip.limparErro()
 
   try {
-    await prepararRamal()
-    if (!sipClient.isRegistered.value) {
-      throw new Error('O ramal SIP ainda nao esta registrado.')
-    }
-
-    await chamada.makeCall(`sip:${numero.value}@${props.sipConfig!.domain}`, {
-      audio: true,
-      video: false,
-    })
+    await sip.discar(numero.value)
   } catch (e) {
-    erro.value = e instanceof Error ? e.message : 'Nao foi possivel iniciar a discagem.'
-  } finally {
-    processando.value = false
+    sip.erro = e instanceof Error ? e.message : 'Nao foi possivel iniciar a discagem.'
   }
 }
 
 async function encerrarChamadaAtual() {
-  processando.value = true
-  erro.value = ''
+  sip.limparErro()
   try {
-    await chamada.hangup()
+    await sip.encerrarChamada()
   } catch (e) {
-    erro.value = e instanceof Error ? e.message : 'Nao foi possivel encerrar a chamada.'
-  } finally {
-    processando.value = false
+    sip.erro = e instanceof Error ? e.message : 'Nao foi possivel encerrar a chamada.'
   }
 }
 </script>
+

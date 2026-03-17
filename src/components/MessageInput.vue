@@ -1,5 +1,5 @@
 ﻿<template>
-  <div v-if="chat.conversaAtiva" class="border-t border-slate-200 bg-white p-3">
+  <div v-if="chat.conversaAtiva" class="border-t border-surface-200 bg-surface-base p-3">
     <input
       ref="inputArquivo"
       type="file"
@@ -10,41 +10,41 @@
     />
 
     <div class="mx-auto w-full max-w-[1200px]">
-      <p v-if="erro" class="mb-2 rounded bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erro }}</p>
+      <p v-if="erro" class="mb-2 rounded bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">{{ erro }}</p>
 
-      <div v-if="arquivosFila.length" class="preview-grid mb-2 flex max-h-48 min-w-0 flex-wrap items-start gap-1 overflow-y-auto rounded border border-slate-300 bg-slate-50 p-2">
+      <div v-if="arquivosFila.length" class="preview-grid mb-2 flex max-h-48 min-w-0 flex-wrap items-start gap-1 overflow-y-auto rounded border border-surface-300 bg-surface-50 p-2">
         <div
           v-for="arq in arquivosFila"
           :key="arq.id"
-          class="preview-card flex min-h-[68px] min-w-0 w-full sm:w-[400px] sm:max-w-[400px] items-center gap-2 rounded border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700 shadow-sm sm:px-3"
+          class="preview-card flex min-h-[68px] min-w-0 w-full sm:w-[400px] sm:max-w-[400px] items-center gap-2 rounded border border-surface-300 bg-surface-100 px-2 py-2 text-xs text-surface-700 shadow-sm sm:px-3"
         >
           <button
             v-if="arq.isAudio"
-            class="preview-audio-btn h-8 shrink-0 rounded bg-slate-200 px-2 text-[10px] font-semibold hover:bg-slate-300 sm:px-3 sm:text-[11px]"
+            class="preview-audio-btn h-8 shrink-0 rounded bg-surface-200 px-2 text-[10px] font-semibold hover:bg-surface-300 sm:px-3 sm:text-[11px]"
             @click="alternarPreviewAudio(arq.id)"
           >
             {{ arq.reproduzindo ? 'Pausar' : 'Ouvir' }}
           </button>
 
           <div class="preview-content min-w-0 flex-1">
-            <div class="preview-name truncate text-sm font-medium text-slate-800" :title="arq.nome">{{ arq.nome }}</div>
-            <div class="preview-meta mt-0.5 truncate text-[11px] text-slate-500">
+            <div class="preview-name truncate text-sm font-medium text-surface-800" :title="arq.nome">{{ arq.nome }}</div>
+            <div class="preview-meta mt-0.5 truncate text-[11px] text-surface-500">
               <span>{{ formatarTamanho(arq.file.size) }}</span>
               <span v-if="arq.isAudio"> - {{ formatarDuracao(arq.duracaoSegundos) }}</span>
             </div>
           </div>
 
-          <button class="preview-remove ml-1 h-7 w-7 shrink-0 rounded text-slate-400 hover:bg-rose-50 hover:text-rose-500" @click="removerArquivoFila(arq.id)" title="Remover">&times;</button>
+          <button class="preview-remove ml-1 h-7 w-7 shrink-0 rounded text-surface-400 hover:bg-danger-50 dark:bg-danger-900 hover:text-danger-500" @click="removerArquivoFila(arq.id)" title="Remover">&times;</button>
         </div>
       </div>
 
       <!-- Reply preview -->
-      <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded border-l-2 border-blue-500 bg-blue-50 px-3 py-2">
+      <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded border-l-2 border-primary-500 bg-primary-50 px-3 py-2">
         <div class="min-w-0 flex-1">
-          <span class="text-xs font-semibold text-blue-600">{{ chat.mensagemRespondendo.remetente }}</span>
-          <p class="truncate text-xs text-slate-500">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
+          <span class="text-xs font-semibold text-primary-600">{{ chat.mensagemRespondendo.remetente }}</span>
+          <p class="truncate text-xs text-surface-500">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
         </div>
-        <button class="shrink-0 text-slate-400 hover:text-slate-600" @click="chat.cancelarResposta()">
+        <button class="shrink-0 text-surface-400 hover:text-surface-600" @click="chat.cancelarResposta()">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
@@ -52,30 +52,30 @@
       </div>
 
       <div class="composer-row flex flex-nowrap items-end gap-2">
-        <button class="shrink-0 flex items-center gap-1 rounded bg-slate-200 px-2 py-2 text-sm hover:bg-slate-300 md:px-3" title="Anexar arquivo" @click="inputArquivo?.click()">
+        <button class="shrink-0 flex items-center gap-1 rounded bg-surface-200 px-2 py-2 text-sm text-surface-800 hover:bg-surface-300 md:px-3" title="Anexar arquivo" @click="inputArquivo?.click()">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>
           <span class="hidden lg:inline">Arquivo</span>
         </button>
 
         <div class="relative shrink-0">
-          <button class="flex items-center gap-1 rounded bg-slate-200 px-2 py-2 text-sm hover:bg-slate-300 md:px-3" title="Emoji" @click="mostrarEmoji = !mostrarEmoji; mostrarLinguagens = false">
+          <button class="flex items-center gap-1 rounded bg-surface-200 px-2 py-2 text-sm text-surface-800 hover:bg-surface-300 md:px-3" title="Emoji" @click="mostrarEmoji = !mostrarEmoji; mostrarLinguagens = false">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" /></svg>
             <span class="hidden lg:inline">Emoji</span>
           </button>
-          <div v-if="mostrarEmoji" class="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 grid min-w-[240px] grid-cols-6 gap-1 rounded border border-slate-200 bg-white p-2 shadow">
-            <button v-for="emoji in emojis" :key="emoji" class="rounded px-1 py-1 text-lg hover:bg-slate-100" @click="inserirEmoji(emoji)">
+          <div v-if="mostrarEmoji" class="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 grid min-w-[240px] grid-cols-6 gap-1 rounded border border-surface-200 bg-surface-base p-2 shadow">
+            <button v-for="emoji in emojis" :key="emoji" class="rounded px-1 py-1 text-lg hover:bg-surface-100" @click="inserirEmoji(emoji)">
               {{ emoji }}
             </button>
           </div>
         </div>
 
         <div class="relative shrink-0">
-          <button class="flex items-center gap-1 rounded bg-slate-200 px-2 py-2 text-sm hover:bg-slate-300 md:px-3" title="Codigo" @click="mostrarLinguagens = !mostrarLinguagens; mostrarEmoji = false">
+          <button class="flex items-center gap-1 rounded bg-surface-200 px-2 py-2 text-sm text-surface-800 hover:bg-surface-300 md:px-3" title="Codigo" @click="mostrarLinguagens = !mostrarLinguagens; mostrarEmoji = false">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
             <span class="hidden lg:inline">Codigo</span>
           </button>
-          <div v-if="mostrarLinguagens" class="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 max-h-52 overflow-y-auto rounded border border-slate-200 bg-white p-1 shadow">
-            <button v-for="lang in linguagensDisponiveis" :key="lang" class="block w-full rounded px-3 py-1.5 text-left text-sm hover:bg-slate-100" @click="inserirCodigo(lang)">
+          <div v-if="mostrarLinguagens" class="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 max-h-52 overflow-y-auto rounded border border-surface-200 bg-surface-base p-1 text-surface-800 shadow">
+            <button v-for="lang in linguagensDisponiveis" :key="lang" class="block w-full rounded px-3 py-1.5 text-left text-sm hover:bg-surface-100" @click="inserirCodigo(lang)">
               {{ lang }}
             </button>
           </div>
@@ -83,7 +83,7 @@
 
         <button
           class="shrink-0 flex items-center gap-1 rounded px-2 py-2 text-sm font-medium text-white md:px-3"
-          :class="gravandoAudio ? 'bg-rose-600' : 'bg-emerald-600 hover:bg-emerald-700'"
+          :class="gravandoAudio ? 'bg-danger-600' : 'bg-success-600 hover:bg-success-700'"
           @pointerdown.prevent="onAudioPointerDown"
           @pointerup.prevent="onAudioPointerUp"
           @pointerleave.prevent="onAudioPointerLeave"
@@ -100,7 +100,7 @@
             v-model="textoMensagem"
             spellcheck="true"
             rows="1"
-            class="w-full max-h-[120px] overflow-y-auto resize-none rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            class="w-full max-h-[120px] overflow-y-auto resize-none rounded border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500"
             placeholder="Digite sua mensagem"
             @keydown.enter.exact.prevent="enviarMensagem"
             @paste="aoColarNoChat"
@@ -108,7 +108,7 @@
           ></textarea>
         </div>
 
-        <button class="composer-send shrink-0 flex items-center gap-1 rounded bg-blue-600 px-2 py-2 text-sm font-medium text-white hover:bg-blue-700 md:px-4" @click="enviarMensagem">
+        <button class="composer-send shrink-0 flex items-center gap-1 rounded bg-primary-600 px-2 py-2 text-sm font-medium text-white hover:bg-primary-700 md:px-4" @click="enviarMensagem">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
           <span class="hidden lg:inline">Enviar</span>
         </button>

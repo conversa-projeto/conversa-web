@@ -1,35 +1,35 @@
 <template>
-  <div v-if="aberta" class="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4">
-    <div class="w-full max-w-md rounded-xl bg-white p-4">
-      <h3 class="mb-3 text-lg font-semibold text-slate-800">Criar grupo</h3>
+  <div v-if="aberta" class="fixed inset-0 z-20 flex items-center justify-center bg-surface-900/50 p-4">
+    <div class="w-full max-w-md rounded-xl bg-surface-base p-4">
+      <h3 class="mb-3 text-lg font-semibold text-surface-800">Criar grupo</h3>
 
-      <label class="mb-3 block text-sm text-slate-700">
+      <label class="mb-3 block text-sm text-surface-700">
         Nome do grupo
         <input
           v-model="nomeGrupo"
           type="text"
-          class="mt-1 w-full rounded border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
+          class="mt-1 w-full rounded border border-surface-300 px-3 py-2 bg-surface-100 outline-none focus:border-primary-500 text-surface-800"
           placeholder="Ex: Projeto Alpha"
         />
       </label>
 
-      <p class="mb-2 text-sm font-medium text-slate-700">Selecionar usu&aacute;rios</p>
-      <div class="max-h-52 overflow-auto rounded border border-slate-200">
+      <p class="mb-2 text-sm font-medium text-surface-700">Selecionar usu&aacute;rios</p>
+      <div class="max-h-52 overflow-auto rounded border border-surface-200">
         <label
           v-for="contato in chat.contatos"
           :key="`group-${contato.id}`"
-          class="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
+          class="flex cursor-pointer items-center gap-2 border-b border-surface-100 px-3 py-2 text-sm hover:bg-surface-50"
         >
           <input v-model="membrosGrupo" type="checkbox" :value="contato.id" />
           <span>{{ contato.nome }}</span>
         </label>
       </div>
 
-      <p v-if="erroGrupo" class="mt-2 rounded bg-rose-50 px-2 py-1 text-sm text-rose-700">{{ erroGrupo }}</p>
+      <p v-if="erroGrupo" class="mt-2 rounded bg-danger-50 dark:bg-danger-900 px-2 py-1 text-sm text-danger-700 dark:text-danger-400">{{ erroGrupo }}</p>
 
       <div class="mt-4 flex justify-end gap-2">
-        <button class="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100" @click="cancelar">Cancelar</button>
-        <button class="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700" @click="confirmar">Criar</button>
+        <button class="rounded border border-surface-300 px-3 py-2 text-sm hover:bg-surface-100" @click="cancelar">Cancelar</button>
+        <button class="rounded bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700" @click="confirmar">Criar</button>
       </div>
     </div>
   </div>

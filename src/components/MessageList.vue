@@ -1,40 +1,44 @@
 <template>
-  <div
-    v-if="chat.conversaAtiva"
-    class="flex-1 overflow-auto bg-slate-100 p-4"
-    ref="mensagensContainer"
-    @scroll="aoScrollChat"
-  >
-    <div class="mx-auto w-full max-w-[1200px]">
-      <div v-if="chat.carregando" class="text-center text-sm text-slate-500">Carregando mensagens...</div>
+  <div v-if="chat.conversaAtiva" class="flex flex-col flex-1 min-h-0 bg-surface-100">
+    <div
+      class="flex-1 overflow-auto p-4 pb-2"
+      ref="mensagensContainer"
+      @scroll="aoScrollChat"
+    >
+      <div class="mx-auto w-full max-w-[1200px]">
+        <div v-if="chat.carregando" class="text-center text-sm text-surface-500">Carregando mensagens...</div>
 
-      <template v-for="item in itensMensagens" :key="item.key">
-        <div v-if="item.tipo === 'dia'" class="my-3 flex justify-center">
-          <span class="rounded-full bg-slate-200 px-3 py-1 text-xs text-slate-600">
-            {{ item.label }}
-          </span>
-        </div>
+        <template v-for="item in itensMensagens" :key="item.key">
+          <div v-if="item.tipo === 'dia'" class="my-3 flex justify-center">
+            <span class="rounded-full bg-surface-200 px-3 py-1 text-xs text-surface-600">
+              {{ item.label }}
+            </span>
+          </div>
 
-        <MessageBubble
-          v-else
-          :mensagem="item.mensagem"
-          :is-own="item.mensagem.remetente_id === auth.user?.id"
-          :is-group="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
-          :get-anexo-url="anexoUrl"
-          @open-image="(id, nome) => emit('open-image', id, nome)"
-          @image-loaded="aoCarregarImagemNoChat"
-          @download="(id, nome) => abrirAnexo(id, nome)"
-          @reply="(msg) => chat.responderMensagem(msg)"
-          @forward="(msg) => emit('forward', msg)"
-          @go-to-message="(id) => irParaMensagem(id)"
-        />
-      </template>
+          <MessageBubble
+            v-else
+            :mensagem="item.mensagem"
+            :is-own="item.mensagem.remetente_id === auth.user?.id"
+            :is-group="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
+            :get-anexo-url="anexoUrl"
+            @open-image="(id, nome) => emit('open-image', id, nome)"
+            @image-loaded="aoCarregarImagemNoChat"
+            @download="(id, nome) => abrirAnexo(id, nome)"
+            @reply="(msg) => chat.responderMensagem(msg)"
+            @forward="(msg) => emit('forward', msg)"
+            @go-to-message="(id) => irParaMensagem(id)"
+          />
+        </template>
+      </div>
+    </div>
 
-      <div class="h-6 flex items-end">
-        <p v-if="textoGravando" class="text-xs text-rose-500 animate-pulse">
+    <!-- Indicador fixo na base -->
+    <div class="shrink-0 bg-surface-100 px-4 pb-2">
+      <div class="mx-auto flex h-5 w-full max-w-[1200px] items-end">
+        <p v-if="textoGravando" class="animate-pulse text-xs text-danger-500">
           {{ textoGravando }}
         </p>
-        <p v-else-if="textoDigitando" class="text-xs text-emerald-600 animate-pulse">
+        <p v-else-if="textoDigitando" class="animate-pulse text-xs text-success-600">
           {{ textoDigitando }}
         </p>
       </div>

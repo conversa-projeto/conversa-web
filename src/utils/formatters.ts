@@ -77,9 +77,9 @@ export function statusEntrega(mensagem: Mensagem): string {
 }
 
 export function statusEntregaClasse(mensagem: Mensagem): string {
-  if (mensagem.enviando || mensagem.id < 0) return 'text-slate-300'
-  if (mensagem.visualizada) return 'text-sky-300'
-  return 'text-slate-300'
+  if (mensagem.enviando || mensagem.id < 0) return 'text-surface-300'
+  if (mensagem.visualizada) return 'text-info-300'
+  return 'text-surface-300'
 }
 
 export function extensaoPorMime(mime: string): string {

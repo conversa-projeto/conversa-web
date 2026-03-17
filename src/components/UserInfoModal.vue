@@ -1,14 +1,14 @@
 <template>
   <div
     v-if="aberta && usuario"
-    class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 px-4 py-6"
+    class="fixed inset-0 z-[120] flex items-center justify-center bg-surface-950/45 px-4 py-6"
     @click.self="emit('close')"
   >
-    <div class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+    <div class="w-full max-w-sm rounded-3xl bg-surface-base p-6 shadow-2xl">
       <div class="flex justify-end">
         <button
           type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          class="flex h-10 w-10 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-100 hover:text-surface-800"
           title="Fechar"
           @click="emit('close')"
         >
@@ -19,21 +19,21 @@
       </div>
 
       <div class="-mt-2 flex flex-col items-center text-center">
-        <div class="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-3xl font-semibold text-blue-700 shadow-inner">
+        <div class="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-3xl font-semibold text-primary-700 shadow-inner">
           <img v-if="avatarUrl" :src="avatarUrl" alt="Avatar do usuario" class="h-full w-full object-cover" @error="ocultarAvatar = true" />
           <span v-else>{{ inicialUsuario }}</span>
         </div>
-        <h2 class="mt-4 text-xl font-semibold text-slate-900">{{ usuario.nome }}</h2>
+        <h2 class="mt-4 text-xl font-semibold text-surface-900">{{ usuario.nome }}</h2>
       </div>
 
       <div class="mt-6 space-y-3">
-        <div class="rounded-2xl bg-slate-50 px-4 py-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Email</p>
-          <p class="mt-1 text-sm text-slate-800">{{ usuario.email || 'Nao informado' }}</p>
+        <div class="rounded-2xl bg-surface-50 px-4 py-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-surface-500">Email</p>
+          <p class="mt-1 text-sm text-surface-800">{{ usuario.email || 'Nao informado' }}</p>
         </div>
-        <div class="rounded-2xl bg-slate-50 px-4 py-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Telefone</p>
-          <p class="mt-1 text-sm text-slate-800">{{ usuario.telefone || 'Nao informado' }}</p>
+        <div class="rounded-2xl bg-surface-50 px-4 py-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-surface-500">Telefone</p>
+          <p class="mt-1 text-sm text-surface-800">{{ usuario.telefone || 'Nao informado' }}</p>
         </div>
       </div>
     </div>

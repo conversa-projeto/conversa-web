@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-blue-50 p-1 md:p-4">
-    <div v-if="erro" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg bg-rose-600 px-4 py-2 text-sm text-white shadow-lg">
+  <div class="min-h-screen bg-gradient-to-b from-surface-200 via-surface-300 to-primary-400 p-1 md:p-4 dark:from-surface-50 dark:via-surface-50 dark:to-surface-100">
+    <div v-if="erro" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg bg-danger-600 px-4 py-2 text-sm text-white shadow-lg">
       {{ erro }}
       <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
     </div>
@@ -10,7 +10,7 @@
       <LoginForm v-else @login-success="onLoginSuccess" @go-register="telaCadastro = true" />
     </template>
 
-    <div v-else class="relative flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-white shadow md:h-[calc(100vh-2rem)]">
+    <div v-else class="relative flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-surface-base shadow md:h-[calc(100vh-2rem)]">
       <ChatSidebar
         :sidebar-aberta="sidebarAberta"
         @update:sidebar-aberta="sidebarAberta = $event"
@@ -28,20 +28,20 @@
       >
         <div
           v-if="isDragging"
-          class="absolute inset-0 z-50 flex items-center justify-center bg-blue-600/20 backdrop-blur-sm"
+          class="absolute inset-0 z-50 flex items-center justify-center bg-primary-600/20 backdrop-blur-sm"
           @dragenter.prevent="onDragEnter"
           @dragover.prevent
           @drop.prevent="onDrop"
           @dragleave.prevent="onDragLeave"
         >
-          <div class="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-blue-500 bg-white p-8 shadow-2xl">
-            <div class="rounded-full bg-blue-100 p-4 text-blue-600">
+          <div class="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-primary-500 bg-surface-base p-8 shadow-2xl">
+            <div class="rounded-full bg-primary-100 p-4 text-primary-600">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-12 w-12">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
               </svg>
             </div>
-            <span class="text-xl font-semibold text-slate-800">Solte para enviar o arquivo</span>
-            <span class="text-sm text-slate-500">Imagens mostrarao uma previa antes de enviar</span>
+            <span class="text-xl font-semibold text-surface-800">Solte para enviar o arquivo</span>
+            <span class="text-sm text-surface-500">Imagens mostrarao uma previa antes de enviar</span>
           </div>
         </div>
 
@@ -68,9 +68,9 @@
           @forward="abrirModalEncaminhamento"
         />
 
-        <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-slate-500">
+        <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-surface-500">
           <span>Selecione uma conversa para comecar.</span>
-          <button class="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 md:hidden" @click="sidebarAberta = true">
+          <button class="rounded bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 md:hidden" @click="sidebarAberta = true">
             Ver conversas
           </button>
         </div>
@@ -166,6 +166,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
+import { useSipStore } from './stores/sip'
 import { useCallStore } from './stores/call'
 import { TipoConversa } from './types/api'
 import type { Contato, EventoChamadaSocket, Mensagem, TipoChamada } from './types/api'
@@ -195,6 +196,7 @@ import CallWindow from './CallWindow.vue'
 
 const auth = useAuthStore()
 const chat = useChatStore()
+const sip = useSipStore()
 const call = useCallStore()
 
 const erro = ref('')
@@ -280,6 +282,7 @@ onMounted(async () => {
   if (auth.isAuthenticated) {
     try {
       await chat.inicializar()
+      await sip.inicializarSessao(false)
       void auth.resolverAvatarUrl()
       chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
         void call.tratarEventoChamada(evento)
@@ -299,6 +302,7 @@ onUnmounted(() => {
   chat.removerHandlerChamada()
   call.encerrarChamada()
   chat.encerrarTempoReal()
+  void sip.encerrar()
   limparAnexos()
 })
 
@@ -311,6 +315,7 @@ function sair() {
   call.encerrarChamada()
   chat.removerHandlerChamada()
   chat.encerrarTempoReal()
+  void sip.encerrar()
   auth.logout()
 }
 

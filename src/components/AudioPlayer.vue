@@ -4,8 +4,8 @@
       <button
         class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition"
         :class="[
-          isOwn ? 'bg-blue-500 text-white hover:bg-blue-400' : 'bg-slate-200 text-slate-700 hover:bg-slate-300',
-          naoReproduzida ? 'ring-2 ring-emerald-400 ring-offset-1' : ''
+          isOwn ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-surface-200 text-surface-700 hover:bg-surface-300',
+          naoReproduzida ? 'ring-2 ring-success-400 ring-offset-1' : ''
         ]"
         :disabled="carregando"
         @click="alternarReproducao"
@@ -22,23 +22,23 @@
       </button>
 
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span v-if="props.mostrarNome !== false" class="truncate text-[11px]" :class="isOwn ? 'text-blue-200' : 'text-slate-400'" :title="nome">
+        <span v-if="props.mostrarNome !== false" class="truncate text-[11px]" :class="isOwn ? 'text-primary-200' : 'text-surface-400'" :title="nome">
           {{ nome }}
         </span>
         <div class="flex items-center gap-2">
           <div
             ref="barraRef"
             class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full"
-            :class="isOwn ? 'bg-blue-400/50' : 'bg-slate-200'"
+            :class="isOwn ? 'bg-white/30' : 'bg-surface-200'"
             @pointerdown="iniciarSeek"
           >
             <div
               class="absolute inset-y-0 left-0 rounded-full"
-              :class="isOwn ? 'bg-white' : 'bg-blue-500'"
+              :class="isOwn ? 'bg-white' : 'bg-primary-500'"
               :style="{ width: progresso + '%' }"
             />
           </div>
-          <span class="shrink-0 text-[10px] tabular-nums" :class="isOwn ? 'text-blue-100' : 'text-slate-500'">
+          <span class="shrink-0 text-[10px] tabular-nums" :class="isOwn ? 'text-white/90' : 'text-surface-500'">
             {{ formatarDuracao(tempoAtual) }} / {{ formatarDuracao(duracaoTotal) }}
           </span>
         </div>

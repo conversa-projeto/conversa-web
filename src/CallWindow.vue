@@ -3,7 +3,7 @@
     ref="containerRef"
     class="flex flex-col bg-slate-900 text-white"
     :class="flutuante
-      ? 'fixed z-[60] rounded-xl shadow-2xl ring-1 ring-slate-700 overflow-hidden'
+      ? 'fixed z-[60] rounded-xl shadow-2xl ring-1 ring-surface-700 overflow-hidden'
       : 'h-full'"
     :style="flutuante ? {
       left: drag.x.value + 'px',
@@ -22,18 +22,18 @@
     >
       <div
         class="h-2 w-2 rounded-full"
-        :class="call.estado === 'ativa' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'"
+        :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-amber-400 animate-pulse'"
       ></div>
       <span class="text-xs font-medium">
         {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}
       </span>
-      <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-emerald-400">
+      <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-success-400">
         {{ call.duracaoChamadaFormatada }}
       </span>
       <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
         {{ call.tipoChamada === 2 ? 'V&iacute;deo' : '&Aacute;udio' }}
       </span>
-      <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-emerald-400">
+      <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-success-400">
         {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
       </span>
     </div>
@@ -51,7 +51,7 @@
                   v-if="call.cameraMutada && !call.compartilhandoTela"
                   class="flex h-full w-full items-center justify-center bg-slate-700"
                 >
-                  <span class="text-5xl font-bold text-slate-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                  <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
                 </div>
                 <video v-else ref="videoLocal" autoplay playsinline muted class="h-full w-full object-contain"></video>
                 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-1.5">
@@ -65,7 +65,7 @@
                       v-if="!peer.stream?.getVideoTracks().length"
                       class="flex h-full w-full items-center justify-center bg-slate-700"
                     >
-                      <span class="text-5xl font-bold text-slate-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
+                      <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
                     </div>
                     <video v-else v-src-object="peer.stream" autoplay playsinline :muted="call.saidaAudioMutada" class="h-full w-full object-contain"></video>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-1.5">
@@ -89,7 +89,7 @@
                 v-if="call.somenteRecepcao || (call.cameraMutada && !call.compartilhandoTela)"
                 class="flex h-full w-full items-center justify-center bg-slate-700"
               >
-                <span class="text-lg font-bold text-slate-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
               <video v-else ref="videoLocalSidebar" autoplay playsinline muted class="h-full w-full object-cover"></video>
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
@@ -109,7 +109,7 @@
                 v-if="!peer.stream?.getVideoTracks().length"
                 class="flex h-full w-full items-center justify-center bg-slate-700"
               >
-                <span class="text-lg font-bold text-slate-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
+                <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
               </div>
               <video v-else v-src-object="peer.stream" autoplay playsinline :muted="call.saidaAudioMutada" class="h-full w-full object-cover"></video>
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
@@ -131,18 +131,18 @@
           >
             <template v-if="call.somenteRecepcao">
               <div class="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-700">
-                <span class="text-3xl font-bold text-slate-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
-                <p class="text-xs text-slate-400">Somente recep&ccedil;&atilde;o</p>
+                <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                <p class="text-xs text-surface-400">Somente recep&ccedil;&atilde;o</p>
                 <div class="flex gap-2">
                   <button
-                    class="flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                    class="flex items-center gap-1 rounded-full bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
                     @click.stop="ativarMicrofone"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
                     Ativar microfone
                   </button>
                   <button
-                    class="flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    class="flex items-center gap-1 rounded-full bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
                     @click.stop="ativarCamera"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
@@ -156,7 +156,7 @@
                 v-if="call.cameraMutada && !call.compartilhandoTela"
                 class="flex h-full w-full items-center justify-center bg-slate-700"
               >
-                <span class="text-3xl font-bold text-slate-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
               <video v-else ref="videoLocal" autoplay playsinline muted class="h-full w-full object-cover"></video>
             </template>
@@ -177,7 +177,7 @@
               v-if="!peer.stream?.getVideoTracks().length"
               class="flex h-full w-full items-center justify-center bg-slate-700"
             >
-              <span class="text-3xl font-bold text-slate-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
+              <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
             <video v-else v-src-object="peer.stream" autoplay playsinline :muted="call.saidaAudioMutada" class="h-full w-full object-cover"></video>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
@@ -189,7 +189,7 @@
     </div>
 
     <!-- Error message -->
-    <div v-if="call.erroMsg" class="mx-3 mb-2 rounded-lg bg-rose-500/90 px-3 py-1.5 text-xs text-white">
+    <div v-if="call.erroMsg" class="mx-3 mb-2 rounded-lg bg-danger-500/90 px-3 py-1.5 text-xs text-white">
       {{ call.erroMsg }}
     </div>
 
@@ -271,17 +271,17 @@
 
     <!-- Modal: Adicionar usuario -->
     <div v-if="modalAdicionarUsuario" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <div class="w-full max-w-md rounded-xl bg-white p-4 text-slate-800">
+      <div class="w-full max-w-md rounded-xl bg-surface-base p-4 text-surface-800">
         <h3 class="mb-3 text-lg font-semibold">Adicionar &agrave; chamada</h3>
 
-        <div v-if="call.contatosNaoNaChamada.length === 0" class="py-4 text-center text-sm text-slate-500">
+        <div v-if="call.contatosNaoNaChamada.length === 0" class="py-4 text-center text-sm text-surface-500">
           Nenhum contato dispon&iacute;vel para adicionar.
         </div>
-        <div v-else class="max-h-52 overflow-auto rounded border border-slate-200">
+        <div v-else class="max-h-52 overflow-auto rounded border border-surface-200">
           <label
             v-for="contato in call.contatosNaoNaChamada"
             :key="`add-${contato.id}`"
-            class="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
+            class="flex cursor-pointer items-center gap-2 border-b border-surface-100 px-3 py-2 text-sm hover:bg-surface-50"
           >
             <input v-model="usuariosParaAdicionar" type="checkbox" :value="contato.id" />
             <span>{{ contato.nome }}</span>
@@ -289,9 +289,9 @@
         </div>
 
         <div class="mt-4 flex justify-end gap-2">
-          <button class="rounded border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100" @click="cancelarAdicionarUsuario">Cancelar</button>
+          <button class="rounded border border-surface-300 px-3 py-2 text-sm hover:bg-surface-100" @click="cancelarAdicionarUsuario">Cancelar</button>
           <button
-            class="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+            class="rounded bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700"
             :disabled="usuariosParaAdicionar.length === 0"
             @click="confirmarAdicionarUsuario"
           >

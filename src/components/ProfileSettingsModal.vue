@@ -1,17 +1,17 @@
 <template>
-  <div v-if="aberta" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3">
-    <div class="settings-modal relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl md:h-[760px] md:flex-row">
+  <div v-if="aberta" class="fixed inset-0 z-50 flex items-center justify-center bg-surface-900/50 p-3">
+    <div class="settings-modal relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface-base shadow-2xl md:h-[760px] md:flex-row">
     <button
-      class="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full text-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+      class="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full text-lg text-surface-500 transition hover:bg-surface-100 hover:text-surface-800"
       @click="fechar"
     >
       &times;
     </button>
-      <aside class="border-b border-slate-200 bg-slate-50 md:w-72 md:shrink-0 md:border-b-0 md:border-r">
-        <div class="border-b border-slate-200 p-5 pr-16">
+      <aside class="border-b border-surface-200 bg-surface-50 md:w-72 md:shrink-0 md:border-b-0 md:border-r">
+        <div class="border-b border-surface-200 p-5 pr-16">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Configuracoes</p>
-            <h2 class="mt-1 text-lg font-semibold text-slate-900">Preferencias da conta</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-surface-500">Configuracoes</p>
+            <h2 class="mt-1 text-lg font-semibold text-surface-900">Preferencias da conta</h2>
           </div>
         </div>
 
@@ -21,7 +21,7 @@
             :key="aba.id"
             type="button"
             class="mb-2 w-full rounded-xl px-4 py-3 text-left transition"
-            :class="abaAtiva === aba.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'"
+            :class="abaAtiva === aba.id ? 'bg-primary-600 text-white shadow-lg' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-900'"
             @click="abaAtiva = aba.id"
           >
             <span class="block text-sm font-semibold">{{ aba.titulo }}</span>
@@ -31,16 +31,16 @@
       </aside>
 
       <section class="flex min-h-0 flex-1 flex-col">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <h3 class="text-base font-semibold text-slate-900">{{ abaAtual?.titulo }}</h3>
-          <p class="mt-1 text-sm text-slate-500">{{ abaAtual?.descricao }}</p>
+        <div class="border-b border-surface-200 px-5 py-4">
+          <h3 class="text-base font-semibold text-surface-900">{{ abaAtual?.titulo }}</h3>
+          <p class="mt-1 text-sm text-surface-500">{{ abaAtual?.descricao }}</p>
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           <div v-if="abaAtiva === 'usuario'" class="space-y-6">
-            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
               <div class="flex flex-col gap-4 md:flex-row md:items-center">
-                <div class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-2xl font-semibold text-blue-700">
+                <div class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold text-primary-700">
                   <img v-if="avatarPreview || avatarAtual" :src="avatarPreview || avatarAtual" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                   <span v-if="!avatarPreview && !avatarAtual">{{ inicialUsuario }}</span>
                   <div
@@ -52,13 +52,13 @@
                 </div>
 
                 <div class="min-w-0 flex-1">
-                  <h4 class="text-sm font-semibold text-slate-800">Foto de perfil</h4>
-                  <p class="mt-1 text-sm text-slate-500">Atualize o avatar exibido no chat e nas conversas.</p>
+                  <h4 class="text-sm font-semibold text-surface-800">Foto de perfil</h4>
+                  <p class="mt-1 text-sm text-surface-500">Atualize o avatar exibido no chat e nas conversas.</p>
 
                   <div class="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                      class="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                       :disabled="enviandoAvatar"
                       @click="inputAvatar?.click()"
                     >
@@ -67,7 +67,7 @@
                     <button
                       v-if="avatarAtual"
                       type="button"
-                      class="rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+                      class="rounded-lg border border-danger-300 dark:border-danger-700 px-3 py-2 text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-800 disabled:opacity-60"
                       :disabled="enviandoAvatar"
                       @click="removerAvatar"
                     >
@@ -82,70 +82,65 @@
                     accept="image/*"
                     @change="selecionarAvatar"
                   />
-                  <p v-if="erroAvatar" class="mt-2 text-xs text-rose-600">{{ erroAvatar }}</p>
+                  <p v-if="erroAvatar" class="mt-2 text-xs text-danger-600">{{ erroAvatar }}</p>
                 </div>
               </div>
             </section>
 
             <form class="space-y-4" @submit.prevent="salvarPerfil">
-              <section class="rounded-2xl border border-slate-200 p-4">
+              <section class="rounded-2xl border border-surface-200 p-4">
                 <div class="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <h4 class="text-sm font-semibold text-slate-800">Dados do usuario</h4>
-                    <p class="mt-1 text-sm text-slate-500">Nome e email visiveis na sua conta.</p>
+                    <h4 class="text-sm font-semibold text-surface-800">Dados do usuario</h4>
+                    <p class="mt-1 text-sm text-surface-500">Nome e email visiveis na sua conta.</p>
                   </div>
                 </div>
 
                 <div class="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label class="mb-1 block text-sm text-slate-700">Nome</label>
-                    <input v-model.trim="nomeUsuario" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                    <label class="mb-1 block text-sm text-surface-700">Nome</label>
+                    <input v-model.trim="nomeUsuario" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
                   </div>
                   <div>
-                    <label class="mb-1 block text-sm text-slate-700">Email</label>
-                    <input v-model.trim="emailUsuario" type="email" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                    <label class="mb-1 block text-sm text-surface-700">Email</label>
+                    <input v-model.trim="emailUsuario" type="email" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
                   </div>
                 </div>
 
 
-                <p v-if="erroPerfil" class="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erroPerfil }}</p>
-                <p v-if="sucessoPerfil" class="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ sucessoPerfil }}</p>
+                <p v-if="erroPerfil" class="mt-4 rounded-xl bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">{{ erroPerfil }}</p>
+                <p v-if="sucessoPerfil" class="mt-4 rounded-xl bg-success-50 dark:bg-success-900 px-3 py-2 text-sm text-success-700 dark:text-success-400">{{ sucessoPerfil }}</p>
 
                 <div class="mt-4 flex justify-end">
-                  <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60" :disabled="salvandoPerfil">
+                  <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60" :disabled="salvandoPerfil">
                     {{ salvandoPerfil ? 'Salvando...' : 'Salvar dados' }}
                   </button>
                 </div>
               </section>
             </form>
 
-            <form class="space-y-3 rounded-2xl border border-slate-200 p-4" @submit.prevent="salvarSenha">
+            <form class="space-y-3 rounded-2xl border border-surface-200 p-4" @submit.prevent="salvarSenha">
               <div>
-                <h4 class="text-sm font-semibold text-slate-800">Senha</h4>
-                <p class="mt-1 text-sm text-slate-500">Altere sua senha de acesso.</p>
-              </div>
-
-              <div>
-                <label class="mb-1 block text-sm text-slate-700">Senha atual</label>
-                <input v-model="senhaAtual" type="password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                <h4 class="text-sm font-semibold text-surface-800">Senha</h4>
+                <p class="mt-1 text-sm text-surface-500">Altere sua senha de acesso.</p>
               </div>
 
               <div class="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Nova senha</label>
-                  <input v-model="senhaNova" type="password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                  <label class="mb-1 block text-sm text-surface-700">Nova senha</label>
+                  <input v-model="senhaNova" type="password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Confirmar nova senha</label>
-                  <input v-model="confirmacaoSenha" type="password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                  <label class="mb-1 block text-sm text-surface-700">Confirmar nova senha</label>
+                  <input v-model="confirmacaoSenha" type="password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
                 </div>
               </div>
 
-              <p v-if="erro" class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ erro }}</p>
-              <p v-if="sucesso" class="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ sucesso }}</p>
+              <p v-if="erro" class="rounded-xl bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">{{ erro }}</p>
+              <p v-if="sucesso" class="rounded-xl bg-success-50 dark:bg-success-900 px-3 py-2 text-sm text-success-700 dark:text-success-400">{{ sucesso }}</p>
 
               <div class="flex justify-end">
-                <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60" :disabled="salvando">
+                <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60" :disabled="salvando">
                   {{ salvando ? 'Salvando...' : 'Salvar senha' }}
                 </button>
               </div>
@@ -153,113 +148,113 @@
           </div>
 
           <div v-else-if="abaAtiva === 'dispositivos'" class="space-y-4">
-            <section class="rounded-2xl border border-slate-200 p-4">
+            <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <h4 class="text-sm font-semibold text-slate-800">Sessao atual</h4>
-                  <p class="mt-1 text-sm text-slate-500">Informacoes do navegador autenticado neste momento.</p>
+                  <h4 class="text-sm font-semibold text-surface-800">Sessao atual</h4>
+                  <p class="mt-1 text-sm text-surface-500">Informacoes do navegador autenticado neste momento.</p>
                 </div>
-                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">Ativo</span>
+                <span class="rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700 dark:text-success-400">Ativo</span>
               </div>
 
               <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-xl bg-slate-50 p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Dispositivo</p>
-                  <p class="mt-1 text-sm font-medium text-slate-800">{{ dispositivoAtual.nome }}</p>
+                <div class="rounded-xl bg-surface-50 p-3">
+                  <p class="text-xs uppercase tracking-wide text-surface-500">Dispositivo</p>
+                  <p class="mt-1 text-sm font-medium text-surface-800">{{ dispositivoAtual.nome }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Modelo</p>
-                  <p class="mt-1 text-sm font-medium text-slate-800">{{ dispositivoAtual.modelo }}</p>
+                <div class="rounded-xl bg-surface-50 p-3">
+                  <p class="text-xs uppercase tracking-wide text-surface-500">Modelo</p>
+                  <p class="mt-1 text-sm font-medium text-surface-800">{{ dispositivoAtual.modelo }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Sistema</p>
-                  <p class="mt-1 text-sm font-medium text-slate-800">{{ dispositivoAtual.versao_so }}</p>
+                <div class="rounded-xl bg-surface-50 p-3">
+                  <p class="text-xs uppercase tracking-wide text-surface-500">Sistema</p>
+                  <p class="mt-1 text-sm font-medium text-surface-800">{{ dispositivoAtual.versao_so }}</p>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-3">
-                  <p class="text-xs uppercase tracking-wide text-slate-500">Plataforma</p>
-                  <p class="mt-1 text-sm font-medium text-slate-800">{{ dispositivoAtual.plataforma }}</p>
+                <div class="rounded-xl bg-surface-50 p-3">
+                  <p class="text-xs uppercase tracking-wide text-surface-500">Plataforma</p>
+                  <p class="mt-1 text-sm font-medium text-surface-800">{{ dispositivoAtual.plataforma }}</p>
                 </div>
               </div>
             </section>
 
-            <section class="rounded-2xl border border-slate-200 p-4">
+            <section class="rounded-2xl border border-surface-200 p-4">
               <div class="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h4 class="text-sm font-semibold text-slate-800">Dispositivos de midia</h4>
-                  <p class="mt-1 text-sm text-slate-500">Lista local de microfones, cameras e saidas detectadas pelo navegador.</p>
+                  <h4 class="text-sm font-semibold text-surface-800">Dispositivos de midia</h4>
+                  <p class="mt-1 text-sm text-surface-500">Lista local de microfones, cameras e saidas detectadas pelo navegador.</p>
                 </div>
-                <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60" :disabled="carregandoDispositivos" @click="carregarDispositivosMidia">
+                <button type="button" class="rounded-lg border border-surface-300 px-3 py-2 text-sm text-surface-700 hover:bg-surface-50 disabled:opacity-60" :disabled="carregandoDispositivos" @click="carregarDispositivosMidia">
                   {{ carregandoDispositivos ? 'Atualizando...' : 'Atualizar lista' }}
                 </button>
               </div>
 
-              <p v-if="erroDispositivos" class="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700">{{ erroDispositivos }}</p>
+              <p v-if="erroDispositivos" class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-900 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">{{ erroDispositivos }}</p>
 
               <div v-if="dispositivosMidia.length" class="space-y-3">
-                <article v-for="dispositivo in dispositivosMidia" :key="dispositivo.id" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <article v-for="dispositivo in dispositivosMidia" :key="dispositivo.id" class="rounded-xl border border-surface-200 bg-surface-50 p-3">
                   <div class="flex items-start justify-between gap-3">
                     <div>
-                      <p class="text-sm font-medium text-slate-800">{{ dispositivo.label }}</p>
-                      <p class="mt-1 text-xs uppercase tracking-wide text-slate-500">{{ dispositivo.tipo }}</p>
+                      <p class="text-sm font-medium text-surface-800">{{ dispositivo.label }}</p>
+                      <p class="mt-1 text-xs uppercase tracking-wide text-surface-500">{{ dispositivo.tipo }}</p>
                     </div>
-                    <span class="rounded-full bg-white px-2 py-1 text-xs text-slate-500">{{ dispositivo.id }}</span>
+                    <span class="rounded-full bg-surface-base px-2 py-1 text-xs text-surface-500">{{ dispositivo.id }}</span>
                   </div>
                 </article>
               </div>
 
-              <p v-else class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+              <p v-else class="rounded-xl border border-dashed border-surface-300 px-4 py-6 bg-surface-100 text-sm text-surface-500">
                 Nenhum dispositivo de midia foi identificado ainda. Se necessario, permita acesso a camera e microfone no navegador e atualize a lista.
               </p>
             </section>
           </div>
 
           <div v-else class="space-y-4">
-            <section class="rounded-2xl border border-slate-200 p-4">
+            <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <h4 class="text-sm font-semibold text-slate-800">Configuracao de ramal</h4>
-                  <p class="mt-1 text-sm text-slate-500">Os dados abaixo agora sao carregados do servidor e usados na preparacao da integracao com VueSIP.</p>
+                  <h4 class="text-sm font-semibold text-surface-800">Configuracao de ramal</h4>
+                  <p class="mt-1 text-sm text-surface-500">Os dados abaixo agora sao carregados do servidor e usados na preparacao da integracao com VueSIP.</p>
                 </div>
-                <span class="whitespace-nowrap rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">Asterisk / VueSIP</span>
+                <span class="whitespace-nowrap rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">Asterisk / VueSIP</span>
               </div>
 
               <form class="mt-4 grid gap-4 md:grid-cols-2" @submit.prevent="salvarVoip">
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Ramal SIP</label>
-                  <input v-model.trim="voip.sip_user" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="1001" />
+                  <label class="mb-1 block text-sm text-surface-700">Ramal SIP</label>
+                  <input v-model.trim="voip.sip_user" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="1001" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Usuario de autenticacao</label>
-                  <input v-model.trim="voip.auth_user" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="1001" />
+                  <label class="mb-1 block text-sm text-surface-700">Usuario de autenticacao</label>
+                  <input v-model.trim="voip.auth_user" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="1001" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Senha SIP</label>
-                  <input v-model.trim="voip.sip_password" type="password" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="Senha do ramal" />
+                  <label class="mb-1 block text-sm text-surface-700">Senha SIP</label>
+                  <input v-model.trim="voip.sip_password" type="password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="Senha do ramal" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Nome de exibicao</label>
-                  <input v-model.trim="voip.display_name" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" :placeholder="auth.user?.nome || 'Seu nome'" />
+                  <label class="mb-1 block text-sm text-surface-700">Nome de exibicao</label>
+                  <input v-model.trim="voip.display_name" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" :placeholder="auth.user?.nome || 'Seu nome'" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Dominio SIP</label>
-                  <input v-model.trim="voip.domain" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="pbx.exemplo.com" />
+                  <label class="mb-1 block text-sm text-surface-700">Dominio SIP</label>
+                  <input v-model.trim="voip.domain" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="pbx.exemplo.com" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm text-slate-700">Servidor WebSocket</label>
-                  <input v-model.trim="voip.ws_server" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="wss://pbx.exemplo.com:8089/ws" />
+                  <label class="mb-1 block text-sm text-surface-700">Servidor WebSocket</label>
+                  <input v-model.trim="voip.ws_server" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="wss://pbx.exemplo.com:8089/ws" />
                 </div>
 
-                <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-sm text-slate-700 md:col-span-2">
-                  <input v-model="voip.ativo" type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                <label class="flex items-center gap-2 rounded-xl border border-surface-200 px-3 py-3 text-sm text-surface-700 md:col-span-2">
+                  <input v-model="voip.ativo" type="checkbox" class="rounded border-surface-300 text-primary-600 focus:ring-primary-500 text-surface-800" />
                   Configuracao SIP ativa para este usuario
                 </label>
 
-                <p v-if="carregandoVoip" class="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600 md:col-span-2">Carregando configuracao SIP...</p>
-                <p v-if="erroVoip" class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 md:col-span-2">{{ erroVoip }}</p>
-                <p v-if="sucessoVoip" class="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 md:col-span-2">{{ sucessoVoip }}</p>
+                <p v-if="carregandoVoip" class="rounded-xl bg-surface-100 px-3 py-2 text-sm text-surface-600 md:col-span-2">Carregando configuracao SIP...</p>
+                <p v-if="erroVoip" class="rounded-xl bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400 md:col-span-2">{{ erroVoip }}</p>
+                <p v-if="sucessoVoip" class="rounded-xl bg-success-50 dark:bg-success-900 px-3 py-2 text-sm text-success-700 dark:text-success-400 md:col-span-2">{{ sucessoVoip }}</p>
 
                 <div class="flex justify-end md:col-span-2">
-                  <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60" :disabled="salvandoVoip || carregandoVoip">
+                  <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60" :disabled="salvandoVoip || carregandoVoip">
                     {{ salvandoVoip ? 'Salvando...' : (voip.id ? 'Salvar configuracao SIP' : 'Criar configuracao SIP') }}
                   </button>
                 </div>
@@ -318,7 +313,6 @@ const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
 
 const abaAtiva = ref<AbaId>('usuario')
 
-const senhaAtual = ref('')
 const senhaNova = ref('')
 const confirmacaoSenha = ref('')
 const erro = ref('')
@@ -435,7 +429,6 @@ function detectarNavegador() {
 
 function resetarEstado() {
   abaAtiva.value = 'usuario'
-  senhaAtual.value = ''
   senhaNova.value = ''
   confirmacaoSenha.value = ''
   erro.value = ''
@@ -612,7 +605,7 @@ async function salvarSenha() {
   erro.value = ''
   sucesso.value = ''
 
-  if (!senhaAtual.value || !senhaNova.value || !confirmacaoSenha.value) {
+  if (!senhaNova.value || !confirmacaoSenha.value) {
     erro.value = 'Preencha todos os campos de senha.'
     return
   }
@@ -629,9 +622,8 @@ async function salvarSenha() {
 
   salvando.value = true
   try {
-    await api.alterarSenha(senhaAtual.value, senhaNova.value)
+    await api.alterarSenha(senhaNova.value)
     sucesso.value = 'Senha alterada com sucesso.'
-    senhaAtual.value = ''
     senhaNova.value = ''
     confirmacaoSenha.value = ''
   } catch (e) {

@@ -1,17 +1,17 @@
 <template>
-  <div class="border-b border-slate-200 p-4">
+  <div class="border-b border-surface-200 p-4">
     <div class="mx-auto w-full max-w-[1200px]">
       <div class="mb-2 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200 md:hidden"
+            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200 md:hidden"
             @click="emit('update:sidebar-aberta', true)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-semibold text-blue-700 transition hover:ring-2 hover:ring-blue-200"
+            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-700 transition hover:ring-2 hover:ring-primary-200"
             :disabled="!perfilConversaAtiva"
             :class="perfilConversaAtiva ? 'cursor-pointer' : 'cursor-default'"
             @click="abrirUsuarioInfo(perfilConversaAtiva)"
@@ -20,23 +20,23 @@
             <span v-else>{{ inicialConversa }}</span>
           </button>
           <div class="group relative min-w-0">
-            <h2 class="truncate select-none text-lg font-semibold text-slate-800">
+            <h2 class="truncate select-none text-lg font-semibold text-surface-800">
               {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
             </h2>
             <p
               v-if="isGrupo && chat.usuariosConversaAtiva.length"
-              class="max-w-[300px] truncate text-xs text-slate-500"
+              class="max-w-[300px] truncate text-xs text-surface-500"
             >
               {{ nomesMembrosGrupo }}
             </p>
             <div
               v-if="isGrupo && chat.usuariosConversaAtiva.length"
-              class="invisible absolute left-0 top-full z-20 mt-1 max-h-48 min-w-[180px] overflow-y-auto rounded border border-slate-200 bg-white py-1 shadow-lg group-hover:visible"
+              class="invisible absolute left-0 top-full z-20 mt-1 max-h-48 min-w-[180px] overflow-y-auto rounded border border-surface-200 bg-surface-base py-1 shadow-lg group-hover:visible"
             >
               <div
                 v-for="u in chat.usuariosConversaAtiva"
                 :key="u.usuario_id"
-                class="px-3 py-1.5 text-sm text-slate-700"
+                class="px-3 py-1.5 text-sm text-surface-700"
               >
                 {{ u.nome }}
               </div>
@@ -46,7 +46,7 @@
         <div class="flex items-center gap-2">
           <button
             v-if="!call.emChamada && !call.recebendoChamada"
-            class="flex items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-sm text-emerald-700 hover:bg-emerald-200"
+            class="flex items-center gap-1 rounded-lg bg-success-100 px-2.5 py-1.5 text-sm text-success-700 hover:bg-success-200 dark:bg-success-900 dark:hover:bg-success-800 dark:text-success-400"
             title="Chamada de voz"
             @click="emit('start-call', 1)"
           >
@@ -55,7 +55,7 @@
           </button>
           <button
             v-if="!call.emChamada && !call.recebendoChamada"
-            class="flex items-center gap-1 rounded-lg bg-blue-100 px-2.5 py-1.5 text-sm text-blue-700 hover:bg-blue-200"
+            class="flex items-center gap-1 rounded-lg bg-primary-100 px-2.5 py-1.5 text-sm text-primary-700 hover:bg-primary-200 dark:bg-primary-900 dark:hover:bg-primary-800 dark:text-primary-400"
             title="Chamada de video"
             @click="emit('start-call', 2)"
           >
@@ -64,7 +64,7 @@
           </button>
           <button
             v-if="!call.emChamada && !call.recebendoChamada"
-            class="flex items-center gap-1 rounded-lg bg-purple-100 px-2.5 py-1.5 text-sm text-purple-700 hover:bg-purple-200"
+            class="flex items-center gap-1 rounded-lg bg-purple-100 px-2.5 py-1.5 text-sm text-purple-700 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 dark:text-purple-400"
             title="Compartilhar tela"
             @click="emit('start-call', 2, true)"
           >
@@ -73,18 +73,18 @@
           </button>
           <button
             v-if="isGrupo"
-            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
+            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200"
             title="Gerenciar membros"
             @click="emit('open-group-members')"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-slate-600"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-surface-600"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
           </button>
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-slate-200"
+            class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200"
             title="Pesquisar na conversa"
             @click="painelBuscaChat = !painelBuscaChat; if (!painelBuscaChat) { buscaNoChat = ''; chat.resultadosBuscaConversa = [] }"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-slate-600"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-surface-600"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
           </button>
         </div>
       </div>
@@ -94,25 +94,25 @@
           <input
             v-model="buscaNoChat"
             type="text"
-            class="w-full rounded border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"
+            class="w-full rounded border border-surface-300 px-3 py-1.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800"
             placeholder="Pesquisar nesta conversa"
             @keyup.enter="pesquisarNoChat"
             autofocus
           />
-          <button class="flex items-center gap-1 rounded bg-slate-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800" @click="pesquisarNoChat">
+          <button class="flex items-center gap-1 rounded bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700" @click="pesquisarNoChat">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
             <span class="hidden md:inline">Buscar</span>
           </button>
-          <button class="flex items-center rounded px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100" @click="painelBuscaChat = false; buscaNoChat = ''; chat.resultadosBuscaConversa = []">
+          <button class="flex items-center rounded px-2 py-1.5 text-sm text-surface-500 hover:bg-surface-100" @click="painelBuscaChat = false; buscaNoChat = ''; chat.resultadosBuscaConversa = []">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <div v-if="chat.resultadosBuscaConversa.length" class="mt-2 max-h-28 overflow-auto rounded border border-amber-200 bg-amber-50 p-2 text-xs">
+        <div v-if="chat.resultadosBuscaConversa.length" class="mt-2 max-h-28 overflow-auto rounded border border-amber-200 bg-amber-50 dark:bg-amber-900 p-2 text-xs">
           <button
             v-for="item in chat.resultadosBuscaConversa"
             :key="`find-${item.id}`"
-            class="block w-full truncate rounded px-2 py-1 text-left text-amber-800 hover:bg-amber-100"
+            class="block w-full truncate rounded px-2 py-1 text-left text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800"
             @click="emit('go-to-message', item.id)"
           >
             #{{ item.id }} - {{ resumoMensagem(item) }}

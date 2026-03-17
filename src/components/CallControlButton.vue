@@ -71,13 +71,13 @@ const sizeClasses = computed(() => {
 
 const variantClasses = computed(() => {
   if (props.variant === 'danger') {
-    return 'bg-rose-500 text-white hover:bg-rose-600'
+    return 'bg-danger-500 text-white hover:bg-danger-600'
   }
   if (props.variant === 'primary') {
-    return 'bg-blue-600 text-white hover:bg-blue-700'
+    return 'bg-primary-600 text-white hover:bg-primary-700'
   }
   if (props.variant === 'success') {
-    return 'bg-emerald-500 text-white hover:bg-emerald-600'
+    return 'bg-success-500 text-white hover:bg-success-600'
   }
   if (props.variant === 'ghost') {
     return 'bg-transparent text-white hover:bg-slate-700/50'
@@ -86,7 +86,7 @@ const variantClasses = computed(() => {
   if (props.active) {
     return 'bg-slate-700 text-white hover:bg-slate-600'
   }
-  return 'bg-slate-600 text-slate-400 hover:bg-slate-500 hover:text-white'
+  return 'bg-surface-600 text-surface-400 hover:bg-surface-500 hover:text-white'
 })
 </script>
 

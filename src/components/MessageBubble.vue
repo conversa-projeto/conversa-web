@@ -9,7 +9,7 @@
       class="flex shrink-0 flex-col items-center opacity-0 transition group-hover:opacity-100"
     >
       <button
-        class="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        class="rounded-full p-1.5 text-surface-400 transition hover:bg-surface-100 hover:text-surface-600"
         title="Responder"
         @click="emit('reply', mensagem)"
       >
@@ -19,7 +19,7 @@
       </button>
 
       <button
-        class="-mt-2 rounded-full p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        class="-mt-2 rounded-full p-2.5 text-surface-400 transition hover:bg-surface-100 hover:text-surface-600"
         title="Encaminhar"
         @click="emit('forward', mensagem)"
       >
@@ -31,28 +31,28 @@
 
     <div
       class="max-w-[80%] rounded-xl px-3 py-2"
-      :class="isOwn ? 'bg-blue-600 text-white' : 'bg-white text-slate-800'"
+      :class="isOwn ? 'bg-primary-600 dark:bg-primary-800 text-white' : 'bg-surface-base text-surface-800'"
     >
       <p
         v-if="isGroup && !isOwn"
-        class="mb-1 text-xs font-semibold text-slate-500"
+        class="mb-1 text-xs font-semibold text-surface-500"
       >
         {{ mensagem.remetente }}
       </p>
 
       <div
         v-if="referenciaMensagem(mensagem)"
-        class="mb-1 max-w-52 rounded border-l-2 px-2 py-1"
+        class="mb-1 max-w-52 rounded border-l-4 px-2 py-1"
         :class="[
-          isOwn ? 'border-blue-300 bg-white/10' : 'border-blue-400 bg-black/5',
-          referenciaNavegavel(mensagem) ? 'cursor-pointer' : ''
+          isOwn ? 'border-white/50 bg-white/20 text-white' : 'border-surface-300 bg-surface-100 text-surface-800',
+          referenciaNavegavel(mensagem) ? 'cursor-pointer hover:opacity-80' : ''
         ]"
         @click="abrirReferencia(mensagem)"
       >
-        <span class="text-[10px] font-semibold" :class="isOwn ? 'text-blue-200' : 'text-slate-600'">
+        <span class="text-[10px] font-semibold" :class="isOwn ? 'text-primary-200' : 'text-surface-600'">
           {{ tituloReferenciaMensagem(mensagem) }}
         </span>
-        <p class="truncate text-xs" :class="isOwn ? 'text-blue-100/70' : 'text-slate-500'">
+        <p class="truncate text-xs" :class="isOwn ? 'text-primary-100/70' : 'text-surface-500'">
           {{ referenciaMensagem(mensagem)?.conteudo_resumo }}
         </p>
       </div>
@@ -72,7 +72,7 @@
       />
 
       <div class="mt-1 flex items-center justify-end gap-1 text-[11px]">
-        <span :class="isOwn ? 'text-slate-200' : 'text-slate-500'">
+        <span :class="isOwn ? 'text-white/70' : 'text-surface-500'">
           {{ formatarHora(mensagem.inserida) }}
         </span>
         <svg
@@ -82,7 +82,7 @@
           viewBox="0 0 24 24"
           stroke-width="1.5"
           stroke="currentColor"
-          class="h-3 w-3 text-slate-300"
+          class="h-3 w-3 text-surface-300"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
         </svg>
@@ -93,7 +93,7 @@
           viewBox="0 0 24 24"
           stroke-width="2.5"
           stroke="currentColor"
-          class="h-3 w-3 text-sky-300"
+          class="h-3 w-3 text-info-300"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
@@ -105,7 +105,7 @@
           viewBox="0 0 24 24"
           stroke-width="2.5"
           stroke="currentColor"
-          class="h-3 w-3 text-slate-300"
+          class="h-3 w-3 text-surface-300"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
@@ -117,7 +117,7 @@
           viewBox="0 0 24 24"
           stroke-width="2"
           stroke="currentColor"
-          class="h-3 w-3 text-slate-300"
+          class="h-3 w-3 text-surface-300"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
         </svg>
@@ -129,7 +129,7 @@
       class="flex shrink-0 flex-col items-center opacity-0 transition group-hover:opacity-100"
     >
       <button
-        class="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        class="rounded-full p-1.5 text-surface-400 transition hover:bg-surface-100 hover:text-surface-600"
         title="Responder"
         @click="emit('reply', mensagem)"
       >
@@ -139,7 +139,7 @@
       </button>
 
       <button
-        class="-mt-2 rounded-full p-2.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        class="-mt-2 rounded-full p-2.5 text-surface-400 transition hover:bg-surface-100 hover:text-surface-600"
         title="Encaminhar"
         @click="emit('forward', mensagem)"
       >
