@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-surface-200 via-surface-300 to-primary-400 p-1 md:p-4 dark:from-surface-50 dark:via-surface-50 dark:to-surface-100">
+  <div class="min-h-screen">
     <div v-if="erro" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg bg-danger-600 px-4 py-2 text-sm text-white shadow-lg">
       {{ erro }}
       <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
@@ -10,7 +10,7 @@
       <LoginForm v-else @login-success="onLoginSuccess" @go-register="telaCadastro = true" />
     </template>
 
-    <div v-else class="relative flex h-[calc(100vh-0.5rem)] overflow-hidden rounded-xl bg-surface-base shadow md:h-[calc(100vh-2rem)]">
+    <div v-else class="relative flex h-screen overflow-hidden bg-surface-base">
       <ChatSidebar
         :sidebar-aberta="sidebarAberta"
         @update:sidebar-aberta="sidebarAberta = $event"

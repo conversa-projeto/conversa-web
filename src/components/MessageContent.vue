@@ -1,5 +1,5 @@
 <template>
-  <div class="mb-1 last:mb-0">
+  <div class="min-w-0 mb-1 last:mb-0">
     <template v-if="ehTipo(conteudo.tipo, TipoConteudo.Texto)">
       <template v-if="temCodigoFormatado(conteudo.conteudo)">
         <template v-for="(seg, segIdx) in parseCodeBlocks(conteudo.conteudo)" :key="segIdx">
@@ -18,8 +18,8 @@
               >{{ linkSeg.conteudo }}</a>
             </template>
           </p>
-          <div v-else-if="seg.tipo === 'codigo'" class="group relative my-1 max-w-full">
-            <div class="flex items-center justify-between rounded-t bg-surface-200 px-3 py-1">
+          <div v-else-if="seg.tipo === 'codigo'" class="group relative mb-1 last:mb-0 max-w-full">
+            <div class="flex items-center justify-between bg-surface-200 px-3 py-1" :class="codigoSemBorda ? 'rounded-t-[10px]' : 'rounded-t'">
               <span class="text-[10px] text-surface-500">{{ seg.linguagem || 'code' }}</span>
               <button
                 class="text-[10px] transition-opacity"
@@ -27,7 +27,7 @@
                 @click="copiarCodigo(seg.conteudo, `${mensagemId}-${segIdx}`)"
               >{{ codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
             </div>
-            <pre class="overflow-x-auto rounded-b bg-surface-50 p-3 text-xs leading-relaxed text-surface-800 border border-surface-200"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+            <pre class="overflow-x-auto bg-surface-50 p-3 text-xs leading-relaxed text-surface-800" :class="codigoSemBorda ? '' : 'rounded-b border border-surface-200'"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
           </div>
         </template>
       </template>
@@ -52,7 +52,8 @@
       v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Imagem)"
       :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
       alt="Imagem"
-      class="max-h-64 cursor-zoom-in rounded border border-surface-200"
+      class="max-h-64 cursor-zoom-in rounded border-2"
+      :class="isOwn ? 'border-primary-600 dark:border-primary-800' : 'border-surface-base'"
       decoding="async"
       @load="emit('image-loaded')"
       @click="emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
@@ -122,6 +123,7 @@ defineProps<{
   conversaId?: number
   reproduzida?: boolean
   isOwn?: boolean
+  codigoSemBorda?: boolean
   getAnexoUrl: (identificador: string) => string
 }>()
 

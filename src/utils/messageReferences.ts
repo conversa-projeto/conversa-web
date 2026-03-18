@@ -25,7 +25,7 @@ export function obterReferenciaPrincipal(mensagem: Mensagem): MensagemReferencia
     return {
       tipo: Number(referencia.tipo),
       id: referencia.mensagem.id,
-      remetente: referencia.mensagem.remetente || 'Mensagem referenciada',
+      remetente: referencia.mensagem.remetente || 'Resposta',
       conteudo_resumo: resumoConteudos(referencia.mensagem.conteudos || []),
       conversa_id: referencia.mensagem.conversa_id
     }
@@ -34,9 +34,13 @@ export function obterReferenciaPrincipal(mensagem: Mensagem): MensagemReferencia
   return null
 }
 
+export function obterConteudosReferencia(mensagem: Mensagem): ConteudoMensagem[] {
+  return mensagem.mensagem_referencia?.mensagem?.conteudos || []
+}
+
 export function tituloReferencia(tipo: number, remetente: string): string {
   if (Number(tipo) === TipoMensagemReferencia.Encaminhada) {
-    return remetente === 'Mensagem referenciada' ? 'Encaminhado' : `Encaminhado de ${remetente}`
+    return remetente === 'Resposta' ? 'Encaminhado' : `Encaminhado de ${remetente}`
   }
   return remetente
 }

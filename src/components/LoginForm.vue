@@ -1,12 +1,11 @@
 <template>
-  <div class="mx-auto mt-10 w-full max-w-md overflow-hidden rounded-2xl border border-surface-200 bg-surface-base shadow-xl">
-    <div class="bg-surface-900/80 px-6 py-8 text-center">
+  <div class="mx-auto mt-10 w-full max-w-xs overflow-hidden rounded-2xl border border-surface-200 bg-surface-base shadow-xl">
+    <div class="bg-surface-900/80 px-6 pt-6 pb-2 text-center">
       <img src="/logo.png" alt="Logo" class="mx-auto h-[200px] w-[200px]" />
-      <h1 class="mt-4 text-2xl font-bold text-white">Conversa</h1>
-      <p class="mt-1 text-sm text-surface-300">Entre com seu usu&aacute;rio e senha</p>
+      <h1 class="mt-1 text-2xl font-bold text-white">Conversa</h1>
     </div>
 
-    <form class="space-y-4 px-6 py-6" @submit.prevent="fazerLogin">
+    <form class="space-y-3 px-6 py-3" @submit.prevent="fazerLogin">
       <label class="block text-sm font-medium text-surface-700">
         Usu&aacute;rio
         <input

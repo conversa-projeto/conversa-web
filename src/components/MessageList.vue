@@ -102,7 +102,7 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
 
   for (const mensagem of chat.mensagensAtivas) {
     const data = new Date(mensagem.inserida)
-    const diaChave = Number.isNaN(data.getTime()) ? 'sem-data' : data.toISOString().slice(0, 10)
+    const diaChave = Number.isNaN(data.getTime()) ? 'sem-data' : `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
 
     if (diaChave !== diaAtual) {
       diaAtual = diaChave
