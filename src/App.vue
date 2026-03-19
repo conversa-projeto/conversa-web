@@ -340,9 +340,22 @@ function solicitarChamada(tipo: TipoChamada, comTela = false) {
   if (chat.conversaAtiva.tipo === TipoConversa.Direta && chat.conversaAtiva.destinatario_id) {
     void iniciarChamadaDireta(tipo, chat.conversaAtiva.destinatario_id, comTela)
   } else if (chat.conversaAtiva.tipo === TipoConversa.Grupo) {
-    tipoChamadaPendente.value = tipo
-    comTelaPendente.value = comTela
-    modalParticipantesChamada.value = true
+    void iniciarChamadaGrupo(tipo, comTela)
+  }
+}
+
+async function iniciarChamadaGrupo(tipo: TipoChamada, comTela = false) {
+  if (!auth.user) return
+  const membros = chat.usuariosConversaAtiva
+  if (membros.length === 0) return
+  const usuarios = membros.map(m => ({ id: m.usuario_id }))
+  if (!usuarios.some(u => u.id === auth.user!.id)) {
+    usuarios.unshift({ id: auth.user.id })
+  }
+  try {
+    await call.iniciarChamada(tipo, usuarios, comTela)
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao iniciar chamada'
   }
 }
 

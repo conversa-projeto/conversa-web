@@ -1,127 +1,167 @@
-﻿<template>
-  <div v-if="chat.conversaAtiva" class="border-t border-surface-200 bg-surface-base p-3">
+<template>
+  <div v-if="chat.conversaAtiva" class="border-t border-surface-200 bg-surface-base px-3 py-2 dark:border-surface-700 dark:bg-surface-800">
     <input
       ref="inputArquivo"
       type="file"
       class="hidden"
       multiple
       @change="selecionarArquivo"
-      accept="image/*,application/pdf,audio/*,video/*,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+      :accept="acceptArquivo"
     />
 
     <div class="mx-auto w-full max-w-[1200px]">
-      <p v-if="erro" class="mb-2 rounded bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">{{ erro }}</p>
+      <p v-if="erro" class="mb-2 rounded bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
 
-      <div v-if="arquivosFila.length" class="preview-grid mb-2 flex max-h-48 min-w-0 flex-wrap items-start gap-1 overflow-y-auto rounded border border-surface-300 bg-surface-50 p-2">
-        <div
-          v-for="arq in arquivosFila"
-          :key="arq.id"
-          class="preview-card flex min-h-[68px] min-w-0 w-full sm:w-[400px] sm:max-w-[400px] items-center gap-2 rounded border border-surface-300 bg-surface-100 px-2 py-2 text-xs text-surface-700 shadow-sm sm:px-3"
-        >
-          <button
-            v-if="arq.isAudio"
-            class="preview-audio-btn h-8 shrink-0 rounded bg-surface-200 px-2 text-[10px] font-semibold hover:bg-surface-300 sm:px-3 sm:text-[11px]"
-            @click="alternarPreviewAudio(arq.id)"
-          >
-            {{ arq.reproduzindo ? 'Pausar' : 'Ouvir' }}
-          </button>
-
-          <div class="preview-content min-w-0 flex-1">
-            <div class="preview-name truncate text-sm font-medium text-surface-800" :title="arq.nome">{{ arq.nome }}</div>
-            <div class="preview-meta mt-0.5 truncate text-[11px] text-surface-500">
-              <span>{{ formatarTamanho(arq.file.size) }}</span>
-              <span v-if="arq.isAudio"> - {{ formatarDuracao(arq.duracaoSegundos) }}</span>
-            </div>
-          </div>
-
-          <button class="preview-remove ml-1 h-7 w-7 shrink-0 rounded text-surface-400 hover:bg-danger-50 dark:bg-danger-900 hover:text-danger-500" @click="removerArquivoFila(arq.id)" title="Remover">&times;</button>
-        </div>
-      </div>
+      <!-- File queue preview -->
+      <FilaArquivosPreview
+        v-if="fila.arquivosFila.value.length"
+        :arquivos="fila.arquivosFila.value"
+        @alternar-preview="(id) => fila.alternarPreviewAudio(id, (msg) => erro = msg)"
+        @remover="fila.removerArquivoFila"
+      />
 
       <!-- Reply preview -->
-      <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded border-l-2 border-primary-500 bg-primary-50 px-3 py-2">
+      <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-primary-50 px-3 py-2 dark:bg-primary-900/30">
         <div class="min-w-0 flex-1">
-          <span class="text-xs font-semibold text-primary-600">{{ chat.mensagemRespondendo.remetente }}</span>
-          <p class="truncate text-xs text-surface-500">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
+          <span class="text-xs font-semibold text-primary-600 dark:text-primary-400">{{ chat.mensagemRespondendo.remetente }}</span>
+          <p class="truncate text-xs text-surface-500 dark:text-surface-400">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
         </div>
-        <button class="shrink-0 text-surface-400 hover:text-surface-600" @click="chat.cancelarResposta()">
+        <button class="shrink-0 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200" @click="chat.cancelarResposta()">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
         </button>
       </div>
 
-      <div class="composer-row flex flex-nowrap items-end gap-2">
-        <button class="shrink-0 flex items-center gap-1 rounded bg-surface-200 px-2 py-2 text-sm text-surface-800 hover:bg-surface-300 md:px-3" title="Anexar arquivo" @click="inputArquivo?.click()">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>
-          <span class="hidden lg:inline">Arquivo</span>
-        </button>
-
-        <div class="relative shrink-0">
-          <button class="flex items-center gap-1 rounded bg-surface-200 px-2 py-2 text-sm text-surface-800 hover:bg-surface-300 md:px-3" title="Emoji" @click="mostrarEmoji = !mostrarEmoji; mostrarLinguagens = false">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" /></svg>
-            <span class="hidden lg:inline">Emoji</span>
-          </button>
-          <div v-if="mostrarEmoji" class="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 grid min-w-[240px] grid-cols-6 gap-1 rounded border border-surface-200 bg-surface-base p-2 shadow">
-            <button v-for="emoji in emojis" :key="emoji" class="rounded px-1 py-1 text-lg hover:bg-surface-100" @click="inserirEmoji(emoji)">
-              {{ emoji }}
+      <!-- Composer bar -->
+      <div class="relative flex items-end gap-2">
+        <!-- Normal input bar -->
+        <div v-if="!gravandoAudio" class="flex min-w-0 flex-1 items-end rounded-3xl border border-surface-300 bg-surface-100 pl-3 pr-1 dark:border-surface-600 dark:bg-surface-700">
+          <!-- Attach button -->
+          <div class="relative flex shrink-0 self-end pb-[6px]">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+              title="Anexar"
+              @click.stop="mostrarAnexo = !mostrarAnexo; mostrarEmoji = false"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
             </button>
+
+            <AnexoPopup
+              v-if="mostrarAnexo"
+              @documento="abrirFilePicker('documento')"
+              @fotos-videos="abrirFilePicker('fotos-videos')"
+              @audio="abrirFilePicker('audio')"
+              @codigo="mostrarAnexo = false; mostrarCodigo = true"
+              @close="mostrarAnexo = false"
+            />
+          </div>
+
+          <!-- Emoji button -->
+          <div class="relative flex shrink-0 self-end pb-[6px]">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+              title="Emoji"
+              @click="mostrarEmoji = !mostrarEmoji; mostrarAnexo = false"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+              </svg>
+            </button>
+            <EmojiPicker
+              v-if="mostrarEmoji"
+              @selecionar="inserirEmoji"
+              @close="mostrarEmoji = false"
+            />
+          </div>
+
+          <!-- Textarea -->
+          <div class="min-w-0 flex-1 pb-[7px] pt-[11px]">
+            <textarea
+              ref="textareaMsg"
+              v-model="textoMensagem"
+              spellcheck="true"
+              rows="1"
+              class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-400 dark:text-surface-100 dark:placeholder:text-surface-500"
+              placeholder="Digite uma mensagem"
+              @keydown.enter.exact.prevent="enviarMensagem"
+              @paste="aoColarNoChat"
+              @input="aoDigitar"
+            ></textarea>
           </div>
         </div>
 
-        <div class="relative shrink-0">
-          <button class="flex items-center gap-1 rounded bg-surface-200 px-2 py-2 text-sm text-surface-800 hover:bg-surface-300 md:px-3" title="Codigo" @click="mostrarLinguagens = !mostrarLinguagens; mostrarEmoji = false">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
-            <span class="hidden lg:inline">Codigo</span>
-          </button>
-          <div v-if="mostrarLinguagens" class="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 max-h-52 overflow-y-auto rounded border border-surface-200 bg-surface-base p-1 text-surface-800 shadow">
-            <button v-for="lang in linguagensDisponiveis" :key="lang" class="block w-full rounded px-3 py-1.5 text-left text-sm hover:bg-surface-100" @click="inserirCodigo(lang)">
-              {{ lang }}
-            </button>
-          </div>
-        </div>
+        <!-- Recording bar -->
+        <BarraGravacao
+          v-else
+          :pausado="pausado"
+          :tempo-formatado="tempoFormatado"
+          :reproduzindo-preview="reproduzindoPreview"
+          :preview-progresso="previewProgresso"
+          @descartar="descartarGravacao"
+          @pausar="pausarAudio()"
+          @retomar="retomarAudio()"
+          @toggle-preview="togglePreviewGravacao"
+          @seek="onSeekPreview"
+        />
 
+        <!-- Action button: mic or send -->
         <button
-          class="shrink-0 flex items-center gap-1 rounded px-2 py-2 text-sm font-medium text-white md:px-3"
-          :class="gravandoAudio ? 'bg-danger-600' : 'bg-success-600 hover:bg-success-700'"
-          @pointerdown.prevent="onAudioPointerDown"
-          @pointerup.prevent="onAudioPointerUp"
-          @pointerleave.prevent="onAudioPointerLeave"
-          @pointercancel.prevent="onAudioPointerCancel"
-          @click.prevent="onAudioClick"
+          v-if="gravandoAudio"
+          class="action-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success-600 text-white transition hover:bg-success-700"
+          title="Enviar áudio"
+          @click="pararEEnviar()"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
-          <span class="hidden lg:inline">{{ gravandoAudio ? 'Gravando...' : 'Audio' }}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+          </svg>
         </button>
-
-        <div class="composer-main flex min-w-0 flex-1 flex-col">
-          <textarea
-            ref="textareaMsg"
-            v-model="textoMensagem"
-            spellcheck="true"
-            rows="1"
-            class="w-full max-h-[120px] overflow-y-auto resize-none rounded border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500"
-            placeholder="Digite sua mensagem"
-            @keydown.enter.exact.prevent="enviarMensagem"
-            @paste="aoColarNoChat"
-            @input="aoDigitar"
-          ></textarea>
-        </div>
-
-        <button class="composer-send shrink-0 flex items-center gap-1 rounded bg-primary-600 px-2 py-2 text-sm font-medium text-white hover:bg-primary-700 md:px-4" @click="enviarMensagem">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
-          <span class="hidden lg:inline">Enviar</span>
+        <button
+          v-else-if="temConteudo"
+          class="action-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-700"
+          title="Enviar"
+          @click="enviarMensagem()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+          </svg>
+        </button>
+        <button
+          v-else
+          class="action-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+          title="Gravar áudio"
+          @pointerdown.prevent="onMicPointerDown"
+          @click.prevent
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+          </svg>
         </button>
       </div>
     </div>
+
+    <!-- Codigo Modal -->
+    <CodigoModal
+      v-if="mostrarCodigo"
+      @inserir="onInserirCodigo"
+      @close="mostrarCodigo = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
-import { extensaoPorMime, formatarDuracao, formatarTamanho, resumoMensagem } from '../utils/formatters'
+import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
 import { useAudioRecording } from '../composables/useAudioRecording'
+import { useFilaArquivos } from '../composables/useFilaArquivos'
+import AnexoPopup from './AnexoPopup.vue'
+import CodigoModal from './CodigoModal.vue'
+import EmojiPicker from './EmojiPicker.vue'
+import BarraGravacao from './BarraGravacao.vue'
+import FilaArquivosPreview from './FilaArquivosPreview.vue'
 
 const emit = defineEmits<{
   'message-sent': []
@@ -129,191 +169,252 @@ const emit = defineEmits<{
 }>()
 
 const chat = useChatStore()
+const fila = useFilaArquivos()
 
 const textoMensagem = ref('')
 const textareaMsg = ref<HTMLTextAreaElement | null>(null)
 const mostrarEmoji = ref(false)
-const mostrarLinguagens = ref(false)
+const mostrarAnexo = ref(false)
+const mostrarCodigo = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erro = ref('')
 
-interface ArquivoNaFila {
-  id: string
-  file: Blob
-  nome: string
-  tipo: string
-  isAudio: boolean
-  isGravacaoAudio?: boolean
-  previewUrl?: string
-  duracaoSegundos?: number | null
-  reproduzindo?: boolean
+const tipoAnexo = ref<'documento' | 'fotos-videos' | 'audio'>('documento')
+const acceptMap = {
+  'documento': 'application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar',
+  'fotos-videos': 'image/*,video/*',
+  'audio': 'audio/*'
+} as const
+const acceptArquivo = computed(() => acceptMap[tipoAnexo.value])
+const temConteudo = computed(() => textoMensagem.value.trim().length > 0 || fila.arquivosFila.value.length > 0)
+
+// --- File picker ---
+
+function abrirFilePicker(tipo: 'documento' | 'fotos-videos' | 'audio') {
+  tipoAnexo.value = tipo
+  mostrarAnexo.value = false
+  nextTick(() => inputArquivo.value?.click())
 }
 
-const arquivosFila = ref<ArquivoNaFila[]>([])
-const playersAudioPreview = new Map<string, HTMLAudioElement>()
-let audioPreviewTocandoId: string | null = null
-
-const linguagensDisponiveis = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal']
-const emojis = [0x1F600, 0x1F601, 0x1F602, 0x1F923, 0x1F60A, 0x1F60D, 0x1F60E, 0x1F622, 0x1F621, 0x1F44D, 0x1F64F, 0x2764].map((code) => String.fromCodePoint(code))
-
-function gerarIdArquivo() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `arq-${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-function atualizarArquivoFila(id: string, patch: Partial<ArquivoNaFila>) {
-  arquivosFila.value = arquivosFila.value.map((arq) => (arq.id === id ? { ...arq, ...patch } : arq))
-}
-
-function criarArquivoFila(file: Blob, nome: string, tipo: string, isAudio: boolean, isGravacaoAudio = false): ArquivoNaFila {
-  const item: ArquivoNaFila = {
-    id: gerarIdArquivo(),
-    file,
-    nome,
-    tipo,
-    isAudio,
-    isGravacaoAudio,
-    previewUrl: isAudio ? URL.createObjectURL(file) : undefined,
-    duracaoSegundos: isAudio ? null : undefined,
-    reproduzindo: false
+function selecionarArquivo(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    fila.adicionarArquivos(target.files)
   }
-
-  if (item.isAudio && item.previewUrl) carregarDuracaoAudio(item.id, item.file, item.previewUrl)
-  return item
+  target.value = ''
 }
 
-async function obterDuracaoViaDecode(file: Blob): Promise<number | null> {
+// --- Code insertion ---
+
+function onInserirCodigo(payload: { linguagem: string; codigo: string }) {
+  const bloco = '```' + payload.linguagem + '\n' + payload.codigo + '\n```'
+  mostrarCodigo.value = false
+  textoMensagem.value = bloco
+  nextTick(() => enviarMensagem())
+}
+
+// --- Emoji ---
+
+function inserirEmoji(emoji: string) {
+  textoMensagem.value = `${textoMensagem.value}${emoji}`
+  mostrarEmoji.value = false
+  focarTextarea(textoMensagem.value.length)
+}
+
+// --- Audio recording ---
+
+const holdEnviaDireto = ref(false)
+const tempoGravacao = ref(0)
+let intervaloTempo: ReturnType<typeof setInterval> | null = null
+
+const tempoFormatado = computed(() => {
+  const m = Math.floor(tempoGravacao.value / 60)
+  const s = tempoGravacao.value % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+})
+
+const reproduzindoPreview = ref(false)
+const previewProgresso = ref(0)
+const previewDuracao = ref(0)
+let previewPlayer: HTMLAudioElement | null = null
+let previewUrl: string | null = null
+let previewAnimFrame: number | null = null
+
+function atualizarProgresso() {
+  if (previewPlayer && reproduzindoPreview.value) {
+    const dur = previewDuracao.value
+    if (dur > 0) {
+      previewProgresso.value = Math.min((previewPlayer.currentTime / dur) * 100, 100)
+    }
+    previewAnimFrame = requestAnimationFrame(atualizarProgresso)
+  }
+}
+
+function limparPreviewGravacao() {
+  if (previewAnimFrame) { cancelAnimationFrame(previewAnimFrame); previewAnimFrame = null }
+  if (previewPlayer) { previewPlayer.pause(); previewPlayer.src = ''; previewPlayer = null }
+  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null }
+  reproduzindoPreview.value = false
+  previewProgresso.value = 0
+  previewDuracao.value = 0
+}
+
+async function prepararPreview() {
+  const blob = obterPreviewBlob()
+  if (!blob) return
+
+  if (previewUrl) URL.revokeObjectURL(previewUrl)
+  previewUrl = URL.createObjectURL(blob)
+
   try {
     const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AudioCtx) return null
-    const ctx = new AudioCtx()
-    try {
-      const data = await file.arrayBuffer()
-      const decoded = await ctx.decodeAudioData(data.slice(0))
-      if (!Number.isFinite(decoded.duration)) return null
-      return Math.max(0, Math.round(decoded.duration))
-    } finally {
-      await ctx.close()
+    if (AudioCtx) {
+      const ctx = new AudioCtx()
+      try {
+        const buffer = await ctx.decodeAudioData(await blob.arrayBuffer())
+        previewDuracao.value = buffer.duration
+      } finally {
+        await ctx.close()
+      }
     }
   } catch {
-    return null
+    previewDuracao.value = tempoGravacao.value
+  }
+
+  if (previewDuracao.value <= 0) {
+    previewDuracao.value = tempoGravacao.value
   }
 }
 
-function carregarDuracaoAudio(id: string, file: Blob, previewUrl: string) {
-  const audio = new Audio()
-  audio.preload = 'metadata'
-  let finalizado = false
-
-  const finalizar = async (duracao: number | null) => {
-    if (finalizado) return
-    finalizado = true
-    if (duracao != null) {
-      atualizarArquivoFila(id, { duracaoSegundos: duracao })
-    } else {
-      const viaDecode = await obterDuracaoViaDecode(file)
-      atualizarArquivoFila(id, { duracaoSegundos: viaDecode })
-    }
-    audio.src = ''
-  }
-
-  const timeout = setTimeout(() => void finalizar(null), 1200)
-
-  audio.onloadedmetadata = () => {
-    clearTimeout(timeout)
-    const duracao = Number.isFinite(audio.duration) ? Math.max(0, Math.round(audio.duration)) : null
-    void finalizar(duracao)
-  }
-
-  audio.ondurationchange = () => {
-    if (!Number.isFinite(audio.duration) || audio.duration <= 0) return
-    clearTimeout(timeout)
-    void finalizar(Math.max(0, Math.round(audio.duration)))
-  }
-
-  audio.onerror = () => {
-    clearTimeout(timeout)
-    void finalizar(null)
-  }
-
-  audio.src = previewUrl
-  audio.load()
-}
-
-function pararPreviewAtual() {
-  if (!audioPreviewTocandoId) return
-  const audioAtual = playersAudioPreview.get(audioPreviewTocandoId)
-  if (audioAtual) {
-    audioAtual.pause()
-    audioAtual.currentTime = 0
-  }
-  atualizarArquivoFila(audioPreviewTocandoId, { reproduzindo: false })
-  audioPreviewTocandoId = null
-}
-
-async function alternarPreviewAudio(id: string) {
-  const item = arquivosFila.value.find((arq) => arq.id === id)
-  if (!item || !item.isAudio || !item.previewUrl) return
-
-  let player = playersAudioPreview.get(id)
-  if (!player) {
-    player = new Audio(item.previewUrl)
-    player.preload = 'metadata'
-    player.onended = () => {
-      atualizarArquivoFila(id, { reproduzindo: false })
-      if (audioPreviewTocandoId === id) audioPreviewTocandoId = null
-    }
-    playersAudioPreview.set(id, player)
-  }
-
-  if (audioPreviewTocandoId && audioPreviewTocandoId !== id) pararPreviewAtual()
-
-  if (!player.paused && audioPreviewTocandoId === id) {
-    player.pause()
-    atualizarArquivoFila(id, { reproduzindo: false })
-    audioPreviewTocandoId = null
+function togglePreviewGravacao() {
+  if (reproduzindoPreview.value && previewPlayer) {
+    previewPlayer.pause()
+    reproduzindoPreview.value = false
+    if (previewAnimFrame) { cancelAnimationFrame(previewAnimFrame); previewAnimFrame = null }
     return
   }
 
+  if (!previewUrl) return
+
+  if (previewPlayer) {
+    previewPlayer.play().then(() => { reproduzindoPreview.value = true; atualizarProgresso() })
+      .catch(() => { erro.value = 'Não foi possível reproduzir o preview' })
+    return
+  }
+
+  previewPlayer = new Audio(previewUrl)
+  previewPlayer.onended = () => {
+    reproduzindoPreview.value = false
+    previewProgresso.value = 100
+    if (previewAnimFrame) { cancelAnimationFrame(previewAnimFrame); previewAnimFrame = null }
+  }
+  previewPlayer.play().then(() => { reproduzindoPreview.value = true; atualizarProgresso() })
+    .catch(() => { erro.value = 'Não foi possível reproduzir o preview'; reproduzindoPreview.value = false })
+}
+
+function onSeekPreview(pct: number) {
+  previewProgresso.value = pct * 100
+  if (previewPlayer && previewDuracao.value > 0) {
+    previewPlayer.currentTime = pct * previewDuracao.value
+  }
+}
+
+const { gravandoAudio, pausado, iniciarAudio, pausarAudio, retomarAudio, obterPreviewBlob, pararAudio, descartarAudio } = useAudioRecording(erro, async (blob, nome, mime) => {
   try {
-    await player.play()
-    atualizarArquivoFila(id, { reproduzindo: true })
-    audioPreviewTocandoId = id
-  } catch {
-    erro.value = 'Nao foi possivel reproduzir o audio da fila.'
+    await chat.enviarMensagemComConteudos('', [{
+      blob, nomeArquivo: nome, mimeType: mime, isAudio: true, isGravacaoAudio: true
+    }])
+    emit('message-sent')
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao enviar áudio'
   }
-}
-
-function limparRecursosArquivo(arq: ArquivoNaFila) {
-  if (arq.previewUrl) URL.revokeObjectURL(arq.previewUrl)
-  const player = playersAudioPreview.get(arq.id)
-  if (player) {
-    player.pause()
-    player.src = ''
-    playersAudioPreview.delete(arq.id)
-  }
-  if (audioPreviewTocandoId === arq.id) audioPreviewTocandoId = null
-}
-
-const { gravandoAudio, iniciarAudio, pararAudio } = useAudioRecording(erro, (blob, nome, mime) => {
-  arquivosFila.value = [...arquivosFila.value, criarArquivoFila(blob, nome, mime, true, true)]
 })
 
 let gravandoInterval: ReturnType<typeof setInterval> | null = null
 watch(gravandoAudio, (gravando) => {
   if (gravando) {
+    tempoGravacao.value = 0
+    intervaloTempo = setInterval(() => tempoGravacao.value++, 1000)
     chat.enviarGravando()
     gravandoInterval = setInterval(() => chat.enviarGravando(), 2500)
   } else {
+    if (intervaloTempo) { clearInterval(intervaloTempo); intervaloTempo = null }
     if (gravandoInterval) { clearInterval(gravandoInterval); gravandoInterval = null }
     chat.limparGravandoConversaAtiva()
+    holdEnviaDireto.value = false
+    limparPreviewGravacao()
   }
 })
 
-const AUDIO_HOLD_MS = 350
-let audioHoldTimer: ReturnType<typeof setTimeout> | null = null
-const audioHoldActive = ref(false)
-const ignoreNextAudioClick = ref(false)
+watch(pausado, (estaPausado) => {
+  if (estaPausado) {
+    if (intervaloTempo) { clearInterval(intervaloTempo); intervaloTempo = null }
+    void prepararPreview()
+  } else {
+    limparPreviewGravacao()
+    if (gravandoAudio.value && !intervaloTempo) {
+      intervaloTempo = setInterval(() => tempoGravacao.value++, 1000)
+    }
+  }
+})
+
+// --- Hold-to-send mic logic ---
+
+const HOLD_THRESHOLD_MS = 300
+let holdTimer: ReturnType<typeof setTimeout> | null = null
+let isHold = false
+let micRect: DOMRect | null = null
+
+function onGlobalPointerUp() {
+  document.removeEventListener('pointerup', onGlobalPointerUp)
+  document.removeEventListener('pointermove', onMicPointerMove)
+  micRect = null
+  if (holdTimer) { clearTimeout(holdTimer); holdTimer = null }
+
+  if (!isHold) {
+    holdEnviaDireto.value = false
+    return
+  }
+
+  if (gravandoAudio.value) {
+    pararAudio()
+  }
+}
+
+function onMicPointerMove(e: PointerEvent) {
+  if (!micRect) return
+  const inside = e.clientX >= micRect.left && e.clientX <= micRect.right
+    && e.clientY >= micRect.top && e.clientY <= micRect.bottom
+  if (!inside) {
+    holdEnviaDireto.value = false
+    isHold = false
+    micRect = null
+    document.removeEventListener('pointermove', onMicPointerMove)
+  }
+}
+
+function onMicPointerDown(event: PointerEvent) {
+  if (gravandoAudio.value) return
+  isHold = false
+  holdEnviaDireto.value = true
+  micRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  document.addEventListener('pointermove', onMicPointerMove)
+  holdTimer = setTimeout(() => { isHold = true }, HOLD_THRESHOLD_MS)
+  document.addEventListener('pointerup', onGlobalPointerUp, { once: true })
+  void iniciarAudio()
+}
+
+function descartarGravacao() {
+  limparPreviewGravacao()
+  descartarAudio()
+  tempoGravacao.value = 0
+}
+
+function pararEEnviar() {
+  pararAudio()
+}
+
+// --- Text input ---
 
 watch(() => chat.conectadoTempoReal, (conectado) => {
   if (conectado) erro.value = ''
@@ -322,6 +423,7 @@ watch(() => chat.conectadoTempoReal, (conectado) => {
 watch(() => chat.mensagemRespondendo, (msg) => {
   if (msg) nextTick(() => textareaMsg.value?.focus())
 })
+
 function focarTextarea(posicao?: number) {
   nextTick(() => {
     if (!textareaMsg.value) return
@@ -335,18 +437,18 @@ function focarTextarea(posicao?: number) {
 
 async function enviarMensagem() {
   const texto = textoMensagem.value.trim()
-  const temArquivos = arquivosFila.value.length > 0
+  const temArquivos = fila.arquivosFila.value.length > 0
   if (!texto && !temArquivos) return
 
   erro.value = ''
   try {
-    const fila = [...arquivosFila.value]
-    fila.forEach((arq) => limparRecursosArquivo(arq))
-    arquivosFila.value = []
+    const arquivos = [...fila.arquivosFila.value]
+    arquivos.forEach((arq) => fila.limparRecursosArquivo(arq))
+    fila.arquivosFila.value = []
 
     await chat.enviarMensagemComConteudos(
       texto,
-      fila.map((arq) => ({
+      arquivos.map((arq) => ({
         blob: arq.file,
         nomeArquivo: arq.nome,
         mimeType: arq.tipo,
@@ -366,187 +468,48 @@ async function enviarMensagem() {
   }
 }
 
-
-function autoResizeTextarea(event: Event) {
+function aoDigitar(event: Event) {
   const el = event.target as HTMLTextAreaElement
   el.style.height = 'auto'
   el.style.height = Math.min(el.scrollHeight, 120) + 'px'
-}
-
-function aoDigitar(event: Event) {
-  autoResizeTextarea(event)
   if (textoMensagem.value.trim()) chat.enviarDigitando()
-}
-
-function inserirEmoji(emoji: string) {
-  textoMensagem.value = `${textoMensagem.value}${emoji}`
-  mostrarEmoji.value = false
-  focarTextarea(textoMensagem.value.length)
-}
-
-function inserirCodigo(linguagem: string) {
-  const ta = textareaMsg.value
-  let posicaoCursor: number | undefined
-
-  if (ta) {
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    const texto = textoMensagem.value
-    if (start !== end) {
-      const antes = texto.slice(0, start)
-      const selecao = texto.slice(start, end)
-      const depois = texto.slice(end)
-      textoMensagem.value = antes + '```' + linguagem + '\n' + selecao + '\n```' + depois
-      posicaoCursor = start + linguagem.length + selecao.length + 8
-    } else if (texto.trim()) {
-      textoMensagem.value = '```' + linguagem + '\n' + texto + '\n```'
-      posicaoCursor = textoMensagem.value.length
-    } else {
-      textoMensagem.value = '```' + linguagem + '\n\n```'
-      posicaoCursor = linguagem.length + 4
-    }
-  }
-
-  mostrarLinguagens.value = false
-  nextTick(() => {
-    if (textareaMsg.value) {
-      textareaMsg.value.style.height = 'auto'
-      textareaMsg.value.style.height = Math.min(textareaMsg.value.scrollHeight, 120) + 'px'
-    }
-  })
-  focarTextarea(posicaoCursor)
-}
-
-function selecionarArquivo(event: Event) {
-  const target = event.target as HTMLInputElement
-  const files = target.files
-  if (!files || files.length === 0) return
-
-  const novos: ArquivoNaFila[] = []
-  for (const file of files) {
-    const isAudio = file.type.startsWith('audio/')
-      novos.push(criarArquivoFila(file, file.name, file.type, isAudio, false))
-  }
-  if (novos.length) arquivosFila.value = [...arquivosFila.value, ...novos]
-  target.value = ''
-}
-
-function removerArquivoFila(id: string) {
-  const item = arquivosFila.value.find((arq) => arq.id === id)
-  if (item) limparRecursosArquivo(item)
-  arquivosFila.value = arquivosFila.value.filter((arq) => arq.id !== id)
-}
-
-function limparTimerAudio() {
-  if (!audioHoldTimer) return
-  clearTimeout(audioHoldTimer)
-  audioHoldTimer = null
-}
-
-function onAudioPointerDown() {
-  if (gravandoAudio.value) return
-  limparTimerAudio()
-  audioHoldTimer = setTimeout(async () => {
-    audioHoldActive.value = true
-    await iniciarAudio()
-  }, AUDIO_HOLD_MS)
-}
-
-function onAudioPointerUp() {
-  limparTimerAudio()
-  if (!audioHoldActive.value) return
-  ignoreNextAudioClick.value = true
-  audioHoldActive.value = false
-  pararAudio()
-}
-
-function onAudioPointerLeave() {
-  limparTimerAudio()
-  if (!audioHoldActive.value) return
-  ignoreNextAudioClick.value = true
-  audioHoldActive.value = false
-  pararAudio()
-}
-
-function onAudioPointerCancel() {
-  limparTimerAudio()
-  if (!audioHoldActive.value) return
-  ignoreNextAudioClick.value = true
-  audioHoldActive.value = false
-  pararAudio()
-}
-
-async function onAudioClick() {
-  if (ignoreNextAudioClick.value) {
-    ignoreNextAudioClick.value = false
-    return
-  }
-
-  if (gravandoAudio.value) {
-    pararAudio()
-    return
-  }
-
-  await iniciarAudio()
 }
 
 function aoColarNoChat(event: ClipboardEvent) {
   if (!chat.conversaAtivaId) return
-
   const items = event.clipboardData?.items
   if (!items || items.length === 0) return
 
   for (const item of items) {
     if (item.kind !== 'file' || !item.type.startsWith('image/')) continue
-
     const arquivo = item.getAsFile()
     if (!arquivo) continue
 
     event.preventDefault()
     const ext = extensaoPorMime(arquivo.type || 'image/png')
     const nome = `print-${Date.now()}.${ext}`
-
     emit('open-image-preview', arquivo, nome, arquivo.type || 'image/png')
     return
   }
 }
 
+// --- Cleanup ---
+
 onBeforeUnmount(() => {
-  pararPreviewAtual()
-  arquivosFila.value.forEach((arq) => limparRecursosArquivo(arq))
-  playersAudioPreview.clear()
+  document.removeEventListener('pointerup', onGlobalPointerUp)
+  document.removeEventListener('pointermove', onMicPointerMove)
+  if (holdTimer) { clearTimeout(holdTimer); holdTimer = null }
+  fila.limparTudo()
 })
 </script>
 
 <style scoped>
-.preview-card {
-  position: relative;
-  min-width: 0;
-  width: 100%;
-  padding-right: 2.25rem;
+.action-btn {
+  animation: action-pop 0.2s ease-out;
 }
 
-.preview-content {
-  min-width: 0;
-  width: 100%;
-}
-
-.preview-name,
-.preview-meta {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.preview-remove {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.2rem;
-  margin-left: 0;
+@keyframes action-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 </style>
-
-
-
-

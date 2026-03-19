@@ -1,8 +1,7 @@
 <template>
   <div
     :id="`msg-${mensagem.id}`"
-    class="mb-[3px]"
-    :class="isOwn ? 'flex justify-end' : 'flex justify-start'"
+    :class="[isOwn ? 'flex justify-end' : 'flex justify-start', mudouRemetente ? 'mt-[12px]' : 'mt-[3px]']"
   >
     <div
       ref="wrapperRef"
@@ -50,6 +49,7 @@ const props = defineProps<{
   mensagem: Mensagem
   isOwn: boolean
   isGroup: boolean
+  mudouRemetente: boolean
   getAnexoUrl: (identificador: string) => string
 }>()
 

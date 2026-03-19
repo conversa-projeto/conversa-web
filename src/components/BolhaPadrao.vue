@@ -23,9 +23,18 @@
         @open-image="(id, nome) => emit('open-image', id, nome)"
         @image-loaded="emit('image-loaded')"
         @download="(id, nome) => emit('download', id, nome)"
-      />
+      >
+        <template #audio-status>
+          <MensagemStatus
+            :mensagem="mensagem"
+            :is-own="isOwn"
+            variante="padrao"
+          />
+        </template>
+      </MessageContent>
 
       <MensagemStatus
+        v-if="!somenteAudio"
         :mensagem="mensagem"
         :is-own="isOwn"
         variante="padrao"
@@ -35,11 +44,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Mensagem } from '../types/api'
+import { TipoConteudo } from '../types/api'
 import MessageContent from './MessageContent.vue'
 import MensagemStatus from './MensagemStatus.vue'
 
-defineProps<{
+const props = defineProps<{
   mensagem: Mensagem
   isOwn: boolean
   isGroup: boolean
@@ -51,4 +62,9 @@ const emit = defineEmits<{
   'image-loaded': []
   'download': [identificador: string, nome: string]
 }>()
+
+const somenteAudio = computed(() =>
+  props.mensagem.conteudos.length > 0 &&
+  props.mensagem.conteudos.every((c) => Number(c.tipo) === TipoConteudo.Audio || Number(c.tipo) === TipoConteudo.GravacaoAudio)
+)
 </script>

@@ -10,6 +10,7 @@ export default defineConfig({
     }
   },
   build: {
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -27,6 +28,10 @@ export default defineConfig({
 
           if (id.includes('node_modules/highlight.js') || id.includes('node_modules/hash-wasm')) {
             return 'vendor-utils'
+          }
+
+          if (id.includes('node_modules/@codemirror') || id.includes('node_modules/codemirror') || id.includes('node_modules/@lezer')) {
+            return 'codemirror'
           }
         }
       }

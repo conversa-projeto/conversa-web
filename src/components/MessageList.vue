@@ -20,6 +20,7 @@
             :mensagem="item.mensagem"
             :is-own="item.mensagem.remetente_id === auth.user?.id"
             :is-group="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
+            :mudou-remetente="item.mudouRemetente"
             :get-anexo-url="anexoUrl"
             @open-image="(id, nome) => emit('open-image', id, nome)"
             @image-loaded="aoCarregarImagemNoChat"
@@ -94,11 +95,12 @@ const { anexoUrl, abrirAnexo, limparAnexos } = useAttachments()
 
 type ItemMensagemView =
   | { tipo: 'dia'; key: string; label: string }
-  | { tipo: 'mensagem'; key: string; mensagem: Mensagem }
+  | { tipo: 'mensagem'; key: string; mensagem: Mensagem; mudouRemetente: boolean }
 
 const itensMensagens = computed<ItemMensagemView[]>(() => {
   const itens: ItemMensagemView[] = []
   let diaAtual = ''
+  let ultimoRemetenteId: number | null = null
 
   for (const mensagem of chat.mensagensAtivas) {
     const data = new Date(mensagem.inserida)
@@ -106,6 +108,7 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
 
     if (diaChave !== diaAtual) {
       diaAtual = diaChave
+      ultimoRemetenteId = null
       itens.push({
         tipo: 'dia',
         key: `dia-${diaChave}`,
@@ -113,10 +116,14 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
       })
     }
 
+    const mudouRemetente = ultimoRemetenteId !== null && mensagem.remetente_id !== ultimoRemetenteId
+    ultimoRemetenteId = mensagem.remetente_id
+
     itens.push({
       tipo: 'mensagem',
       key: `msg-${mensagem.id}`,
-      mensagem
+      mensagem,
+      mudouRemetente
     })
   }
 

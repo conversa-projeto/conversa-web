@@ -96,8 +96,8 @@
         </button>
       </div>
     </template>
-    <AudioPlayer
-      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Audio) || ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)"
+    <AudioPlayerArquivo
+      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Audio)"
       :src="conteudo.localUrl"
       :identificador="conteudo.conteudo"
       :conversa-id="conversaId"
@@ -105,8 +105,20 @@
       :reproduzida="reproduzida"
       :nome="conteudo.nome || 'Audio'"
       :is-own="isOwn"
-      :mostrar-nome="!ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)"
-    />
+    >
+      <template #status><slot name="audio-status" /></template>
+    </AudioPlayerArquivo>
+    <AudioPlayerGravacao
+      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)"
+      :src="conteudo.localUrl"
+      :identificador="conteudo.conteudo"
+      :conversa-id="conversaId"
+      :mensagem-id="mensagemId"
+      :reproduzida="reproduzida"
+      :is-own="isOwn"
+    >
+      <template #status><slot name="audio-status" /></template>
+    </AudioPlayerGravacao>
   </div>
 </template>
 
@@ -115,7 +127,8 @@ import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
 import { useCodeHighlight } from '../composables/useCodeHighlight'
-import AudioPlayer from './AudioPlayer.vue'
+import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
+import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
 
 defineProps<{
   conteudo: ConteudoMensagem
