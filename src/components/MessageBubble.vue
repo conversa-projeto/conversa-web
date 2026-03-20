@@ -5,10 +5,11 @@
   >
     <div
       ref="wrapperRef"
-      class="group/bubble relative w-fit max-w-[80%] rounded-xl bg-black/[0.01]"
+      class="group/bubble relative flex w-fit max-w-[80%] items-start gap-1"
       @mouseleave="onMouseLeave"
     >
       <component
+        v-if="isOwn"
         :is="componenteMap[tipoExibicao]"
         :mensagem="mensagem"
         :is-own="isOwn"
@@ -28,6 +29,19 @@
         @reply="(msg) => emit('reply', msg)"
         @forward="(msg) => emit('forward', msg)"
         @menu-toggle="(aberto) => menuAcoesAberto = aberto"
+      />
+
+      <component
+        v-if="!isOwn"
+        :is="componenteMap[tipoExibicao]"
+        :mensagem="mensagem"
+        :is-own="isOwn"
+        :is-group="isGroup"
+        :get-anexo-url="getAnexoUrl"
+        @open-image="(id: string, nome: string) => emit('open-image', id, nome)"
+        @image-loaded="emit('image-loaded')"
+        @download="(id: string, nome: string) => emit('download', id, nome)"
+        @go-to-message="(id: number) => emit('go-to-message', id)"
       />
     </div>
   </div>

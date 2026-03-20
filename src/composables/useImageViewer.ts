@@ -15,15 +15,39 @@ export function useImageViewer(
   const startMouseX = ref(0)
   const startMouseY = ref(0)
 
+  const transicaoAtiva = ref(false)
+  let transicaoTimer = 0
+
   function resetarZoom() {
     zoomImagemTelaCheia.value = 1
     translateX.value = 0
     translateY.value = 0
   }
 
-  function ajustarZoomImagem(delta: number) {
+  function resetarZoomComTransicao() {
+    transicaoAtiva.value = true
+    zoomImagemTelaCheia.value = 1
+    translateX.value = 0
+    translateY.value = 0
+    if (transicaoTimer) window.clearTimeout(transicaoTimer)
+    transicaoTimer = window.setTimeout(() => {
+      transicaoAtiva.value = false
+      transicaoTimer = 0
+    }, 300)
+  }
+
+  function calcularPassoZoom(zoomAtual: number): number {
+    if (zoomAtual < 1) return 0.1
+    if (zoomAtual < 3) return 0.2
+    if (zoomAtual < 8) return 0.5
+    return 1
+  }
+
+  function ajustarZoomImagem(direcao: number) {
     const zoomAntigo = zoomImagemTelaCheia.value
-    const novoZoom = Math.min(5, Math.max(1, zoomAntigo + delta))
+    const passo = calcularPassoZoom(zoomAntigo)
+    const delta = direcao > 0 ? passo : -passo
+    const novoZoom = Math.min(30, Math.max(0.1, zoomAntigo + delta))
     zoomImagemTelaCheia.value = Number(novoZoom.toFixed(2))
 
     if (zoomImagemTelaCheia.value <= 1) {
@@ -37,11 +61,11 @@ export function useImageViewer(
   }
 
   function zoomImagemPorRoda(event: WheelEvent) {
-    ajustarZoomImagem(event.deltaY < 0 ? 0.2 : -0.2)
+    ajustarZoomImagem(event.deltaY < 0 ? 1 : -1)
   }
 
   function iniciarArrasto(event: MouseEvent) {
-    if (zoomImagemTelaCheia.value <= 1) return
+    if (zoomImagemTelaCheia.value === 1) return
     isDragging.value = true
     startMouseX.value = event.clientX - translateX.value
     startMouseY.value = event.clientY - translateY.value
@@ -76,8 +100,8 @@ export function useImageViewer(
   function aoTeclaGlobal(event: KeyboardEvent) {
     if (!imagemTelaCheiaAberta.value) return
     if (event.key === 'Escape') { fecharImagemTelaCheia(); return }
-    if (event.key === '+' || event.key === '=') { ajustarZoomImagem(0.2); return }
-    if (event.key === '-') ajustarZoomImagem(-0.2)
+    if (event.key === '+' || event.key === '=') { ajustarZoomImagem(1); return }
+    if (event.key === '-') ajustarZoomImagem(-1)
   }
 
   watch(imagemTelaCheiaAberta, (aberta) => {
@@ -104,6 +128,9 @@ export function useImageViewer(
     zoomImagemPorRoda,
     iniciarArrasto,
     processarArrasto,
-    finalizarArrasto
+    finalizarArrasto,
+    resetarZoom,
+    resetarZoomComTransicao,
+    transicaoAtiva
   }
 }

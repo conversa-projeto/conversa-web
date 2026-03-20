@@ -13,11 +13,13 @@
         :alt="nome"
         class="max-h-[85vh] max-w-[92vw] select-none object-contain"
         :class="[
-          zoom > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+          zoom !== 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default',
+          transicaoAtiva ? 'transition-transform duration-300 ease-out' : ''
         ]"
         :style="{ transform: `scale(${zoom}) translate(${translateX / zoom}px, ${translateY / zoom}px)` }"
         @wheel.prevent="(e) => emit('zoom-wheel', e)"
         @mousedown.prevent="emit('drag-start', $event)"
+        @dblclick.prevent="emit('reset-zoom')"
       />
     </div>
 
@@ -40,6 +42,7 @@ defineProps<{
   translateX: number
   translateY: number
   isDragging: boolean
+  transicaoAtiva: boolean
 }>()
 
 const emit = defineEmits<{
@@ -50,5 +53,6 @@ const emit = defineEmits<{
   'drag-start': [event: MouseEvent]
   'drag-move': [event: MouseEvent]
   'drag-end': []
+  'reset-zoom': []
 }>()
 </script>

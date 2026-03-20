@@ -1,10 +1,10 @@
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="emit('close')">
-    <div class="mx-4 flex w-full max-w-2xl flex-col rounded-xl bg-surface-base shadow-2xl dark:bg-surface-800">
+    <div class="mx-4 flex w-full max-w-2xl flex-col rounded-xl bg-surface-base shadow-2xl">
       <!-- Header -->
-      <div class="flex items-center justify-between border-b border-surface-200 px-5 py-3 dark:border-surface-700">
-        <h3 class="text-sm font-semibold text-surface-800 dark:text-surface-100">Inserir código</h3>
-        <button class="text-surface-400 hover:text-surface-600 dark:hover:text-surface-200" @click="emit('close')">
+      <div class="flex items-center justify-between border-b border-surface-200 px-5 py-3">
+        <h3 class="text-sm font-semibold text-surface-800">Inserir código</h3>
+        <button class="text-surface-400 hover:text-surface-600" @click="emit('close')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
@@ -12,10 +12,10 @@
       </div>
 
       <!-- Linguagem -->
-      <div class="border-b border-surface-200 px-5 py-3 dark:border-surface-700">
+      <div class="border-b border-surface-200 px-5 py-3">
         <select
           v-model="linguagem"
-          class="w-full rounded-lg border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500 dark:border-surface-600 dark:bg-surface-700 dark:text-surface-100"
+          class="w-full rounded-lg border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500"
         >
           <option v-for="lang in linguagens" :key="lang" :value="lang">{{ lang }}</option>
         </select>
@@ -23,14 +23,14 @@
 
       <!-- CodeMirror editor -->
       <div class="px-5 py-3">
-        <div ref="editorContainer" class="h-64 overflow-hidden rounded-lg border border-surface-200 dark:border-surface-600" />
+        <div ref="editorContainer" class="h-64 overflow-hidden rounded-lg border border-surface-200" />
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center justify-end border-t border-surface-200 px-5 py-3 dark:border-surface-700">
+      <div class="flex items-center justify-end border-t border-surface-200 px-5 py-3">
         <div class="flex gap-2">
           <button
-            class="rounded-lg px-4 py-1.5 text-sm text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-700"
+            class="rounded-lg px-4 py-1.5 text-sm text-surface-600 hover:bg-surface-100"
             @click="emit('close')"
           >
             Cancelar

@@ -208,6 +208,43 @@
             </section>
           </div>
 
+          <div v-else-if="abaAtiva === 'permissoes'" class="space-y-4">
+            <section class="rounded-2xl border border-surface-200 p-4">
+              <div class="mb-4">
+                <h4 class="text-sm font-semibold text-surface-800">Permissoes do navegador</h4>
+                <p class="mt-1 text-sm text-surface-500">Gerencie as permissoes necessarias para o funcionamento completo do aplicativo.</p>
+              </div>
+
+              <p v-if="carregandoPermissoes" class="rounded-xl bg-surface-100 px-3 py-2 text-sm text-surface-600">Verificando permissoes...</p>
+
+              <div v-else class="space-y-3">
+                <article v-for="perm in permissoes" :key="perm.nome" class="flex items-center justify-between gap-4 rounded-xl border border-surface-200 bg-surface-50 p-4">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-surface-800">{{ perm.nome }}</p>
+                    <p class="mt-0.5 text-xs text-surface-500">{{ perm.descricao }}</p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="statusClass(perm.status)">
+                      {{ statusLabel(perm.status) }}
+                    </span>
+                    <button
+                      v-if="perm.solicitavel"
+                      type="button"
+                      class="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+                      @click="solicitarPermissao(perm)"
+                    >
+                      Solicitar
+                    </button>
+                  </div>
+                </article>
+              </div>
+
+              <p class="mt-4 rounded-xl bg-surface-100 px-3 py-2 text-xs text-surface-500">
+                Se uma permissao foi negada, pode ser necessario alterar manualmente nas configuracoes do navegador clicando no icone de cadeado na barra de endereco.
+              </p>
+            </section>
+          </div>
+
           <div v-else class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-3">
@@ -276,7 +313,7 @@ import { TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import { sipAtivo } from '../utils/sip'
 
-type AbaId = 'usuario' | 'dispositivos' | 'voip'
+type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip'
 
 type DispositivoMidiaItem = {
   id: string
@@ -308,6 +345,7 @@ const auth = useAuthStore()
 const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'usuario', titulo: 'Usuario', descricao: 'Nome, email, avatar e senha' },
   { id: 'dispositivos', titulo: 'Dispositivos', descricao: 'Sessao atual e perifericos locais' },
+  { id: 'permissoes', titulo: 'Permissoes', descricao: 'Notificacoes, microfone e camera' },
   { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario' },
 ]
 
@@ -334,6 +372,16 @@ const uploadProgresso = ref(0)
 const carregandoDispositivos = ref(false)
 const erroDispositivos = ref('')
 const dispositivosMidia = ref<DispositivoMidiaItem[]>([])
+
+type PermissaoItem = {
+  nome: string
+  descricao: string
+  status: 'granted' | 'denied' | 'prompt' | 'unavailable'
+  solicitavel: boolean
+}
+
+const permissoes = ref<PermissaoItem[]>([])
+const carregandoPermissoes = ref(false)
 
 const voip = ref<VoipForm>(criarVoipPadrao())
 const voipOriginal = ref<VoipForm>(criarVoipPadrao())
@@ -384,9 +432,99 @@ function mapearSipParaForm(data: SipConfig | null | undefined): VoipForm {
   }
 }
 
+async function consultarPermissoes() {
+  carregandoPermissoes.value = true
+  const lista: PermissaoItem[] = []
+
+  // Notificacoes
+  if ('Notification' in window) {
+    lista.push({
+      nome: 'Notificacoes',
+      descricao: 'Alertas de novas mensagens e chamadas recebidas',
+      status: Notification.permission as 'granted' | 'denied' | 'prompt',
+      solicitavel: Notification.permission === 'default',
+    })
+  } else {
+    lista.push({
+      nome: 'Notificacoes',
+      descricao: 'Alertas de novas mensagens e chamadas recebidas',
+      status: 'unavailable',
+      solicitavel: false,
+    })
+  }
+
+  // Microfone e Camera via Permissions API
+  const permissionsApi = [
+    { name: 'microphone' as PermissionName, nome: 'Microfone', descricao: 'Gravacao de audio e chamadas de voz' },
+    { name: 'camera' as PermissionName, nome: 'Camera', descricao: 'Chamadas de video' },
+  ]
+
+  for (const perm of permissionsApi) {
+    try {
+      const result = await navigator.permissions.query({ name: perm.name })
+      lista.push({
+        nome: perm.nome,
+        descricao: perm.descricao,
+        status: result.state as 'granted' | 'denied' | 'prompt',
+        solicitavel: result.state === 'prompt',
+      })
+    } catch {
+      lista.push({
+        nome: perm.nome,
+        descricao: perm.descricao,
+        status: 'prompt',
+        solicitavel: true,
+      })
+    }
+  }
+
+  permissoes.value = lista
+  carregandoPermissoes.value = false
+}
+
+async function solicitarPermissao(item: PermissaoItem) {
+  try {
+    if (item.nome === 'Notificacoes') {
+      const resultado = await Notification.requestPermission()
+      item.status = resultado === 'default' ? 'prompt' : resultado as 'granted' | 'denied'
+      item.solicitavel = resultado === 'default'
+    } else if (item.nome === 'Microfone') {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())
+      item.status = 'granted'
+      item.solicitavel = false
+    } else if (item.nome === 'Camera') {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      stream.getTracks().forEach(t => t.stop())
+      item.status = 'granted'
+      item.solicitavel = false
+    }
+  } catch {
+    item.status = 'denied'
+    item.solicitavel = false
+  }
+  // Reconsulta para pegar estado real
+  await consultarPermissoes()
+}
+
+function statusLabel(status: string) {
+  if (status === 'granted') return 'Concedida'
+  if (status === 'denied') return 'Negada'
+  if (status === 'prompt') return 'Nao solicitada'
+  return 'Indisponivel'
+}
+
+function statusClass(status: string) {
+  if (status === 'granted') return 'bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-400'
+  if (status === 'denied') return 'bg-danger-100 text-danger-700 dark:bg-danger-900 dark:text-danger-400'
+  if (status === 'prompt') return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-400'
+  return 'bg-surface-100 text-surface-500'
+}
+
 async function carregarAoAbrir() {
   await Promise.all([
     carregarDispositivosMidia(),
+    consultarPermissoes(),
     carregarVoip(),
   ])
 }

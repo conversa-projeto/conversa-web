@@ -1,9 +1,27 @@
-﻿import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
+function devUrlPlugin(): Plugin {
+  return {
+    name: 'dev-url',
+    configureServer(server) {
+      const DEV_PORT = 4430
+      server.httpServer?.once('listening', () => {
+        const address = server.httpServer?.address()
+        if (address && typeof address === 'object') {
+          const host = address.address === '0.0.0.0' || address.address === '::' ? 'localhost' : address.address
+          setTimeout(() => {
+            console.log(`\n  \x1b[36m➜\x1b[0m  \x1b[1mAcesse via nginx:\x1b[0m \x1b[36mhttps://${host}:${DEV_PORT}/\x1b[0m\n`)
+          }, 100)
+        }
+      })
+    }
+  }
+}
+
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), devUrlPlugin()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

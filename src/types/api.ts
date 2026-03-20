@@ -123,7 +123,9 @@ export interface MensagemReferencia {
     id: number
     conversa_id?: number
     remetente?: string
+    inserida?: string
     conteudos: ConteudoMensagem[]
+    mensagem_referencia?: MensagemReferencia | null
   } | null
 }
 

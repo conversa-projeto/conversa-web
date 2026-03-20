@@ -1,14 +1,12 @@
 <template>
   <div
-    class="absolute right-[1px] top-[3px] z-10 opacity-0 transition pointer-events-none group-hover/bubble:opacity-100 group-hover/bubble:pointer-events-auto"
+    class="relative z-10 mt-[3px] shrink-0 opacity-0 transition pointer-events-none group-hover/bubble:opacity-100 group-hover/bubble:pointer-events-auto"
     :class="menuAberto ? '!opacity-100 !pointer-events-auto' : ''"
     ref="containerRef"
   >
     <button
       class="flex h-6 w-6 items-center justify-center rounded-full transition"
-      :class="isOwn
-        ? 'bg-primary-700/60 hover:bg-primary-700 text-white/70 hover:text-white'
-        : 'bg-surface-200/60 hover:bg-surface-300 text-surface-500 hover:text-surface-700'"
+      :class="'bg-surface-200/60 hover:bg-surface-300 text-surface-500 hover:text-surface-700 dark:bg-surface-600/60 dark:hover:bg-surface-600 dark:text-surface-400 dark:hover:text-surface-200'"
       @click.stop="toggleMenu"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
@@ -18,8 +16,9 @@
 
     <div
       v-if="menuAberto"
-      class="absolute top-full mt-1 min-w-[140px] rounded-lg border border-surface-200 bg-white py-1 shadow-lg dark:border-surface-600 dark:bg-surface-700"
-      :class="isOwn ? 'right-0' : 'left-0'"
+      ref="menuRef"
+      class="absolute min-w-[140px] rounded-lg border border-surface-200 bg-white py-1 shadow-lg dark:border-surface-600 dark:bg-surface-700"
+      :class="[isOwn ? 'right-0' : 'left-0', abrirParaCima ? 'bottom-full mb-1' : 'top-full mt-1']"
     >
       <button
         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-600"
@@ -44,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import type { Mensagem } from '../types/api'
 
 const props = defineProps<{
@@ -59,12 +58,45 @@ const emit = defineEmits<{
   'menu-toggle': [aberto: boolean]
 }>()
 
+const MENU_ALTURA_ESTIMADA = 76
+
 const menuAberto = ref(false)
+const abrirParaCima = ref(false)
 const containerRef = ref<HTMLElement>()
+const menuRef = ref<HTMLElement>()
+
+function getScrollContainer(el: HTMLElement | null): HTMLElement | null {
+  let parent = el?.parentElement
+  while (parent) {
+    const { overflow, overflowY } = getComputedStyle(parent)
+    if (overflow === 'auto' || overflow === 'scroll' || overflowY === 'auto' || overflowY === 'scroll') {
+      return parent
+    }
+    parent = parent.parentElement
+  }
+  return null
+}
 
 function toggleMenu() {
-  menuAberto.value = !menuAberto.value
-  emit('menu-toggle', menuAberto.value)
+  if (menuAberto.value) {
+    menuAberto.value = false
+    emit('menu-toggle', false)
+    return
+  }
+
+  // Decidir direção antes de abrir
+  if (containerRef.value) {
+    const btnRect = containerRef.value.getBoundingClientRect()
+    const scrollContainer = getScrollContainer(containerRef.value)
+    const limiteInferior = scrollContainer
+      ? scrollContainer.getBoundingClientRect().bottom
+      : window.innerHeight
+    const espacoAbaixo = limiteInferior - btnRect.bottom
+    abrirParaCima.value = espacoAbaixo < MENU_ALTURA_ESTIMADA + 8
+  }
+
+  menuAberto.value = true
+  emit('menu-toggle', true)
 }
 
 function fecharMenu() {

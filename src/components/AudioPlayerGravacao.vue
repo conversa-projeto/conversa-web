@@ -1,5 +1,5 @@
 <template>
-  <div class="w-72 max-w-full">
+  <div class="w-56 max-w-full md:w-72">
     <!-- Empty spacer to match AudioPlayerArquivo height -->
     <div class="h-[11px] pl-10 text-[11px]">&nbsp;</div>
 

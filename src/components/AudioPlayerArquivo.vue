@@ -1,5 +1,5 @@
 <template>
-  <div class="w-72 max-w-full">
+  <div class="w-56 max-w-full md:w-72">
     <!-- Name (only for audio files with a name) -->
     <div v-if="nome" class="truncate pl-10 text-[11px]" :class="isOwn ? 'text-white/70' : 'text-surface-500'" :title="nome">
       {{ nome }}

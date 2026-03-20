@@ -1,12 +1,12 @@
 <template>
-  <div v-if="chat.conversaAtiva" class="border-t border-surface-200 bg-surface-base px-3 py-2 dark:border-surface-700 dark:bg-surface-800">
+  <div v-if="chat.conversaAtiva" class="bg-surface-base px-3 py-2">
     <input
       ref="inputArquivo"
       type="file"
       class="hidden"
       multiple
       @change="selecionarArquivo"
-      :accept="acceptArquivo"
+      accept="*/*"
     />
 
     <div class="mx-auto w-full max-w-[1200px]">
@@ -24,9 +24,9 @@
       <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-primary-50 px-3 py-2 dark:bg-primary-900/30">
         <div class="min-w-0 flex-1">
           <span class="text-xs font-semibold text-primary-600 dark:text-primary-400">{{ chat.mensagemRespondendo.remetente }}</span>
-          <p class="truncate text-xs text-surface-500 dark:text-surface-400">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
+          <p class="truncate text-xs text-surface-500">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
         </div>
-        <button class="shrink-0 text-surface-400 hover:text-surface-600 dark:hover:text-surface-200" @click="chat.cancelarResposta()">
+        <button class="shrink-0 text-surface-400 hover:text-surface-600" @click="chat.cancelarResposta()">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
@@ -36,11 +36,11 @@
       <!-- Composer bar -->
       <div class="relative flex items-end gap-2">
         <!-- Normal input bar -->
-        <div v-if="!gravandoAudio" class="flex min-w-0 flex-1 items-end rounded-3xl border border-surface-300 bg-surface-100 pl-3 pr-1 dark:border-surface-600 dark:bg-surface-700">
+        <div v-if="!gravandoAudio" class="flex min-w-0 flex-1 items-end rounded-3xl border border-surface-300 bg-surface-100 pl-3 pr-1">
           <!-- Attach button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
             <button
-              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700"
               title="Anexar"
               @click.stop="mostrarAnexo = !mostrarAnexo; mostrarEmoji = false"
             >
@@ -51,9 +51,7 @@
 
             <AnexoPopup
               v-if="mostrarAnexo"
-              @documento="abrirFilePicker('documento')"
-              @fotos-videos="abrirFilePicker('fotos-videos')"
-              @audio="abrirFilePicker('audio')"
+              @arquivo="abrirFilePicker()"
               @codigo="mostrarAnexo = false; mostrarCodigo = true"
               @close="mostrarAnexo = false"
             />
@@ -62,7 +60,7 @@
           <!-- Emoji button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
             <button
-              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700"
               title="Emoji"
               @click="mostrarEmoji = !mostrarEmoji; mostrarAnexo = false"
             >
@@ -84,12 +82,37 @@
               v-model="textoMensagem"
               spellcheck="true"
               rows="1"
-              class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-400 dark:text-surface-100 dark:placeholder:text-surface-500"
+              class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-400"
               placeholder="Digite uma mensagem"
               @keydown.enter.exact.prevent="enviarMensagem"
               @paste="aoColarNoChat"
               @input="aoDigitar"
             ></textarea>
+          </div>
+
+          <!-- Action button: send or mic (inside input bar) -->
+          <div class="relative mr-2 flex shrink-0 self-end pb-[6px]">
+            <button
+              v-if="temConteudo"
+              class="action-btn flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-700"
+              title="Enviar"
+              @click="enviarMensagem()"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+              </svg>
+            </button>
+            <button
+              v-else
+              class="action-btn flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+              title="Gravar áudio"
+              @pointerdown.prevent="onMicPointerDown"
+              @click.prevent
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -105,40 +128,8 @@
           @retomar="retomarAudio()"
           @toggle-preview="togglePreviewGravacao"
           @seek="onSeekPreview"
+          @enviar="pararEEnviar()"
         />
-
-        <!-- Action button: mic or send -->
-        <button
-          v-if="gravandoAudio"
-          class="action-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success-600 text-white transition hover:bg-success-700"
-          title="Enviar áudio"
-          @click="pararEEnviar()"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-          </svg>
-        </button>
-        <button
-          v-else-if="temConteudo"
-          class="action-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-700"
-          title="Enviar"
-          @click="enviarMensagem()"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-          </svg>
-        </button>
-        <button
-          v-else
-          class="action-btn flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
-          title="Gravar áudio"
-          @pointerdown.prevent="onMicPointerDown"
-          @click.prevent
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-          </svg>
-        </button>
       </div>
     </div>
 
@@ -179,22 +170,20 @@ const mostrarCodigo = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erro = ref('')
 
-const tipoAnexo = ref<'documento' | 'fotos-videos' | 'audio'>('documento')
-const acceptMap = {
-  'documento': 'application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar',
-  'fotos-videos': 'image/*,video/*',
-  'audio': 'audio/*'
-} as const
-const acceptArquivo = computed(() => acceptMap[tipoAnexo.value])
-const temConteudo = computed(() => textoMensagem.value.trim().length > 0 || fila.arquivosFila.value.length > 0)
+const temConteudo = computed(() => textoMensagem.value.trim().length > 0 || fila.arquivosFila.value.length > 0 || !!chat.mensagemRespondendo)
 
 // --- File picker ---
 
-function abrirFilePicker(tipo: 'documento' | 'fotos-videos' | 'audio') {
-  tipoAnexo.value = tipo
+function abrirFilePicker() {
   mostrarAnexo.value = false
   nextTick(() => inputArquivo.value?.click())
 }
+
+function adicionarArquivosExternos(files: FileList) {
+  fila.adicionarArquivos(files)
+}
+
+defineExpose({ adicionarArquivosExternos })
 
 function selecionarArquivo(event: Event) {
   const target = event.target as HTMLInputElement
@@ -438,7 +427,7 @@ function focarTextarea(posicao?: number) {
 async function enviarMensagem() {
   const texto = textoMensagem.value.trim()
   const temArquivos = fila.arquivosFila.value.length > 0
-  if (!texto && !temArquivos) return
+  if (!texto && !temArquivos && !chat.mensagemRespondendo) return
 
   erro.value = ''
   try {
@@ -446,7 +435,14 @@ async function enviarMensagem() {
     arquivos.forEach((arq) => fila.limparRecursosArquivo(arq))
     fila.arquivosFila.value = []
 
-    await chat.enviarMensagemComConteudos(
+    // Limpa input imediatamente (antes do await da API)
+    textoMensagem.value = ''
+    if (texto) chat.limparDigitandoConversaAtiva()
+    await nextTick()
+    if (textareaMsg.value) textareaMsg.value.style.height = 'auto'
+
+    // enviarMensagemComConteudos adiciona a mensagem otimista na UI antes de chamar a API
+    const envioPromise = chat.enviarMensagemComConteudos(
       texto,
       arquivos.map((arq) => ({
         blob: arq.file,
@@ -457,12 +453,11 @@ async function enviarMensagem() {
       }))
     )
 
-    if (texto) chat.limparDigitandoConversaAtiva()
-
-    textoMensagem.value = ''
+    // Scroll para o final assim que a mensagem otimista é adicionada
     await nextTick()
-    if (textareaMsg.value) textareaMsg.value.style.height = 'auto'
     emit('message-sent')
+
+    await envioPromise
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao enviar'
   }

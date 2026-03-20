@@ -1,9 +1,9 @@
 <template>
-  <div class="flex min-w-0 flex-1 items-center rounded-full border bg-surface-100 px-2 pb-[1.5px] pt-[2px] dark:bg-surface-700"
-      :class="pausado ? 'border-surface-300 dark:border-surface-600' : 'border-danger-300 dark:border-danger-700'">
+  <div class="flex min-w-0 flex-1 items-center rounded-full border bg-surface-100 px-2 pb-[1.5px] pt-[2px]"
+      :class="pausado ? 'border-surface-300' : 'border-danger-300'">
     <!-- Discard button -->
     <button
-      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-danger-50 hover:text-danger-600 dark:text-surface-400 dark:hover:bg-danger-900 dark:hover:text-danger-400"
+      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-danger-50 hover:text-danger-600"
       title="Descartar"
       @click="emit('descartar')"
     >
@@ -15,7 +15,7 @@
     <!-- Play preview button (only when paused) -->
     <button
       v-if="pausado"
-      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700"
       :title="reproduzindoPreview ? 'Parar preview' : 'Ouvir gravação'"
       @click="emit('toggle-preview')"
     >
@@ -32,7 +32,7 @@
     <!-- Recording indicator + timer -->
     <div class="flex items-center gap-2 px-2">
       <span class="h-2.5 w-2.5 rounded-full" :class="pausado ? 'bg-surface-400' : 'animate-pulse bg-danger-500'"></span>
-      <span class="min-w-[36px] text-sm font-medium tabular-nums text-surface-700 dark:text-surface-200">{{ tempoFormatado }}</span>
+      <span class="min-w-[36px] text-sm font-medium tabular-nums text-surface-700">{{ tempoFormatado }}</span>
     </div>
 
     <!-- Waveform (recording) / Progress bar (paused) -->
@@ -43,7 +43,7 @@
         class="relative h-5 w-full cursor-pointer flex items-center"
         @click="onSeek"
       >
-        <div class="relative h-1 w-full rounded-full bg-surface-300 dark:bg-surface-500">
+        <div class="relative h-1 w-full rounded-full bg-surface-300">
           <div
             class="absolute left-0 top-0 h-full rounded-full bg-primary-500"
             :style="{ width: previewProgresso + '%' }"
@@ -58,7 +58,7 @@
       <div v-else class="flex w-full items-center justify-center gap-[3px]">
         <span
           v-for="i in 20" :key="i"
-          class="waveform-bar inline-block w-[3px] rounded-full bg-surface-400 dark:bg-surface-500"
+          class="waveform-bar inline-block w-[3px] rounded-full bg-surface-400"
           :style="{ animationDelay: `${i * 0.08}s` }"
         ></span>
       </div>
@@ -68,8 +68,8 @@
     <button
       class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition"
       :class="pausado
-        ? 'text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900'
-        : 'text-surface-500 hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200'"
+        ? 'text-danger-500 hover:bg-danger-50'
+        : 'text-surface-500 hover:bg-surface-200 hover:text-surface-700'"
       :title="pausado ? 'Continuar gravação' : 'Pausar gravação'"
       @click="pausado ? emit('retomar') : emit('pausar')"
     >
@@ -80,6 +80,17 @@
       <!-- Pause icon when recording -->
       <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5">
         <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Zm10.5 0a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+      </svg>
+    </button>
+
+    <!-- Send recording button -->
+    <button
+      class="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success-600 text-white transition hover:bg-success-700"
+      title="Enviar áudio"
+      @click="emit('enviar')"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
       </svg>
     </button>
   </div>
@@ -99,6 +110,7 @@ const emit = defineEmits<{
   retomar: []
   'toggle-preview': []
   seek: [pct: number]
+  enviar: []
 }>()
 
 function onSeek(event: MouseEvent) {

@@ -1,21 +1,21 @@
 <template>
-  <div ref="popupRef" class="absolute bottom-full left-0 z-20 mb-2 w-[320px] rounded-xl border border-surface-200 bg-surface-base shadow-lg dark:border-surface-700 dark:bg-surface-800">
+  <div ref="popupRef" class="absolute bottom-full left-0 z-20 mb-2 w-[320px] rounded-xl border border-surface-200 bg-surface-base shadow-lg">
     <div class="max-h-[280px] overflow-y-auto p-2">
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400 dark:text-surface-500">Populares</p>
+      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Populares</p>
       <div class="mb-2 grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisPopulares" :key="'pop-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100 dark:hover:bg-surface-700" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+        <button v-for="emoji in emojisPopulares" :key="'pop-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" @click="emit('selecionar', emoji)">{{ emoji }}</button>
       </div>
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400 dark:text-surface-500">Rostos</p>
+      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Rostos</p>
       <div class="mb-2 grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisRostos" :key="'ros-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100 dark:hover:bg-surface-700" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+        <button v-for="emoji in emojisRostos" :key="'ros-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" @click="emit('selecionar', emoji)">{{ emoji }}</button>
       </div>
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400 dark:text-surface-500">Gestos</p>
+      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Gestos</p>
       <div class="mb-2 grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisGestos" :key="'ges-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100 dark:hover:bg-surface-700" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+        <button v-for="emoji in emojisGestos" :key="'ges-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" @click="emit('selecionar', emoji)">{{ emoji }}</button>
       </div>
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400 dark:text-surface-500">Objetos</p>
+      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Objetos</p>
       <div class="grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisObjetos" :key="'obj-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100 dark:hover:bg-surface-700" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+        <button v-for="emoji in emojisObjetos" :key="'obj-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" @click="emit('selecionar', emoji)">{{ emoji }}</button>
       </div>
     </div>
   </div>

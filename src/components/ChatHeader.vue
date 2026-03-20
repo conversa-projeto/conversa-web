@@ -2,11 +2,11 @@
   <div class="border-b border-surface-200 p-4">
     <div class="mx-auto w-full max-w-[1200px]">
       <div class="mb-2 flex items-center justify-between">
-        <div class="flex items-center gap-2">
+        <div class="flex min-w-0 items-center gap-2">
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200 md:hidden"
             @click="emit('update:sidebar-aberta', true)"
-          >
+>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           </button>
           <button
@@ -43,7 +43,7 @@
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
           <button
             v-if="!call.emChamada && !call.recebendoChamada"
             class="flex items-center gap-1 rounded-lg bg-success-100 px-2.5 py-1.5 text-sm text-success-700 hover:bg-success-200 dark:bg-success-900 dark:hover:bg-success-800 dark:text-success-400"

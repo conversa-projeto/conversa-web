@@ -20,7 +20,7 @@ export function getToken(): string {
 }
 
 function buildUrl(path: string, query?: Record<string, string | number | boolean | null | undefined>): string {
-  const url = new URL(`${getApiBase()}${path}`)
+  const url = new URL(`${getApiBase()}/api${path}`)
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined || value === null || value === '') {

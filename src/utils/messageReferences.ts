@@ -1,12 +1,14 @@
 import { TipoConteudo, TipoMensagemReferencia } from '../types/api'
-import type { ConteudoMensagem, Mensagem } from '../types/api'
+import type { ConteudoMensagem, Mensagem, MensagemReferencia } from '../types/api'
 
 export interface MensagemReferenciaResumo {
   tipo: number
   id: number
   remetente: string
+  inserida?: string
   conteudo_resumo: string
   conversa_id?: number
+  mensagem_referencia?: MensagemReferencia | null
 }
 
 function resumoConteudos(conteudos: ConteudoMensagem[]): string {
@@ -26,8 +28,10 @@ export function obterReferenciaPrincipal(mensagem: Mensagem): MensagemReferencia
       tipo: Number(referencia.tipo),
       id: referencia.mensagem.id,
       remetente: referencia.mensagem.remetente || 'Resposta',
+      inserida: referencia.mensagem.inserida,
       conteudo_resumo: resumoConteudos(referencia.mensagem.conteudos || []),
-      conversa_id: referencia.mensagem.conversa_id
+      conversa_id: referencia.mensagem.conversa_id,
+      mensagem_referencia: referencia.mensagem.mensagem_referencia
     }
   }
 

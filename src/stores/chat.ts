@@ -159,7 +159,7 @@ export const useChatStore = defineStore('chat', () => {
   async function obterOuCriarConversaDireta(contato: Contato) {
     const auth = useAuthStore()
     if (!auth.user) {
-      throw new Error('Usu??rio n??o autenticado')
+      throw new Error('Usuário não autenticado')
     }
 
     let conversa = conversas.value.find((item) => item.tipo === TipoConversa.Direta && item.destinatario_id === contato.id)
@@ -186,7 +186,7 @@ export const useChatStore = defineStore('chat', () => {
   async function criarGrupo(nome: string, usuarioIds: number[]) {
     const auth = useAuthStore()
     if (!auth.user) {
-      throw new Error('Usu??rio n??o autenticado')
+      throw new Error('Usuário não autenticado')
     }
 
     const criada = await api.createConversa(nome, TipoConversa.Grupo)
@@ -227,7 +227,9 @@ export const useChatStore = defineStore('chat', () => {
         id: origem.id,
         conversa_id: origem.conversa_id,
         remetente: origem.remetente,
-        conteudos: origem.conteudos
+        inserida: origem.inserida,
+        conteudos: origem.conteudos,
+        mensagem_referencia: origem.mensagem_referencia || null
       }
     }
   }
@@ -246,13 +248,10 @@ export const useChatStore = defineStore('chat', () => {
   async function encaminharMensagemParaConversa(origem: Mensagem, conversaDestinoId: number) {
     const auth = useAuthStore()
     if (!auth.user) {
-      throw new Error('Usu??rio n??o autenticado')
+      throw new Error('Usuário não autenticado')
     }
 
     const conteudos = clonarConteudosParaEnvio(origem.conteudos)
-    if (conteudos.length === 0) {
-      throw new Error('A mensagem selecionada nao possui conteudo para encaminhar.')
-    }
 
     await api.enviarMensagem(conversaDestinoId, conteudos, {
       tipo: TipoMensagemReferencia.Encaminhada,
@@ -275,7 +274,7 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     const textoLimpo = texto.trim()
-    if (!textoLimpo && arquivos.length === 0) {
+    if (!textoLimpo && arquivos.length === 0 && !mensagemRespondendo.value) {
       return
     }
 
@@ -514,7 +513,8 @@ export const useChatStore = defineStore('chat', () => {
     const isSecure = window.location.protocol === 'https:'
     const wsProtocol = isSecure ? 'wss:' : 'ws:'
     const wsPort = import.meta.env.VITE_WS_PORT
-    return `${wsProtocol}//${window.location.hostname}:${wsPort}`
+    const wsPath = import.meta.env.VITE_WS_PATH || ''
+    return `${wsProtocol}//${window.location.hostname}:${wsPort}${wsPath}`
   }
 
   function conectarWebSocket() {

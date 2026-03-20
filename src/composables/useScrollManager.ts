@@ -1,4 +1,4 @@
-import { nextTick, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import type { Mensagem } from '../types/api'
@@ -92,6 +92,7 @@ export function useScrollManager() {
     const container = mensagensContainer.value
 
     if (!conversaId || !usuarioId || !container) return
+    if (!document.hasFocus()) return
 
     const limite = container.getBoundingClientRect()
     const idsVisiveis: number[] = []
@@ -205,7 +206,16 @@ export function useScrollManager() {
     }
   )
 
+  function aoFocarJanela() {
+    solicitarValidacaoVisualizacao()
+  }
+
+  onMounted(() => {
+    window.addEventListener('focus', aoFocarJanela)
+  })
+
   onUnmounted(() => {
+    window.removeEventListener('focus', aoFocarJanela)
     if (frameValidacaoVisualizacao) {
       cancelAnimationFrame(frameValidacaoVisualizacao)
       frameValidacaoVisualizacao = 0

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="chat.conversaAtiva" class="flex flex-col flex-1 min-h-0 bg-surface-100">
+  <div v-if="chat.conversaAtiva" class="relative flex flex-col flex-1 min-h-0 bg-surface-100">
     <div
       class="flex-1 overflow-auto p-4 pb-2"
       ref="mensagensContainer"
@@ -33,15 +33,15 @@
       </div>
     </div>
 
-    <!-- Indicador fixo na base -->
-    <div class="shrink-0 bg-surface-100 px-4 pb-2">
-      <div class="mx-auto flex h-5 w-full max-w-[1200px] items-end">
-        <p v-if="textoGravando" class="animate-pulse text-xs text-danger-500">
-          {{ textoGravando }}
-        </p>
-        <p v-else-if="textoDigitando" class="animate-pulse text-xs text-success-600">
-          {{ textoDigitando }}
-        </p>
+    <!-- Indicador de digitação/gravação flutuante -->
+    <div v-if="textoGravando || textoDigitando" class="pointer-events-none absolute bottom-0 left-0 right-0 px-4 pb-1">
+      <div class="mx-auto w-full max-w-[1200px]">
+        <span
+          class="inline-block animate-pulse rounded-full px-2.5 py-0.5 text-xs"
+          :class="textoGravando ? 'bg-danger-100 text-danger-600 dark:bg-danger-900 dark:text-danger-400' : 'bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-400'"
+        >
+          {{ textoGravando || textoDigitando }}
+        </span>
       </div>
     </div>
   </div>

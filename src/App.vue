@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen">
+  <div class="min-h-dvh">
     <div v-if="erro" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg bg-danger-600 px-4 py-2 text-sm text-white shadow-lg">
       {{ erro }}
       <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
@@ -10,7 +10,17 @@
       <LoginForm v-else @login-success="onLoginSuccess" @go-register="telaCadastro = true" />
     </template>
 
-    <div v-else class="relative flex h-screen overflow-hidden bg-surface-base">
+    <div v-else class="relative flex h-dvh flex-col overflow-hidden bg-surface-base">
+      <div
+        v-if="mostrarAvisoDesconexao"
+        class="flex shrink-0 items-center justify-center gap-2 bg-danger-600 px-3 py-1 text-xs font-medium text-white"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+          <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+        </svg>
+        Conexao em tempo real indisponivel — usando atualizacao periodica
+      </div>
+      <div class="relative flex flex-1 overflow-hidden">
       <ChatSidebar
         :sidebar-aberta="sidebarAberta"
         @update:sidebar-aberta="sidebarAberta = $event"
@@ -76,6 +86,7 @@
         </div>
 
         <MessageInput
+          ref="messageInputRef"
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
@@ -95,6 +106,7 @@
         :flutuante="true"
         @toggle-float="chamadaFlutuante = false"
       />
+      </div>
     </div>
 
     <ImageViewerModal
@@ -105,13 +117,15 @@
       :translate-x="translateX"
       :translate-y="translateY"
       :is-dragging="imagemIsDragging"
+      :transicao-ativa="imagemTransicaoAtiva"
       @close="fecharImagemTelaCheia"
-      @zoom-in="ajustarZoomImagem(0.2)"
-      @zoom-out="ajustarZoomImagem(-0.2)"
+      @zoom-in="ajustarZoomImagem(1)"
+      @zoom-out="ajustarZoomImagem(-1)"
       @zoom-wheel="zoomImagemPorRoda"
       @drag-start="iniciarArrasto"
       @drag-move="processarArrasto"
       @drag-end="finalizarArrasto"
+      @reset-zoom="resetarZoomComTransicao"
     />
 
     <ImagePreviewModal
@@ -163,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useSipStore } from './stores/sip'
@@ -209,6 +223,22 @@ const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)
 const modalAdicionarUsuario = ref(false)
 const chamadaFlutuante = ref(false)
+const mostrarAvisoDesconexao = ref(false)
+let timerDesconexao: ReturnType<typeof setTimeout> | null = null
+
+watch(() => chat.conectadoTempoReal, (conectado) => {
+  if (conectado) {
+    if (timerDesconexao) { clearTimeout(timerDesconexao); timerDesconexao = null }
+    mostrarAvisoDesconexao.value = false
+  } else {
+    if (!timerDesconexao) {
+      timerDesconexao = setTimeout(() => {
+        mostrarAvisoDesconexao.value = true
+        timerDesconexao = null
+      }, 5000)
+    }
+  }
+})
 const modalEncaminhamentoAberto = ref(false)
 const mensagemParaEncaminhar = ref<Mensagem | null>(null)
 const mostrarChamadaNoPrincipal = computed(() =>
@@ -216,6 +246,7 @@ const mostrarChamadaNoPrincipal = computed(() =>
 )
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
+const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null)
 
 const { garantirAnexoUrl, anexosUrl, limparAnexos } = useAttachments()
 
@@ -240,7 +271,9 @@ const {
   zoomImagemPorRoda,
   iniciarArrasto,
   processarArrasto,
-  finalizarArrasto
+  finalizarArrasto,
+  resetarZoomComTransicao,
+  transicaoAtiva: imagemTransicaoAtiva
 } = useImageViewer(garantirAnexoUrl, anexosUrl)
 
 const {
@@ -256,26 +289,9 @@ const {
 
 const { isDragging, onDragEnter, onDragLeave, onDragOver, onDrop } = useDragAndDrop(handleFilesDropped)
 
-async function handleFilesDropped(files: FileList) {
+function handleFilesDropped(files: FileList) {
   if (!chat.conversaAtiva) return
-
-  for (const file of Array.from(files)) {
-    const isImagem = file.type.startsWith('image/')
-    const isAudio = file.type.startsWith('audio/')
-
-    try {
-      if (isImagem) {
-        abrirPreviewImagem(file, file.name, file.type || 'image/png')
-        break
-      } else {
-        await chat.enviarArquivo(file, file.name, file.type, isAudio)
-      }
-    } catch (e) {
-      erro.value = e instanceof Error ? e.message : 'Erro ao enviar arquivo'
-    }
-  }
-  await nextTick()
-  messageListRef.value?.rolarParaFinal()
+  messageInputRef.value?.adicionarArquivosExternos(files)
 }
 
 onMounted(async () => {

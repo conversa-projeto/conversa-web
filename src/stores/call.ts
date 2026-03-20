@@ -699,7 +699,16 @@ export const useCallStore = defineStore('call', () => {
 
         telaStream.getVideoTracks()[0].onended = () => { void pararCompartilhamento() }
       } else {
-        streamLocal.value = await adquirirMidiaLocal(tipo)
+        try {
+          streamLocal.value = await adquirirMidiaLocal(tipo)
+        } catch {
+          if (tipo === TipoChamada.Video) {
+            // Sem webcam: entra com audio apenas
+            streamLocal.value = await adquirirMidiaLocal(TipoChamada.Audio)
+          } else {
+            throw new Error('Nao foi possivel acessar o microfone')
+          }
+        }
       }
 
       estado.value = 'chamando'
@@ -919,7 +928,16 @@ export const useCallStore = defineStore('call', () => {
     if (estado.value !== 'ativa') return
 
     const video = opcoes?.video ?? (tipoChamada.value === TipoChamada.Video)
-    streamLocal.value = await adquirirMidiaLocal(video ? TipoChamada.Video : TipoChamada.Audio)
+    try {
+      streamLocal.value = await adquirirMidiaLocal(video ? TipoChamada.Video : TipoChamada.Audio)
+    } catch {
+      if (video) {
+        // Sem webcam: transmite somente audio
+        streamLocal.value = await adquirirMidiaLocal(TipoChamada.Audio)
+      } else {
+        throw new Error('Nao foi possivel acessar o microfone')
+      }
+    }
 
     // Reconecta todos os peers para incluir WHIP
     const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
@@ -937,19 +955,25 @@ export const useCallStore = defineStore('call', () => {
   async function upgradeParaVideo(notificar = true) {
     if (tipoChamada.value !== TipoChamada.Audio || estado.value !== 'ativa') return
 
-    const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
-    const videoTrack = videoStream.getVideoTracks()[0]
+    // Tenta adquirir video, mas continua sem webcam para poder assistir
+    try {
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+      const videoTrack = videoStream.getVideoTracks()[0]
 
-    if (streamLocal.value) {
-      streamLocal.value.addTrack(videoTrack)
-    } else {
-      // Se nao tinha stream local, adquire audio tambem
-      streamLocal.value = await adquirirMidiaLocal(TipoChamada.Video)
+      if (streamLocal.value) {
+        streamLocal.value.addTrack(videoTrack)
+      } else {
+        streamLocal.value = await adquirirMidiaLocal(TipoChamada.Video)
+      }
+    } catch {
+      // Sem webcam: continua sem video local, mas muda tipoChamada
+      // para receber streams de video dos outros participantes
+      console.warn('[CALL] Webcam indisponivel, entrando em modo somente recepcao de video')
     }
 
     tipoChamada.value = TipoChamada.Video
 
-    // Reconecta peers para enviar video
+    // Reconecta peers para receber/enviar video
     const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
       id,
       nome: p.usuarioNome
