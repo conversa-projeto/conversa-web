@@ -512,9 +512,8 @@ export const useChatStore = defineStore('chat', () => {
   function getWebSocketUrl(): string {
     const isSecure = window.location.protocol === 'https:'
     const wsProtocol = isSecure ? 'wss:' : 'ws:'
-    const wsPort = import.meta.env.VITE_WS_PORT
-    const wsPath = import.meta.env.VITE_WS_PATH || ''
-    return `${wsProtocol}//${window.location.hostname}:${wsPort}${wsPath}`
+    const wsPath = import.meta.env.VITE_WS_PATH || '/ws/'
+    return `${wsProtocol}//${window.location.host}${wsPath}`
   }
 
   function conectarWebSocket() {

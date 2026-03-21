@@ -134,10 +134,8 @@ export const useCallStore = defineStore('call', () => {
   // --- MediaMTX / WebRTC helpers ---
 
   function getMediaMtxUrl(): string {
-    const isSecure = window.location.protocol === 'https:'
-    const proto = isSecure ? 'https' : 'http'
-    const port = import.meta.env.VITE_MEDIAMTX_PORT
-    return `${proto}://${window.location.hostname}:${port}`
+    const webrtcPath = import.meta.env.VITE_WEBRTC_PATH || '/webrtc'
+    return `${window.location.origin}${webrtcPath}`
   }
 
   function sanitizar(s: string): string {
