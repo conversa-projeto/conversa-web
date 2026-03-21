@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '../services/conversaApi'
 import { getApiBase, setApiBase as setApiBaseHttp } from '../services/http'
+import { obterTokenFCM } from '../services/firebase'
 import type { Usuario } from '../types/api'
 
 const TOKEN_KEY = 'conversa.token'
@@ -115,6 +116,19 @@ export const useAuthStore = defineStore('auth', () => {
     return { nome, modelo, versao_so: so, plataforma: 'Web' }
   }
 
+  function registrarTokenFCM(devId: number) {
+    obterTokenFCM().then((fcmToken) => {
+      if (fcmToken) {
+        console.log('[FCM] Token obtido, salvando no dispositivo', devId)
+        api.dispositivoAlterar({ id: devId, token_fcm: fcmToken }).catch(() => { /* ignore */ })
+      } else {
+        console.warn('[FCM] Token não obtido — verifique permissões de notificação')
+      }
+    }).catch((err) => {
+      console.error('[FCM] Erro ao obter token:', err)
+    })
+  }
+
   async function login(loginValue: string, senha: string) {
     const response = await api.login(loginValue, senha, dispositivoId.value || undefined)
 
@@ -140,10 +154,11 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem(DEVICE_KEY, String(dispositivoId.value))
     }
 
-    // Atualizar info do dispositivo com dados do navegador
+    // Atualizar info do dispositivo com dados do navegador e token FCM
     if (dispositivoId.value) {
       const info = detectarNavegador()
       api.dispositivoAlterar({ id: dispositivoId.value, ...info }).catch(() => { /* ignore */ })
+      registrarTokenFCM(dispositivoId.value)
     }
 
     // Resolver avatar URL fresca

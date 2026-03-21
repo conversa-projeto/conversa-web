@@ -30,7 +30,7 @@ export function cadastrar(nome: string, loginValue: string, email: string, senha
   })
 }
 
-export function dispositivoAlterar(dispositivo: { id: number; nome?: string; modelo?: string; versao_so?: string; plataforma?: string }) {
+export function dispositivoAlterar(dispositivo: { id: number; nome?: string; modelo?: string; versao_so?: string; plataforma?: string; token_fcm?: string }) {
   return requestApi<Record<string, unknown>>('/dispositivo', 'PATCH', { body: dispositivo })
 }
 

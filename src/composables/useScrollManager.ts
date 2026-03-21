@@ -9,6 +9,7 @@ export function useScrollManager() {
 
   const mensagensContainer = ref<HTMLDivElement | null>(null)
   const usuarioNoFimDoChat = ref(true)
+  const distanteDoFinal = ref(false)
   const forcarScrollImagemAteFinal = ref(false)
   const posicionandoAberturaConversa = ref(false)
   const carregandoHistorico = ref(false)
@@ -17,6 +18,32 @@ export function useScrollManager() {
   function rolarParaFinal() {
     if (!mensagensContainer.value) return
     mensagensContainer.value.scrollTop = mensagensContainer.value.scrollHeight
+  }
+
+  function rolarParaFinalAnimado() {
+    const container = mensagensContainer.value
+    if (!container) return
+    const inicio = container.scrollTop
+    const destino = container.scrollHeight - container.clientHeight
+    const distancia = destino - inicio
+    if (distancia <= 0) return
+    const duracao = Math.min(600, Math.max(300, distancia * 0.3))
+    let inicioTempo = 0
+
+    function easeInOutQuart(t: number) {
+      return t < 0.3 ? 8 * t * t * t : 1 - Math.pow(1 - t, 4)
+    }
+
+    function animar(timestamp: number) {
+      if (!inicioTempo) inicioTempo = timestamp
+      const progresso = Math.min((timestamp - inicioTempo) / duracao, 1)
+      container!.scrollTop = inicio + distancia * easeInOutQuart(progresso)
+      if (progresso < 1) {
+        requestAnimationFrame(animar)
+      }
+    }
+
+    requestAnimationFrame(animar)
   }
 
   async function rolarParaFinalGarantido() {
@@ -72,8 +99,9 @@ export function useScrollManager() {
     }
     const container = mensagensContainer.value
     const margem = 56
-    usuarioNoFimDoChat.value =
-      container.scrollTop + container.clientHeight >= container.scrollHeight - margem
+    const distanciaDoFinal = container.scrollHeight - container.scrollTop - container.clientHeight
+    usuarioNoFimDoChat.value = distanciaDoFinal <= margem
+    distanteDoFinal.value = distanciaDoFinal > 1000
   }
 
   function solicitarValidacaoVisualizacao() {
@@ -229,10 +257,12 @@ export function useScrollManager() {
   return {
     mensagensContainer,
     usuarioNoFimDoChat,
+    distanteDoFinal,
     forcarScrollImagemAteFinal,
     posicionandoAberturaConversa,
     carregandoHistorico,
     rolarParaFinal,
+    rolarParaFinalAnimado,
     rolarParaFinalGarantido,
     rolarMensagemParaVisibilidadeCompleta,
     irParaMensagem,

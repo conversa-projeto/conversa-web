@@ -16,10 +16,14 @@ export function playNotificationSound() {
   }
 }
 
-function playFallbackBeep() {
+async function playFallbackBeep() {
   try {
     if (!fallbackAudioCtx) {
       fallbackAudioCtx = new AudioContext()
+    }
+
+    if (fallbackAudioCtx.state === 'suspended') {
+      await fallbackAudioCtx.resume()
     }
 
     const ctx = fallbackAudioCtx
@@ -63,6 +67,7 @@ export function showNotification(title: string, options?: NotificationOptions) {
   try {
     const notification = new Notification(title, {
       icon: '/logo.png',
+      silent: true,
       ...options
     })
 

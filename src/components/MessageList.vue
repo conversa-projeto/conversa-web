@@ -1,7 +1,7 @@
 <template>
   <div v-if="chat.conversaAtiva" class="relative flex flex-col flex-1 min-h-0 bg-surface-100">
     <div
-      class="flex-1 overflow-auto p-4 pb-2"
+      class="flex-1 overflow-auto p-4"
       ref="mensagensContainer"
       @scroll="aoScrollChat"
     >
@@ -33,15 +33,18 @@
       </div>
     </div>
 
-    <!-- Indicador de digitação/gravação flutuante -->
-    <div v-if="textoGravando || textoDigitando" class="pointer-events-none absolute bottom-0 left-0 right-0 px-4 pb-1">
+    <!-- Botão rolar para o final -->
+    <div v-if="distanteDoFinal" class="pointer-events-none absolute inset-x-0 bottom-4 z-20 px-4">
       <div class="mx-auto w-full max-w-[1200px]">
-        <span
-          class="inline-block animate-pulse rounded-full px-2.5 py-0.5 text-xs"
-          :class="textoGravando ? 'bg-danger-100 text-danger-600 dark:bg-danger-900 dark:text-danger-400' : 'bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-400'"
+        <button
+          class="pointer-events-auto float-right flex h-9 w-9 items-center justify-center rounded-full border border-surface-300 bg-surface-base text-surface-500 shadow-md transition hover:bg-surface-200 hover:text-surface-700"
+          title="Ir para o final"
+          @click="rolarParaFinalAnimado()"
         >
-          {{ textoGravando || textoDigitando }}
-        </span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+            <path fill-rule="evenodd" d="M10 3a.75.75 0 0 1 .75.75v10.638l3.96-4.158a.75.75 0 1 1 1.08 1.04l-5.25 5.5a.75.75 0 0 1-1.08 0l-5.25-5.5a.75.75 0 0 1 1.08-1.04l3.96 4.158V3.75A.75.75 0 0 1 10 3Z" clip-rule="evenodd" />
+          </svg>
+        </button>
       </div>
     </div>
   </div>
@@ -66,29 +69,16 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const chat = useChatStore()
 
-const textoDigitando = computed(() => {
-  const nomes = chat.digitandoNaConversaAtiva
-  if (nomes.length === 0) return ''
-  if (nomes.length === 1) return `${nomes[0]} esta digitando...`
-  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estao digitando...`
-  return `${nomes[0]} e mais ${nomes.length - 1} estao digitando...`
-})
-
-const textoGravando = computed(() => {
-  const nomes = chat.gravandoNaConversaAtiva
-  if (nomes.length === 0) return ''
-  if (nomes.length === 1) return `${nomes[0]} esta gravando audio...`
-  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} estao gravando audio...`
-  return `${nomes[0]} e mais ${nomes.length - 1} estao gravando audio...`
-})
-
 const {
   mensagensContainer,
   aoScrollChat,
   aoCarregarImagemNoChat,
   posicionarAberturaConversaAtiva,
   rolarParaFinal,
-  irParaMensagem
+  rolarParaFinalAnimado,
+  irParaMensagem,
+  usuarioNoFimDoChat,
+  distanteDoFinal
 } = useScrollManager()
 
 const { anexoUrl, abrirAnexo, limparAnexos } = useAttachments()

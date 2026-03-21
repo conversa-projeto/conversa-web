@@ -1,5 +1,5 @@
 <template>
-  <div class="border-b border-surface-200 p-4">
+  <div class="border-b border-surface-200 bg-surface-base px-4 py-2">
     <div class="mx-auto w-full max-w-[1200px]">
       <div class="mb-2 flex items-center justify-between">
         <div class="flex min-w-0 items-center gap-2">

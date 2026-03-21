@@ -1,5 +1,5 @@
 <template>
-  <div v-if="chat.conversaAtiva" class="bg-surface-base px-3 py-2">
+  <div v-if="chat.conversaAtiva" class="relative px-3 pb-2">
     <input
       ref="inputArquivo"
       type="file"
@@ -36,7 +36,14 @@
       <!-- Composer bar -->
       <div class="relative flex items-end gap-2">
         <!-- Normal input bar -->
-        <div v-if="!gravandoAudio" class="flex min-w-0 flex-1 items-end rounded-3xl border border-surface-300 bg-surface-100 pl-3 pr-1">
+        <div v-if="!gravandoAudio" class="relative min-w-0 flex-1">
+          <!-- Indicador de digitação/gravação -->
+          <div
+            v-if="chat.gravandoNaConversaAtiva.length || chat.digitandoNaConversaAtiva.length"
+            class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
+            :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
+          />
+          <div class="flex items-end rounded-3xl border border-surface-400 bg-surface-base pl-3 pr-1">
           <!-- Attach button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
             <button
@@ -113,6 +120,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
               </svg>
             </button>
+          </div>
           </div>
         </div>
 
@@ -506,5 +514,59 @@ onBeforeUnmount(() => {
 @keyframes action-pop {
   0% { transform: scale(0.5); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+.indicador-atividade {
+  height: 14px;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+.indicador-atividade::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.indicador-digitando::after {
+  background: rgba(34, 197, 94, 0.6);
+  box-shadow:
+    0 0 6px 2px rgba(34, 197, 94, 0.4),
+    0 0 16px 4px rgba(34, 197, 94, 0.2),
+    0 0 30px 8px rgba(34, 197, 94, 0.08);
+}
+
+.indicador-gravando::after {
+  background: rgba(239, 68, 68, 0.6);
+  box-shadow:
+    0 0 6px 2px rgba(239, 68, 68, 0.4),
+    0 0 16px 4px rgba(239, 68, 68, 0.2),
+    0 0 30px 8px rgba(239, 68, 68, 0.08);
+}
+
+:root.dark .indicador-digitando::after {
+  background: rgba(34, 197, 94, 0.5);
+  box-shadow:
+    0 0 6px 2px rgba(34, 197, 94, 0.35),
+    0 0 16px 4px rgba(34, 197, 94, 0.15),
+    0 0 30px 8px rgba(34, 197, 94, 0.06);
+}
+
+:root.dark .indicador-gravando::after {
+  background: rgba(239, 68, 68, 0.5);
+  box-shadow:
+    0 0 6px 2px rgba(239, 68, 68, 0.35),
+    0 0 16px 4px rgba(239, 68, 68, 0.15),
+    0 0 30px 8px rgba(239, 68, 68, 0.06);
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 </style>

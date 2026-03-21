@@ -30,7 +30,7 @@
       />
 
       <main
-        class="relative flex-col overflow-hidden md:flex md:flex-1"
+        class="relative flex-col overflow-hidden bg-surface-100 md:flex md:flex-1"
         :class="sidebarAberta ? 'hidden md:flex' : 'flex flex-1'"
         @dragenter.prevent="onDragEnter"
         @dragover.prevent="onDragOver"
@@ -88,6 +88,7 @@
         <MessageInput
           ref="messageInputRef"
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
+          class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
         />
@@ -189,6 +190,7 @@ import { useImageViewer } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
 import { useDragAndDrop } from './composables/useDragAndDrop'
+import { ErroNaoAutenticado } from './services/http'
 
 import LoginForm from './components/LoginForm.vue'
 import RegisterForm from './components/RegisterForm.vue'
@@ -306,9 +308,10 @@ onMounted(async () => {
       void call.verificarChamadasPendentes()
       await messageListRef.value?.posicionarAberturaConversaAtiva()
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Falha ao iniciar sessao'
-      erro.value = message
       auth.logout()
+      if (!(e instanceof ErroNaoAutenticado)) {
+        erro.value = e instanceof Error ? e.message : 'Falha ao iniciar sessao'
+      }
     }
   }
 })

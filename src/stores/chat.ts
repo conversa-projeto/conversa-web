@@ -704,10 +704,12 @@ export const useChatStore = defineStore('chat', () => {
         else texto = 'Arquivo'
       }
 
-      showNotification(nomeRemetente, {
-        body: texto,
-        tag: `conversa-${ultima.conversa_id}` // Agrupa notificações por conversa
-      })
+      if (!document.hasFocus()) {
+        showNotification(nomeRemetente, {
+          body: texto,
+          silent: true
+        })
+      }
     }
 
     await carregarConversas()
@@ -762,10 +764,7 @@ export const useChatStore = defineStore('chat', () => {
       if (conectadoTempoReal.value) {
         return
       }
-      await carregarConversas()
-      if (conversaAtivaId.value) {
-        await carregarMensagens(conversaAtivaId.value)
-      }
+      await tratarNovaMensagem()
       if (_tratarEventoChamada) {
         const callStore = useCallStore()
         void callStore.verificarChamadasPendentes()

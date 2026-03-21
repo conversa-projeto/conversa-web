@@ -1,6 +1,13 @@
 const API_BASE_KEY = 'conversa.apiBase'
 const TOKEN_KEY = 'conversa.token'
 
+export class ErroNaoAutenticado extends Error {
+  constructor(message = 'Sessão expirada') {
+    super(message)
+    this.name = 'ErroNaoAutenticado'
+  }
+}
+
 export function getApiBase(): string {
   const stored = localStorage.getItem(API_BASE_KEY)
   const fallback = typeof window !== 'undefined'
@@ -70,6 +77,10 @@ export async function requestApi<T>(
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      throw new ErroNaoAutenticado()
+    }
     let message = `Erro HTTP ${response.status}`
     try {
       const data = await response.json()
