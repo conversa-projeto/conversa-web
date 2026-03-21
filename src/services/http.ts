@@ -77,16 +77,16 @@ export async function requestApi<T>(
   })
 
   if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
-      throw new ErroNaoAutenticado()
-    }
     let message = `Erro HTTP ${response.status}`
     try {
       const data = await response.json()
       message = data?.error || data?.message || message
     } catch {
       // ignora erro de parse
+    }
+    if (response.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      throw new ErroNaoAutenticado(message)
     }
     throw new Error(message)
   }

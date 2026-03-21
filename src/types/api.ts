@@ -26,6 +26,7 @@ export const TipoEventoSocket = {
   StatusMensagem: 3,
   Digitando: 4,
   GravandoAudio: 5,
+  ReacaoMensagem: 7,
   ConversaAtualizada: 40,
   ChamadaRecebida: 51,
   ChamadaFinalizada: 52,
@@ -129,6 +130,12 @@ export interface MensagemReferencia {
   } | null
 }
 
+export interface Reacao {
+  emoji: string
+  quantidade: number
+  reagiu: boolean
+}
+
 export interface Mensagem {
   id: number
   remetente_id: number
@@ -141,6 +148,7 @@ export interface Mensagem {
   reproduzida: boolean
   conteudos: ConteudoMensagem[]
   mensagem_referencia?: MensagemReferencia | null
+  reacoes?: Reacao[]
   enviando?: boolean
 }
 
@@ -220,4 +228,7 @@ export interface EventoSocket {
   mensagens?: string
   chamada_id?: number
   usuario_id?: number
+  mensagem_id?: number
+  emoji?: string
+  acao?: string
 }

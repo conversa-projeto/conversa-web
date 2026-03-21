@@ -48,35 +48,82 @@
       </p>
     </template>
 
-    <img
-      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Imagem)"
-      :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
-      alt="Imagem"
-      class="max-h-64 cursor-zoom-in rounded border-2"
-      :class="isOwn ? 'border-primary-600 dark:border-primary-800' : 'border-surface-base'"
-      decoding="async"
-      @load="emit('image-loaded')"
-      @click="emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
-    />
+    <template v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Imagem)">
+      <!-- Placeholder antes de liberar -->
+      <div
+        v-if="deveBloquear(conteudo)"
+        class="flex h-40 w-56 cursor-pointer items-center justify-center rounded border border-surface-200 bg-surface-100 dark:border-surface-600 dark:bg-surface-700"
+        @click="liberar(conteudo)"
+      >
+        <div class="flex flex-col items-center gap-2 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-8 w-8 text-surface-400">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+          </svg>
+          <span class="text-xs text-surface-500 dark:text-surface-400">Toque para abrir</span>
+        </div>
+      </div>
+      <!-- Imagem carregando / carregada -->
+      <div v-else class="relative inline-block">
+        <img
+          :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
+          alt="Imagem"
+          class="max-h-64 rounded border-2"
+          :class="[
+            isOwn ? 'border-primary-600 dark:border-primary-800' : 'border-surface-base',
+            imagensCarregadas.has(conteudo.ordem) ? 'cursor-zoom-in' : ''
+          ]"
+          decoding="async"
+          @load="onImagemCarregada(conteudo)"
+          @click="imagensCarregadas.has(conteudo.ordem) && emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
+        />
+        <!-- Overlay de carregamento sobre a imagem parcial -->
+        <div
+          v-if="liberados.has(conteudo.ordem) && !imagensCarregadas.has(conteudo.ordem)"
+          class="absolute inset-0 flex items-center justify-center rounded bg-black/30"
+        >
+          <div class="flex flex-col items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6 animate-spin text-white/80">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+            </svg>
+            <span class="text-xs text-white/80">Carregando...</span>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <template v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Arquivo)">
       <template v-if="isVideoConteudo(conteudo)">
-        <div class="w-[420px] max-w-full">
-          <video
-            controls
-            preload="metadata"
-            :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
-            class="h-[236px] w-full rounded border border-surface-200 bg-black object-contain"
-          />
-        </div>
-        <button
-          v-if="!conteudo.localUrl"
-          class="mt-1 flex items-center gap-1 text-xs underline"
-          @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'video')"
+        <!-- Placeholder conexão lenta para vídeo -->
+        <div
+          v-if="deveBloquear(conteudo)"
+          class="flex h-[236px] w-[420px] max-w-full cursor-pointer items-center justify-center rounded border border-surface-200 bg-black/80"
+          @click="liberar(conteudo)"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-          Baixar video
-        </button>
+          <div class="flex flex-col items-center gap-2 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 text-white/60">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+            <span class="text-xs text-white/70">Toque para carregar</span>
+          </div>
+        </div>
+        <template v-else>
+          <div class="w-[420px] max-w-full">
+            <video
+              controls
+              preload="metadata"
+              :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
+              class="h-[236px] w-full rounded border border-surface-200 bg-black object-contain"
+            />
+          </div>
+          <button
+            v-if="!conteudo.localUrl"
+            class="mt-1 flex items-center gap-1 text-xs underline"
+            @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'video')"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+            Baixar video
+          </button>
+        </template>
       </template>
       <div v-else class="flex items-center gap-2 rounded border px-2 py-2" :class="isOwn ? 'border-white/20 bg-white/10 text-white' : 'border-surface-200 bg-surface-50 text-surface-800'">
         <div class="min-w-12 text-center">
@@ -123,12 +170,33 @@
 </template>
 
 <script setup lang="ts">
+import { reactive } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
 import { useCodeHighlight } from '../composables/useCodeHighlight'
+import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
+
+const { conexaoLenta } = useConexao()
+const liberados = reactive(new Set<number>())
+const imagensCarregadas = reactive(new Set<number>())
+
+function deveBloquear(conteudo: ConteudoMensagem): boolean {
+  if (conteudo.localUrl) return false
+  if (!conexaoLenta.value) return false
+  return !liberados.has(conteudo.ordem)
+}
+
+function liberar(conteudo: ConteudoMensagem) {
+  liberados.add(conteudo.ordem)
+}
+
+function onImagemCarregada(conteudo: ConteudoMensagem) {
+  imagensCarregadas.add(conteudo.ordem)
+  emit('image-loaded')
+}
 
 defineProps<{
   conteudo: ConteudoMensagem

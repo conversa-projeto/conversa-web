@@ -1,7 +1,11 @@
 <template>
   <div
-    class="relative z-10 mt-[3px] shrink-0 opacity-0 transition pointer-events-none group-hover/bubble:opacity-100 group-hover/bubble:pointer-events-auto"
-    :class="menuAberto ? '!opacity-100 !pointer-events-auto' : ''"
+    class="absolute z-10 mt-[3px] shrink-0 opacity-0 transition pointer-events-none group-hover/bubble:opacity-100 group-hover/bubble:pointer-events-auto"
+    :class="[
+      menuAberto ? '!opacity-100 !pointer-events-auto' : '',
+      isOwn ? 'right-full pr-0.5' : 'left-full pl-0.5',
+      'top-0'
+    ]"
     ref="containerRef"
   >
     <button
@@ -15,11 +19,45 @@
     </button>
 
     <div
-      v-if="menuAberto"
+      v-if="menuAberto && !pickerAberto"
       ref="menuRef"
-      class="absolute min-w-[140px] rounded-lg border border-surface-200 bg-white py-1 shadow-lg dark:border-surface-600 dark:bg-surface-700"
-      :class="[isOwn ? 'right-0' : 'left-0', abrirParaCima ? 'bottom-full mb-1' : 'top-full mt-1']"
+      class="fixed z-50 min-w-[140px] rounded-lg border border-surface-200 bg-white py-1 shadow-lg dark:border-surface-600 dark:bg-surface-700"
+      :style="menuStyle"
     >
+      <!-- Emojis rápidos: linha 1 (4 emojis) -->
+      <div class="grid grid-cols-4 gap-0.5 px-2 pt-1.5">
+        <button
+          v-for="emoji in emojisLinha1"
+          :key="emoji"
+          class="h-8 w-8 rounded-full text-base transition hover:bg-surface-100 hover:scale-110 dark:hover:bg-surface-600"
+          :title="emojiNome(emoji)"
+          @click="acaoReagir(emoji)"
+        >
+          {{ emoji }}
+        </button>
+      </div>
+      <!-- Emojis rápidos: linha 2 (3 emojis + botão picker) -->
+      <div class="grid grid-cols-4 gap-0.5 px-2 pb-1.5 border-b border-surface-200 dark:border-surface-600">
+        <button
+          v-for="emoji in emojisLinha2"
+          :key="emoji"
+          class="h-8 w-8 rounded-full text-base transition hover:bg-surface-100 hover:scale-110 dark:hover:bg-surface-600"
+          :title="emojiNome(emoji)"
+          @click="acaoReagir(emoji)"
+        >
+          {{ emoji }}
+        </button>
+        <button
+          class="flex h-8 w-8 items-center justify-center rounded-full text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+          title="Mais emojis"
+          @click.stop="abrirPicker"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.536-4.464a.75.75 0 1 0-1.061-1.061 3.5 3.5 0 0 1-4.95 0 .75.75 0 0 0-1.06 1.06 5 5 0 0 0 7.07 0ZM9 8.5c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S7.448 7 8 7s1 .672 1 1.5Zm3 1.5c.552 0 1-.672 1-1.5S12.552 7 12 7s-1 .672-1 1.5.448 1.5 1 1.5Z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
       <button
         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-600"
         @click="acaoResponder"
@@ -39,12 +77,27 @@
         Encaminhar
       </button>
     </div>
+
+    <!-- Emoji Picker popup -->
+    <div
+      v-if="pickerAberto"
+      class="fixed z-50"
+      :style="pickerStyle"
+    >
+      <EmojiPicker
+        estatico
+        @selecionar="acaoReagirPicker"
+        @close="fecharPicker"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount, type CSSProperties } from 'vue'
 import type { Mensagem } from '../types/api'
+import EmojiPicker from './EmojiPicker.vue'
+import { emojiNome } from '../utils/emojiNomes'
 
 const props = defineProps<{
   mensagem: Mensagem
@@ -55,15 +108,25 @@ const props = defineProps<{
 const emit = defineEmits<{
   reply: [mensagem: Mensagem]
   forward: [mensagem: Mensagem]
+  reagir: [emoji: string]
   'menu-toggle': [aberto: boolean]
 }>()
 
-const MENU_ALTURA_ESTIMADA = 76
+const MENU_LARGURA = 160
+const MENU_ALTURA_ESTIMADA = 180
+const PICKER_LARGURA = 320
+const PICKER_ALTURA = 310
+const MARGEM = 8
+
+const emojisLinha1 = ['👍', '❤️', '😂', '😮']
+const emojisLinha2 = ['😢', '👏', '🔥']
 
 const menuAberto = ref(false)
-const abrirParaCima = ref(false)
+const pickerAberto = ref(false)
 const containerRef = ref<HTMLElement>()
 const menuRef = ref<HTMLElement>()
+const menuStyle = ref<CSSProperties>({})
+const pickerStyle = ref<CSSProperties>({})
 
 function getScrollContainer(el: HTMLElement | null): HTMLElement | null {
   let parent = el?.parentElement
@@ -77,30 +140,73 @@ function getScrollContainer(el: HTMLElement | null): HTMLElement | null {
   return null
 }
 
-function toggleMenu() {
-  if (menuAberto.value) {
-    menuAberto.value = false
-    emit('menu-toggle', false)
-    return
+function calcularPosicao(largura: number, altura: number): CSSProperties {
+  if (!containerRef.value) return {}
+
+  const btnRect = containerRef.value.getBoundingClientRect()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  // Vertical: preferir abaixo do botão, senão acima
+  let top: number
+  if (btnRect.bottom + altura + MARGEM <= vh) {
+    top = btnRect.bottom + 4
+  } else if (btnRect.top - altura - MARGEM >= 0) {
+    top = btnRect.top - altura - 4
+  } else {
+    // Não cabe em nenhum lado, centralizar verticalmente
+    top = Math.max(MARGEM, (vh - altura) / 2)
   }
 
-  // Decidir direção antes de abrir
-  if (containerRef.value) {
-    const btnRect = containerRef.value.getBoundingClientRect()
-    const scrollContainer = getScrollContainer(containerRef.value)
-    const limiteInferior = scrollContainer
-      ? scrollContainer.getBoundingClientRect().bottom
-      : window.innerHeight
-    const espacoAbaixo = limiteInferior - btnRect.bottom
-    abrirParaCima.value = espacoAbaixo < MENU_ALTURA_ESTIMADA + 8
+  // Horizontal: alinhar pelo lado do botão, clampando na viewport
+  let left: number
+  if (props.isOwn) {
+    // Alinhar pela direita do botão
+    left = btnRect.right - largura
+  } else {
+    // Alinhar pela esquerda do botão
+    left = btnRect.left
   }
 
+  // Clampar para não sair da tela
+  if (left + largura > vw - MARGEM) {
+    left = vw - largura - MARGEM
+  }
+  if (left < MARGEM) {
+    left = MARGEM
+  }
+
+  return {
+    top: `${top}px`,
+    left: `${left}px`,
+  }
+}
+
+function abrirMenu() {
+  menuStyle.value = calcularPosicao(MENU_LARGURA, MENU_ALTURA_ESTIMADA)
   menuAberto.value = true
   emit('menu-toggle', true)
+
+  // Recalcular após render com a altura real do menu
+  nextTick(() => {
+    if (menuRef.value) {
+      const realHeight = menuRef.value.offsetHeight
+      menuStyle.value = calcularPosicao(MENU_LARGURA, realHeight)
+    }
+  })
+}
+
+function toggleMenu() {
+  if (menuAberto.value) {
+    fecharMenu()
+    return
+  }
+  abrirMenu()
 }
 
 function fecharMenu() {
   menuAberto.value = false
+  pickerAberto.value = false
   emit('menu-toggle', false)
 }
 
@@ -114,12 +220,37 @@ function acaoEncaminhar() {
   emit('forward', props.mensagem)
 }
 
+function acaoReagir(emoji: string) {
+  fecharMenu()
+  emit('reagir', emoji)
+}
+
+function abrirPicker() {
+  pickerStyle.value = calcularPosicao(PICKER_LARGURA, PICKER_ALTURA)
+  pickerAberto.value = true
+}
+
+function fecharPicker() {
+  pickerAberto.value = false
+}
+
+function acaoReagirPicker(emoji: string) {
+  fecharMenu()
+  emit('reagir', emoji)
+}
+
 function fecharMenuExterno(e: MouseEvent) {
   if (containerRef.value && !containerRef.value.contains(e.target as Node)) {
     fecharMenu()
   }
 }
 
+function abrirViaContextMenu() {
+  abrirMenu()
+}
+
 onMounted(() => document.addEventListener('click', fecharMenuExterno))
 onBeforeUnmount(() => document.removeEventListener('click', fecharMenuExterno))
+
+defineExpose({ abrirViaContextMenu })
 </script>

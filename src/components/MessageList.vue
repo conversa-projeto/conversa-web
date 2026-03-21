@@ -15,6 +15,12 @@
             </span>
           </div>
 
+          <div v-else-if="item.tipo === 'nao-lidas'" class="my-3 flex justify-center">
+            <span class="rounded-full bg-primary-600 px-3 py-1 text-xs text-white">
+              {{ item.label }}
+            </span>
+          </div>
+
           <MessageBubble
             v-else
             :mensagem="item.mensagem"
@@ -28,6 +34,7 @@
             @reply="(msg) => chat.responderMensagem(msg)"
             @forward="(msg) => emit('forward', msg)"
             @go-to-message="(id) => irParaMensagem(id)"
+            @reagir="(mensagemId, emoji) => chat.reagirMensagem(mensagemId, emoji)"
           />
         </template>
       </div>
@@ -51,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { formatarDiaSeparador } from '../utils/formatters'
@@ -83,14 +90,67 @@ const {
 
 const { anexoUrl, abrirAnexo, limparAnexos } = useAttachments()
 
+// Indicador de mensagens não lidas com timeout de 5s
+const indicadorNaoLidasVisivel = ref(false)
+const qtdNaoLidasSnapshot = ref(0)
+let timerNaoLidas: ReturnType<typeof setTimeout> | null = null
+let podeEsconderNaoLidas = false
+
+watch(() => chat.conversaAtivaId, () => {
+  // Ao trocar de conversa, resetar estado
+  indicadorNaoLidasVisivel.value = false
+  qtdNaoLidasSnapshot.value = 0
+  podeEsconderNaoLidas = false
+  if (timerNaoLidas) { clearTimeout(timerNaoLidas); timerNaoLidas = null }
+})
+
+watch(() => chat.mensagensAtivas, (mensagens) => {
+  if (!chat.conversaAtivaId || indicadorNaoLidasVisivel.value) return
+
+  const usuarioId = auth.user?.id
+  const naoLidas = mensagens.filter(m => m.remetente_id !== usuarioId && !m.visualizada)
+  if (naoLidas.length > 0 && qtdNaoLidasSnapshot.value === 0) {
+    qtdNaoLidasSnapshot.value = naoLidas.length
+    indicadorNaoLidasVisivel.value = true
+    podeEsconderNaoLidas = false
+    timerNaoLidas = setTimeout(() => {
+      podeEsconderNaoLidas = true
+      timerNaoLidas = null
+      verificarEsconderIndicador()
+    }, 5000)
+  }
+}, { immediate: true })
+
+function verificarEsconderIndicador() {
+  if (!podeEsconderNaoLidas || !indicadorNaoLidasVisivel.value) return
+  const usuarioId = auth.user?.id
+  const restantes = chat.mensagensAtivas.filter(m => m.remetente_id !== usuarioId && !m.visualizada)
+  if (restantes.length === 0) {
+    indicadorNaoLidasVisivel.value = false
+    qtdNaoLidasSnapshot.value = 0
+  }
+}
+
+// Verificar periodicamente se pode esconder após leitura
+watch(() => chat.mensagensAtivas.filter(m => m.remetente_id !== auth.user?.id && !m.visualizada).length, () => {
+  verificarEsconderIndicador()
+})
+
+onBeforeUnmount(() => {
+  if (timerNaoLidas) { clearTimeout(timerNaoLidas); timerNaoLidas = null }
+})
+
 type ItemMensagemView =
   | { tipo: 'dia'; key: string; label: string }
+  | { tipo: 'nao-lidas'; key: string; label: string }
   | { tipo: 'mensagem'; key: string; mensagem: Mensagem; mudouRemetente: boolean }
 
 const itensMensagens = computed<ItemMensagemView[]>(() => {
   const itens: ItemMensagemView[] = []
   let diaAtual = ''
   let ultimoRemetenteId: number | null = null
+  const usuarioId = auth.user?.id
+  let indicadorInserido = false
 
   for (const mensagem of chat.mensagensAtivas) {
     const data = new Date(mensagem.inserida)
@@ -103,6 +163,17 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
         tipo: 'dia',
         key: `dia-${diaChave}`,
         label: formatarDiaSeparador(mensagem.inserida)
+      })
+    }
+
+    // Inserir indicador de não lidas antes da primeira mensagem não lida
+    if (indicadorNaoLidasVisivel.value && !indicadorInserido && mensagem.remetente_id !== usuarioId && !mensagem.visualizada) {
+      indicadorInserido = true
+      const qtd = qtdNaoLidasSnapshot.value
+      itens.push({
+        tipo: 'nao-lidas',
+        key: 'nao-lidas',
+        label: qtd === 1 ? '1 mensagem não lida' : `${qtd} mensagens não lidas`
       })
     }
 

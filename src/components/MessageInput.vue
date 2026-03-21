@@ -77,6 +77,7 @@
             </button>
             <EmojiPicker
               v-if="mostrarEmoji"
+              direcao="cima"
               @selecionar="inserirEmoji"
               @close="mostrarEmoji = false"
             />

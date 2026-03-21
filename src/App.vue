@@ -71,6 +71,8 @@
           @open-group-members="modalMembrosGrupo = true"
         />
 
+        <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal" />
+
         <MessageList
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           ref="messageListRef"
@@ -190,6 +192,7 @@ import { useImageViewer } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
 import { useDragAndDrop } from './composables/useDragAndDrop'
+import { useUploadProgress } from './composables/useUploadProgress'
 import { ErroNaoAutenticado } from './services/http'
 
 import LoginForm from './components/LoginForm.vue'
@@ -209,15 +212,17 @@ import IncomingCallModal from './components/IncomingCallModal.vue'
 import VideoUpgradeModal from './components/VideoUpgradeModal.vue'
 import AddUserToCallModal from './components/AddUserToCallModal.vue'
 import CallWindow from './CallWindow.vue'
+import UploadIndicador from './components/UploadIndicador.vue'
 
 const auth = useAuthStore()
 const chat = useChatStore()
 const sip = useSipStore()
 const call = useCallStore()
+const { temUploadAtivo } = useUploadProgress()
 
 const erro = ref('')
 const telaCadastro = ref(false)
-const sidebarAberta = ref(true)
+const sidebarAberta = ref(!chat.conversaAtivaId)
 const abrirModalGrupo = ref(false)
 const modalMembrosGrupo = ref(false)
 const modalParticipantesChamada = ref(false)
@@ -232,7 +237,7 @@ watch(() => chat.conectadoTempoReal, (conectado) => {
   if (conectado) {
     if (timerDesconexao) { clearTimeout(timerDesconexao); timerDesconexao = null }
     mostrarAvisoDesconexao.value = false
-  } else {
+  } else if (auth.isAuthenticated) {
     if (!timerDesconexao) {
       timerDesconexao = setTimeout(() => {
         mostrarAvisoDesconexao.value = true
@@ -296,7 +301,14 @@ function handleFilesDropped(files: FileList) {
   messageInputRef.value?.adicionarArquivosExternos(files)
 }
 
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (temUploadAtivo.value) {
+    e.preventDefault()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('beforeunload', onBeforeUnload)
   if (auth.isAuthenticated) {
     try {
       await chat.inicializar()
@@ -317,6 +329,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
   cleanupCallPopup()
   chat.removerHandlerChamada()
   call.encerrarChamada()

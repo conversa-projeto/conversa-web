@@ -240,12 +240,14 @@ const contatosFiltrados = computed(() => {
 
 const conversasFiltradas = computed(() => {
   const termo = filtroConversa.value.trim().toLowerCase()
-  if (!termo) return chat.conversas
-  return chat.conversas.filter((item: Conversa) => {
-    const titulo = (item.descricao || item.nome || '').toLowerCase()
-    const ultima = (item.ultima_mensagem_texto || '').toLowerCase()
-    return titulo.includes(termo) || ultima.includes(termo)
-  })
+  const lista = termo
+    ? chat.conversas.filter((item: Conversa) => {
+        const titulo = (item.descricao || item.nome || '').toLowerCase()
+        const ultima = (item.ultima_mensagem_texto || '').toLowerCase()
+        return titulo.includes(termo) || ultima.includes(termo)
+      })
+    : [...chat.conversas]
+  return lista.sort((a, b) => (b.mensagem_id ?? 0) - (a.mensagem_id ?? 0))
 })
 
 const sipStatusTexto = computed(() => {

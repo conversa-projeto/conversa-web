@@ -183,6 +183,12 @@ export function getAnexoUrl(identificador: string) {
   }).then(res => res.url)
 }
 
+export function reagirMensagem(mensagemId: number, emoji: string) {
+  return requestApi<{ mensagem_id: number; emoji: string; acao: string }>('/mensagem/reacao', 'PUT', {
+    body: { mensagem_id: mensagemId, emoji }
+  })
+}
+
 export function pesquisarMensagens(usuarioId: number, texto: string) {
   return requestApi<Mensagem[]>('/pesquisar', 'GET', {
     query: {

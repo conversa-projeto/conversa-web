@@ -6,6 +6,7 @@ import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { playNotificationSound, showNotification, requestNotificationPermission } from '../utils/sound'
+import { useUploadProgress } from '../composables/useUploadProgress'
 
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
@@ -127,7 +128,11 @@ export const useChatStore = defineStore('chat', () => {
     carregando.value = true
     try {
       const mensagens = await api.getMensagens(conversaId, 0, 80, 0)
-      mensagensPorConversa.value[conversaId] = mensagens
+      // Preservar mensagens otimistas que ainda estão sendo enviadas
+      const enviando = (mensagensPorConversa.value[conversaId] || []).filter(m => m.enviando)
+      mensagensPorConversa.value[conversaId] = enviando.length > 0
+        ? [...mensagens, ...enviando]
+        : mensagens
     } finally {
       carregando.value = false
     }
@@ -357,10 +362,15 @@ export const useChatStore = defineStore('chat', () => {
     }
     mensagensPorConversa.value[conversaId] = [...mensagensPorConversa.value[conversaId], optimisticMsg]
 
+    const { iniciarUpload, finalizarUpload, limparTodos } = useUploadProgress()
+
     try {
       // Faz uploads após a mensagem já estar visível
       for (const arq of arquivosInfo) {
-        const anexo = await api.uploadAnexo(arq.tipo, arq.nomeArquivo, arq.extensao, arq.blob)
+        const uploadId = `${tempId}-${arq.ordem}`
+        const onProgress = iniciarUpload(uploadId, arq.nomeArquivo)
+        const anexo = await api.uploadAnexo(arq.tipo, arq.nomeArquivo, arq.extensao, arq.blob, onProgress)
+        finalizarUpload(uploadId)
         conteudosApi.push({
           ordem: arq.ordem,
           tipo: arq.tipo,
@@ -399,6 +409,7 @@ export const useChatStore = defineStore('chat', () => {
 
       void carregarConversas()
     } catch (e) {
+      limparTodos()
       mensagensPorConversa.value[conversaId] = mensagensPorConversa.value[conversaId].filter(m => m.id !== tempId)
       for (const url of localUrlsParaLimpar) {
         URL.revokeObjectURL(url)
@@ -627,6 +638,11 @@ export const useChatStore = defineStore('chat', () => {
 
     if (evento.tipo === TipoEventoSocket.GravandoAudio && evento.conversa_id && evento.usuario_id) {
       tratarGravando(evento.conversa_id, evento.usuario_id)
+      return
+    }
+
+    if (evento.tipo === TipoEventoSocket.ReacaoMensagem) {
+      tratarReacaoSocket(evento)
       return
     }
 
@@ -892,6 +908,69 @@ export const useChatStore = defineStore('chat', () => {
     await carregarUsuariosConversa(conversaId)
   }
 
+  async function reagirMensagem(mensagemId: number, emoji: string) {
+    const auth = useAuthStore()
+    if (!auth.user) return
+
+    // Atualização otimista
+    for (const mensagens of Object.values(mensagensPorConversa.value)) {
+      const msg = mensagens.find(m => m.id === mensagemId)
+      if (msg) {
+        atualizarReacaoLocal(msg, emoji, auth.user.id)
+        break
+      }
+    }
+
+    try {
+      await api.reagirMensagem(mensagemId, emoji)
+    } catch {
+      // Em caso de erro, recarregar mensagens da conversa ativa
+      if (conversaAtivaId.value) {
+        await carregarMensagens(conversaAtivaId.value)
+      }
+    }
+  }
+
+  function atualizarReacaoLocal(msg: Mensagem, emoji: string, usuarioId: number, acao?: string) {
+    if (!msg.reacoes) msg.reacoes = []
+
+    const auth = useAuthStore()
+    const souEu = usuarioId === auth.user?.id
+    const reacaoExistente = msg.reacoes.find(r => r.emoji === emoji)
+
+    // Se acao não é especificada, determinar automaticamente (toggle)
+    const deveRemover = acao === 'remove' || (!acao && reacaoExistente?.reagiu)
+
+    if (deveRemover) {
+      if (reacaoExistente) {
+        reacaoExistente.quantidade--
+        if (souEu) reacaoExistente.reagiu = false
+        if (reacaoExistente.quantidade <= 0) {
+          msg.reacoes = msg.reacoes.filter(r => r.emoji !== emoji)
+        }
+      }
+    } else {
+      if (reacaoExistente) {
+        reacaoExistente.quantidade++
+        if (souEu) reacaoExistente.reagiu = true
+      } else {
+        msg.reacoes.push({ emoji, quantidade: 1, reagiu: souEu })
+      }
+    }
+  }
+
+  function tratarReacaoSocket(evento: EventoSocket) {
+    if (!evento.conversa_id || !evento.mensagem_id || !evento.emoji || !evento.acao || !evento.usuario_id) return
+
+    const mensagens = mensagensPorConversa.value[evento.conversa_id]
+    if (!mensagens) return
+
+    const msg = mensagens.find(m => m.id === evento.mensagem_id)
+    if (!msg) return
+
+    atualizarReacaoLocal(msg, evento.emoji, evento.usuario_id, evento.acao)
+  }
+
   function encerrarTempoReal() {
     pararPolling()
     desconectarWebSocket()
@@ -941,7 +1020,8 @@ export const useChatStore = defineStore('chat', () => {
     responderMensagem,
     cancelarResposta,
     adicionarMembroGrupo,
-    removerMembroGrupo
+    removerMembroGrupo,
+    reagirMensagem
   }
 })
 
