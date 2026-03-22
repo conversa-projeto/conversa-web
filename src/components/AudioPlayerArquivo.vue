@@ -1,7 +1,7 @@
 <template>
   <div class="w-56 max-w-full md:w-72">
     <!-- Name (only for audio files with a name) -->
-    <div v-if="nome" class="truncate pl-10 text-[11px]" :class="isOwn ? 'text-white/70' : 'text-surface-500'" :title="nome">
+    <div v-if="nome" class="truncate pl-10 text-[11px]" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'" :title="nome">
       {{ nome }}
     </div>
 
@@ -10,7 +10,7 @@
       <button
         class="-my-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition"
         :class="[
-          isOwn ? 'text-white/90 hover:bg-white/20 hover:text-white' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-800',
+          isOwn ? 'text-primary-100/90 hover:bg-primary-100/20 hover:text-primary-100' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-800',
           naoReproduzida ? 'text-success-500' : ''
         ]"
         :disabled="carregando"
@@ -31,12 +31,12 @@
       <div
         ref="barraRef"
         class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full"
-        :class="isOwn ? 'bg-white/30' : 'bg-surface-200'"
+        :class="isOwn ? 'bg-primary-100/30' : 'bg-surface-200'"
         @pointerdown="iniciarSeek"
       >
         <div
           class="absolute inset-y-0 left-0 rounded-full"
-          :class="isOwn ? 'bg-white' : 'bg-primary-500'"
+          :class="isOwn ? 'bg-primary-100' : 'bg-primary-500'"
           :style="{ width: progresso + '%' }"
         />
       </div>
@@ -44,7 +44,7 @@
 
     <!-- Duration + status (same line) -->
     <div class="flex items-center justify-between pl-7">
-      <span class="text-[10px] tabular-nums" :class="isOwn ? 'text-white/70' : 'text-surface-500'">
+      <span class="text-[10px] tabular-nums" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'">
         {{ tocando || tempoAtual > 0 ? formatarDuracao(tempoAtual) : formatarDuracao(duracaoTotal) }}
       </span>
       <slot name="status" />

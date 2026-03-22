@@ -6,7 +6,7 @@ interface NetworkInformation extends EventTarget {
   effectiveType: EffectiveType
 }
 
-const tiposLentos: EffectiveType[] = ['slow-2g', '2g', '3g']
+const tiposLentos: EffectiveType[] = ['slow-2g', '2g']
 
 const efetivo = ref<EffectiveType | null>(null)
 

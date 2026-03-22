@@ -10,7 +10,7 @@
   >
     <button
       class="flex h-6 w-6 items-center justify-center rounded-full transition"
-      :class="'bg-surface-200/60 hover:bg-surface-300 text-surface-500 hover:text-surface-700 dark:bg-surface-600/60 dark:hover:bg-surface-600 dark:text-surface-400 dark:hover:text-surface-200'"
+      :class="'bg-surface-200/60 hover:bg-surface-300 text-surface-500 hover:text-surface-700'"
       @click.stop="toggleMenu"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
@@ -21,7 +21,7 @@
     <div
       v-if="menuAberto && !pickerAberto"
       ref="menuRef"
-      class="fixed z-50 min-w-[140px] rounded-lg border border-surface-200 bg-white py-1 shadow-lg dark:border-surface-600 dark:bg-surface-700"
+      class="fixed z-50 min-w-[140px] rounded-lg border border-surface-200 bg-surface-base py-1 shadow-lg"
       :style="menuStyle"
     >
       <!-- Emojis rápidos: linha 1 (4 emojis) -->
@@ -29,7 +29,7 @@
         <button
           v-for="emoji in emojisLinha1"
           :key="emoji"
-          class="h-8 w-8 rounded-full text-base transition hover:bg-surface-100 hover:scale-110 dark:hover:bg-surface-600"
+          class="h-8 w-8 rounded-full text-base transition hover:bg-surface-100 hover:scale-110"
           :title="emojiNome(emoji)"
           @click="acaoReagir(emoji)"
         >
@@ -37,18 +37,18 @@
         </button>
       </div>
       <!-- Emojis rápidos: linha 2 (3 emojis + botão picker) -->
-      <div class="grid grid-cols-4 gap-0.5 px-2 pb-1.5 border-b border-surface-200 dark:border-surface-600">
+      <div class="grid grid-cols-4 gap-0.5 px-2 pb-1.5 border-b border-surface-200">
         <button
           v-for="emoji in emojisLinha2"
           :key="emoji"
-          class="h-8 w-8 rounded-full text-base transition hover:bg-surface-100 hover:scale-110 dark:hover:bg-surface-600"
+          class="h-8 w-8 rounded-full text-base transition hover:bg-surface-100 hover:scale-110"
           :title="emojiNome(emoji)"
           @click="acaoReagir(emoji)"
         >
           {{ emoji }}
         </button>
         <button
-          class="flex h-8 w-8 items-center justify-center rounded-full text-surface-400 transition hover:bg-surface-100 hover:text-surface-600 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+          class="flex h-8 w-8 items-center justify-center rounded-full text-surface-400 transition hover:bg-surface-100 hover:text-surface-600"
           title="Mais emojis"
           @click.stop="abrirPicker"
         >
@@ -59,7 +59,7 @@
       </div>
 
       <button
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-600"
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoResponder"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
@@ -68,7 +68,7 @@
         Responder
       </button>
       <button
-        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100 dark:text-surface-200 dark:hover:bg-surface-600"
+        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoEncaminhar"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">

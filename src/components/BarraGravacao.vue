@@ -3,7 +3,7 @@
       :class="pausado ? 'border-surface-300' : 'border-danger-300'">
     <!-- Discard button -->
     <button
-      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-danger-50 hover:text-danger-600"
+      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-danger-100 dark:hover:bg-danger-900 hover:text-danger-600 dark:hover:text-danger-400"
       title="Descartar"
       @click="emit('descartar')"
     >
@@ -85,7 +85,7 @@
 
     <!-- Send recording button -->
     <button
-      class="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success-600 text-white transition hover:bg-success-700"
+      class="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-700"
       title="Enviar áudio"
       @click="emit('enviar')"
     >

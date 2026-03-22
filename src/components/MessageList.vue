@@ -12,7 +12,7 @@
             <span class="loader-dot h-3 w-3 rounded-full bg-primary-400" style="animation-delay: 150ms"></span>
             <span class="loader-dot h-3 w-3 rounded-full bg-primary-400" style="animation-delay: 300ms"></span>
           </div>
-          <span class="text-sm text-surface-400">Carregando mensagens</span>
+          <span class="text-sm text-surface-600">Carregando mensagens</span>
         </div>
       </div>
 

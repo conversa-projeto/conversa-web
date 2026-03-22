@@ -1,5 +1,5 @@
 <template>
-  <div v-if="aberta" class="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4">
+  <div v-if="aberta" class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4">
     <div class="w-full max-w-md rounded-xl bg-surface-base p-4">
       <h3 class="mb-3 text-lg font-semibold text-surface-800">
         {{ tipoChamada === 2 ? 'Chamada de v\u00EDdeo' : 'Chamada de voz' }}

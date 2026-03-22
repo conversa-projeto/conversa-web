@@ -22,7 +22,7 @@
     >
       <div
         class="h-2 w-2 rounded-full"
-        :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-amber-400 animate-pulse'"
+        :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-warning-400 animate-pulse'"
       ></div>
       <span class="text-xs font-medium">
         {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}
@@ -270,7 +270,7 @@
     </div>
 
     <!-- Modal: Adicionar usuario -->
-    <div v-if="modalAdicionarUsuario" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+    <div v-if="modalAdicionarUsuario" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div class="w-full max-w-md rounded-xl bg-surface-base p-4 text-surface-800">
         <h3 class="mb-3 text-lg font-semibold">Adicionar &agrave; chamada</h3>
 

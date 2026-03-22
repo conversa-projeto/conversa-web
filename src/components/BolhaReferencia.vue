@@ -1,7 +1,7 @@
 <template>
   <div
     class="overflow-hidden rounded-xl"
-    :class="isOwn ? 'bg-primary-600 dark:bg-primary-800 text-white' : 'bg-surface-base text-surface-800'"
+    :class="isOwn ? 'bg-gradient-to-r from-primary-700 to-primary-400 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
   >
     <p
       v-if="isGroup && !isOwn"
@@ -14,12 +14,12 @@
       v-if="referencia"
       class="border-l-4 px-2.5 py-0.5"
       :class="[
-        isOwn ? 'border-white/40 bg-white/10' : 'border-surface-300 bg-surface-200/50',
+        isOwn ? 'border-primary-100/40 bg-primary-100/10' : 'border-surface-300 bg-surface-200/50',
         navegavel ? 'cursor-pointer hover:opacity-80' : ''
       ]"
       @click="abrirReferencia"
     >
-      <span class="text-[10px] font-semibold" :class="isOwn ? 'text-white/60' : 'text-surface-500'">
+      <span class="text-[10px] font-semibold" :class="isOwn ? 'text-primary-100/60' : 'text-surface-500'">
         {{ titulo }}
         <span v-if="referencia.inserida" class="font-normal">
           &middot; {{ formatarHora(referencia.inserida) }}

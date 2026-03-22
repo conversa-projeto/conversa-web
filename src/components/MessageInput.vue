@@ -43,11 +43,11 @@
             class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
             :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
           />
-          <div class="flex items-end rounded-3xl border border-surface-400 bg-surface-base pl-3 pr-1">
+          <div class="flex items-end rounded-3xl border border-surface-500 bg-surface-base pl-3 pr-1">
           <!-- Attach button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
             <button
-              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Anexar"
               @click.stop="mostrarAnexo = !mostrarAnexo; mostrarEmoji = false"
             >
@@ -67,7 +67,7 @@
           <!-- Emoji button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
             <button
-              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Emoji"
               @click="mostrarEmoji = !mostrarEmoji; mostrarAnexo = false"
             >
@@ -90,7 +90,7 @@
               v-model="textoMensagem"
               spellcheck="true"
               rows="1"
-              class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-400"
+              class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-500"
               placeholder="Digite uma mensagem"
               @keydown.enter.exact.prevent="enviarMensagem"
               @paste="aoColarNoChat"
@@ -112,7 +112,7 @@
             </button>
             <button
               v-else
-              class="action-btn flex h-8 w-8 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-600 dark:hover:text-surface-200"
+              class="action-btn flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Gravar áudio"
               @pointerdown.prevent="onMicPointerDown"
               @click.prevent

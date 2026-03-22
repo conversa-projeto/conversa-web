@@ -44,15 +44,15 @@
         <button
           v-for="reacao in mensagem.reacoes"
           :key="reacao.emoji"
-          class="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition hover:bg-surface-100 dark:hover:bg-surface-600"
+          class="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition hover:bg-surface-100"
           :title="emojiNome(reacao.emoji)"
           :class="reacao.reagiu
             ? 'border-primary-300 bg-primary-50 dark:border-primary-600 dark:bg-primary-900/30'
-            : 'border-surface-200 bg-white dark:border-surface-600 dark:bg-surface-700'"
+            : 'border-surface-200 bg-surface-base'"
           @click.stop="emit('reagir', mensagem.id, reacao.emoji)"
         >
           <span>{{ reacao.emoji }}</span>
-          <span class="text-surface-500 dark:text-surface-400">{{ reacao.quantidade }}</span>
+          <span class="text-surface-500">{{ reacao.quantidade }}</span>
         </button>
       </div>
     </div>

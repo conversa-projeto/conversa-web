@@ -94,32 +94,32 @@ pre code.hljs {
 :root {
   color-scheme: light;
 
-  /* Surface Scale (Base: Slate) */
+  /* Surface Scale (Neutral Gray) */
   --color-surface-base: #ffffff;
-  --color-surface-inverted: #0f172a;
-  --color-surface-50: #f8fafc;
-  --color-surface-100: #f1f5f9;
-  --color-surface-200: #e2e8f0;
-  --color-surface-300: #cbd5e1;
-  --color-surface-400: #94a3b8;
-  --color-surface-500: #64748b;
-  --color-surface-600: #475569;
-  --color-surface-700: #334155;
-  --color-surface-800: #1e293b;
-  --color-surface-900: #0f172a;
-  --color-surface-950: #020617;
+  --color-surface-inverted: #1a1d1e;
+  --color-surface-50: #fcfcfd;
+  --color-surface-100: #f5f6f7;
+  --color-surface-200: #eff1f2;
+  --color-surface-300: #e6e8ea;
+  --color-surface-400: #dadddf;
+  --color-surface-500: #a0a4a7;
+  --color-surface-600: #6e7376;
+  --color-surface-700: #4a4f52;
+  --color-surface-800: #2c2f30;
+  --color-surface-900: #1a1d1e;
+  --color-surface-950: #0e1010;
 
-  /* Primary Scale (Base: Blue) */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /* Primary Scale (Purple) */
+  --color-primary-50: #f5f1ff;
+  --color-primary-100: #ebe4ff;
+  --color-primary-200: #d4c5ff;
+  --color-primary-300: #b49dff;
+  --color-primary-400: #9475ff;
+  --color-primary-500: #744dff;
+  --color-primary-600: #5a1fff;
+  --color-primary-700: #4b19db;
+  --color-primary-800: #3c13b7;
+  --color-primary-900: #2d0e93;
 
   /* Success Scale (Base: Emerald) */
   --color-success-50: #ecfdf5;
@@ -156,28 +156,37 @@ pre code.hljs {
   --color-info-700: #0369a1;
   --color-info-800: #075985;
   --color-info-900: #0c4a6e;
+
+  /* Warning Scale (Base: Amber) */
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
 }
 
 .dark {
   color-scheme: dark;
 
-  /* Surface Flips exactly so light backgrounds become dark automatically */
-  --color-surface-base: #0f172a; /* was 900 */
-  --color-surface-inverted: #f8fafc; /* was 50 */
-  --color-surface-50: #1e293b;   /* was 800 */
-  --color-surface-100: #334155;  /* was 700 */
-  --color-surface-200: #475569;  /* was 600 */
-  --color-surface-300: #475569;  /* kept ~600 for contrast limits */
-  --color-surface-400: #64748b;  /* was 500 */
-  --color-surface-500: #94a3b8;  /* was 400 */
-  --color-surface-600: #cbd5e1;  /* was 300 */
-  --color-surface-700: #e2e8f0;  /* was 200 */
-  --color-surface-800: #f1f5f9;  /* was 100 */
-  --color-surface-900: #f8fafc;  /* was 50 */
-  --color-surface-950: #ffffff;  /* was base */
-
-  /* In dark mode we can slightly tweak primary saturation, but holding the same is fine for now */
-  /* If texts inside buttons are white, those texts are 'text-white' independent of surface flip */
+  /* Surface Flips (deep dark) */
+  --color-surface-base: #0e1011;
+  --color-surface-inverted: #f5f6f7;
+  --color-surface-50: #141617;
+  --color-surface-100: #1a1c1d;
+  --color-surface-200: #232627;
+  --color-surface-300: #2e3133;
+  --color-surface-400: #3e4143;
+  --color-surface-500: #8a8f92;
+  --color-surface-600: #a8adaf;
+  --color-surface-700: #c5c8ca;
+  --color-surface-800: #e0e2e3;
+  --color-surface-900: #f0f1f2;
+  --color-surface-950: #ffffff;
 }
 
 html, body {
@@ -185,7 +194,7 @@ html, body {
 }
 
 body {
-  @apply m-0 min-h-dvh font-sans text-slate-800;
+  @apply m-0 min-h-dvh font-sans text-surface-800;
 }
 
 button {

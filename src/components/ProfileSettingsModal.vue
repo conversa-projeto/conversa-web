@@ -1,14 +1,23 @@
 <template>
-  <div v-if="aberta" class="fixed inset-0 z-50 flex items-center justify-center bg-surface-900/50 p-3">
-    <div class="settings-modal relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface-base shadow-2xl md:h-[760px] md:flex-row">
+  <div v-if="aberta" :class="inline ? 'flex flex-1 items-start justify-start' : 'fixed inset-0 z-50 flex items-center justify-center bg-surface-900/50 p-3'">
+    <div :class="inline ? 'flex h-full w-full max-w-5xl flex-col overflow-hidden bg-surface-base md:flex-row' : 'settings-modal relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface-base shadow-2xl md:h-[760px] md:flex-row'">
     <button
+      v-if="!inline"
       class="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full text-lg text-surface-500 transition hover:bg-surface-100 hover:text-surface-800"
       @click="fechar"
     >
       &times;
     </button>
       <aside class="border-b border-surface-200 bg-surface-50 md:w-72 md:shrink-0 md:border-b-0 md:border-r">
-        <div class="border-b border-surface-200 p-5 pr-16">
+        <div class="border-b border-surface-200 p-5" :class="inline ? '' : 'pr-16'">
+          <button
+            v-if="inline"
+            class="mb-2 flex items-center gap-1.5 text-sm text-surface-500 transition hover:text-surface-800"
+            @click="fechar"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+            Voltar
+          </button>
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-surface-500">Configuracoes</p>
             <h2 class="mt-1 text-lg font-semibold text-surface-900">Preferencias da conta</h2>
@@ -154,7 +163,7 @@
                   <h4 class="text-sm font-semibold text-surface-800">Sessao atual</h4>
                   <p class="mt-1 text-sm text-surface-500">Informacoes do navegador autenticado neste momento.</p>
                 </div>
-                <span class="rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-700 dark:text-success-400">Ativo</span>
+                <span class="rounded-full bg-success-100 dark:bg-success-900 px-2.5 py-1 text-xs font-semibold text-success-700 dark:text-success-400">Ativo</span>
               </div>
 
               <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -188,7 +197,7 @@
                 </button>
               </div>
 
-              <p v-if="erroDispositivos" class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-900 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">{{ erroDispositivos }}</p>
+              <p v-if="erroDispositivos" class="mb-4 rounded-xl bg-warning-50 dark:bg-warning-900 px-3 py-2 text-sm text-warning-700 dark:text-warning-400">{{ erroDispositivos }}</p>
 
               <div v-if="dispositivosMidia.length" class="space-y-3">
                 <article v-for="dispositivo in dispositivosMidia" :key="dispositivo.id" class="rounded-xl border border-surface-200 bg-surface-50 p-3">
@@ -252,7 +261,7 @@
                   <h4 class="text-sm font-semibold text-surface-800">Configuracao de ramal</h4>
                   <p class="mt-1 text-sm text-surface-500">Os dados abaixo agora sao carregados do servidor e usados na preparacao da integracao com VueSIP.</p>
                 </div>
-                <span class="whitespace-nowrap rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">Asterisk / VueSIP</span>
+                <span class="whitespace-nowrap rounded-full bg-primary-100 dark:bg-primary-900 px-3 py-1 text-xs font-semibold text-primary-700 dark:text-primary-300">Asterisk / VueSIP</span>
               </div>
 
               <form class="mt-4 grid gap-4 md:grid-cols-2" @submit.prevent="salvarVoip">
@@ -332,9 +341,12 @@ type VoipForm = {
   ativo: boolean
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   aberta: boolean
-}>()
+  inline?: boolean
+}>(), {
+  inline: false
+})
 
 const emit = defineEmits<{
   close: []
@@ -402,7 +414,7 @@ watch(() => props.aberta, (aberta) => {
   if (!aberta) return
   resetarEstado()
   void carregarAoAbrir()
-})
+}, { immediate: true })
 
 function criarVoipPadrao(): VoipForm {
   return {
@@ -517,7 +529,7 @@ function statusLabel(status: string) {
 function statusClass(status: string) {
   if (status === 'granted') return 'bg-success-100 text-success-700 dark:bg-success-900 dark:text-success-400'
   if (status === 'denied') return 'bg-danger-100 text-danger-700 dark:bg-danger-900 dark:text-danger-400'
-  if (status === 'prompt') return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-400'
+  if (status === 'prompt') return 'bg-warning-100 text-warning-700 dark:bg-warning-900 dark:text-warning-400'
   return 'bg-surface-100 text-surface-500'
 }
 

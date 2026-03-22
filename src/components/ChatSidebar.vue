@@ -1,9 +1,9 @@
 <template>
   <aside
-    class="relative w-full flex-col border-r border-surface-200 bg-surface-50 md:flex md:max-w-[334px]"
+    class="relative w-full flex-col border-r border-surface-300 bg-surface-200 md:flex md:max-w-[334px]"
     :class="sidebarAberta ? 'flex' : 'hidden'"
   >
-    <div class="border-b border-surface-200 p-4">
+    <div class="border-b border-surface-300 p-4">
       <div class="mb-3 flex items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2">
           <button
@@ -22,7 +22,7 @@
 
         <div class="flex shrink-0 items-center gap-1">
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200 hover:text-surface-900"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-300 hover:text-surface-900"
             :title="isDark ? 'Tema claro' : 'Tema escuro'"
             @click="toggleTheme"
           >
@@ -30,13 +30,13 @@
             <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
           </button>
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200 hover:text-surface-900"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-300 hover:text-surface-900"
             title="Configuracoes"
-            @click="abrirConfiguracoes = true"
+            @click="emit('open-settings')"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0 1 15 0m-15 0a7.5 7.5 0 0 0 15 0m-15 0H3m16.5 0H21m-9-9V3m0 18v-1.5m6.364-11.864 1.06-1.06M4.576 19.424l1.06-1.06m0-12.728-1.06-1.06m14.788 14.788-1.06-1.06" /></svg>
           </button>
-          <button class="flex items-center gap-1 rounded px-2 py-1 text-sm text-surface-600 hover:bg-surface-200 hover:text-surface-900" @click="emit('logout')">
+          <button class="flex items-center gap-1 rounded px-2 py-1 text-sm text-surface-600 hover:bg-surface-300 hover:text-surface-900" @click="emit('logout')">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
             Sair
           </button>
@@ -44,32 +44,34 @@
       </div>
 
       <div class="flex gap-2">
-        <button class="flex flex-1 items-center justify-center gap-1.5 rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700" @click="mostrarBuscaContato = true">
+        <button class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-500 px-3 py-2 text-sm font-medium text-surface-700 transition hover:bg-surface-300" @click="mostrarBuscaContato = true">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z" /></svg>
           Nova conversa
         </button>
-        <button class="flex flex-1 items-center justify-center gap-1.5 rounded bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700" @click="emit('open-group-modal')">
+        <button class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-500 px-3 py-2 text-sm font-medium text-surface-700 transition hover:bg-surface-300" @click="emit('open-group-modal')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
           Novo grupo
         </button>
       </div>
     </div>
 
-    <div class="flex-1 overflow-hidden p-4">
+    <div class="flex-1 overflow-hidden">
       <section class="flex h-full flex-col">
-        <h2 class="mb-2 select-none text-xs font-semibold uppercase tracking-wide text-surface-500">Conversas</h2>
-        <input
-          v-model="filtroConversa"
-          type="text"
-          class="mb-2 w-full rounded border border-surface-300 bg-surface-100 px-2 py-1.5 text-sm text-surface-800 outline-none focus:border-primary-500"
-          placeholder="Pesquisar conversa"
-        />
-        <div class="flex-1 overflow-auto rounded border border-surface-200 bg-surface-base">
+        <div class="px-4 pt-4">
+          <h2 class="mb-2 select-none text-xs font-semibold uppercase tracking-wide text-surface-500">Conversas</h2>
+          <input
+            v-model="filtroConversa"
+            type="text"
+            class="mb-2 w-full rounded border border-surface-300 bg-surface-50 px-2 py-1.5 text-sm text-surface-800 outline-none focus:border-primary-500"
+            placeholder="Pesquisar..."
+          />
+        </div>
+        <div class="flex-1 overflow-auto bg-surface-200">
           <div
             v-for="conversa in conversasFiltradas"
             :key="conversa.id"
-            class="border-b border-surface-100 px-3 py-2 hover:bg-surface-100"
-            :class="conversa.id === chat.conversaAtivaId ? 'bg-primary-50 dark:bg-primary-900 border-l-4 border-l-primary-500' : 'border-l-4 border-l-transparent'"
+            class="border-b border-surface-300 px-3 py-2"
+            :class="conversa.id === chat.conversaAtivaId ? 'bg-surface-50 border-l-4 border-l-primary-500' : 'border-l-4 border-l-transparent hover:bg-surface-300'"
             role="button"
             tabindex="0"
             @click="abrirConversa(conversa.id)"
@@ -80,14 +82,14 @@
               <button
                 v-if="perfilConversa(conversa)"
                 type="button"
-                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-200 text-xs font-semibold text-surface-700 transition hover:ring-2 hover:ring-primary-200"
+                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700 transition hover:ring-2 hover:ring-primary-200"
                 title="Ver perfil"
                 @click.stop="abrirUsuarioInfo(perfilConversa(conversa))"
               >
                 <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                 <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
               </button>
-              <div v-else class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-200 text-xs font-semibold text-surface-700">
+              <div v-else class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
                 <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                 <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
               </div>
@@ -97,7 +99,7 @@
                     <span class="truncate">{{ tituloConversa(conversa) }}</span>
                     <span
                       v-if="conversa.tipo === TipoConversa.Grupo"
-                      class="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700"
+                      class="shrink-0 rounded-full bg-primary-100 dark:bg-primary-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300"
                       title="Conversa em grupo"
                     >
                       Grupo
@@ -160,7 +162,7 @@
             class="flex w-full items-center gap-3 border-b border-surface-100 px-3 py-2 text-left text-sm hover:bg-surface-50"
             @click="selecionarContatoNovaConversa(contato.id)"
           >
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-200 text-xs font-semibold text-surface-700">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
               <img v-if="contato.avatar_url" :src="contato.avatar_url" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
               <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
             </div>
@@ -170,7 +172,7 @@
       </div>
     </div>
 
-    <ProfileSettingsModal :aberta="abrirConfiguracoes" @close="fecharConfiguracoes" />
+
     <SipDialerModal :aberta="abrirDiscador" @close="abrirDiscador = false" />
     <UserInfoModal :aberta="mostrarUsuarioInfo" :usuario="usuarioSelecionado" @close="fecharUsuarioInfo" />
   </aside>
@@ -186,7 +188,7 @@ import type { Contato, Conversa } from '../types/api'
 import { criarUsuarioPopup, resolverUsuarioDaConversa } from '../utils/userProfile'
 import type { UsuarioPopup } from '../utils/userProfile'
 import { useTheme } from '../composables/useTheme'
-import ProfileSettingsModal from './ProfileSettingsModal.vue'
+
 import UserInfoModal from './UserInfoModal.vue'
 const SipDialerModal = defineAsyncComponent(() => import('./SipDialerModal.vue'))
 
@@ -199,6 +201,7 @@ const emit = defineEmits<{
   'open-group-modal': []
   'logout': []
   'conversation-opened': []
+  'open-settings': []
 }>()
 
 const auth = useAuthStore()
@@ -209,7 +212,7 @@ const { isDark, toggle: toggleTheme } = useTheme()
 const filtroContato = ref('')
 const filtroConversa = ref('')
 const mostrarBuscaContato = ref(false)
-const abrirConfiguracoes = ref(false)
+
 const abrirDiscador = ref(false)
 const mostrarUsuarioInfo = ref(false)
 const usuarioSelecionado = ref<UsuarioPopup | null>(null)
@@ -266,7 +269,7 @@ const sipStatusTexto = computed(() => {
 const sipStatusClasse = computed(() => {
   if (!sip.sipDisponivel) return 'text-surface-600'
   if (sip.isRegistered) return 'text-success-700 dark:text-success-400'
-  if (sip.isConnecting || sip.processandoConexao) return 'text-amber-700 dark:text-amber-400'
+  if (sip.isConnecting || sip.processandoConexao) return 'text-warning-700 dark:text-warning-400'
   if (sip.erro) return 'text-danger-700 dark:text-danger-400'
   return 'text-surface-700'
 })
@@ -274,7 +277,7 @@ const sipStatusClasse = computed(() => {
 const sipStatusBadgeClasse = computed(() => {
   if (!sip.sipDisponivel) return 'bg-surface-300'
   if (sip.isRegistered) return 'bg-success-500'
-  if (sip.isConnecting || sip.processandoConexao) return 'bg-amber-400'
+  if (sip.isConnecting || sip.processandoConexao) return 'bg-warning-400'
   if (sip.erro) return 'bg-danger-500'
   return 'bg-surface-300'
 })
@@ -344,8 +347,5 @@ async function selecionarContatoNovaConversa(contatoId: number) {
   }
 }
 
-function fecharConfiguracoes() {
-  abrirConfiguracoes.value = false
-  void sip.inicializarSessao(true)
-}
+
 </script>

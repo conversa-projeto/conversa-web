@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-dvh">
+  <div class="min-h-dvh" @contextmenu="bloquearContextMenu">
     <div v-if="erro" class="fixed left-1/2 top-4 z-[100] -translate-x-1/2 rounded-lg bg-danger-600 px-4 py-2 text-sm text-white shadow-lg">
       {{ erro }}
       <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
@@ -27,6 +27,7 @@
         @logout="sair"
         @open-group-modal="abrirModalGrupo = true"
         @conversation-opened="onConversationOpened"
+        @open-settings="mostrarConfiguracoes = true"
       />
 
       <main
@@ -64,20 +65,27 @@
         />
 
         <ChatHeader
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes"
           @update:sidebar-aberta="sidebarAberta = $event"
           @start-call="solicitarChamada"
           @go-to-message="abrirResultadoBusca"
           @open-group-members="modalMembrosGrupo = true"
         />
 
-        <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal" />
+        <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes" />
 
         <MessageList
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes"
           ref="messageListRef"
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
+        />
+
+        <ProfileSettingsModal
+          v-else-if="mostrarConfiguracoes && !mostrarChamadaNoPrincipal"
+          :aberta="true"
+          inline
+          @close="fecharConfiguracoes"
         />
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-surface-500">
@@ -89,7 +97,7 @@
 
         <MessageInput
           ref="messageInputRef"
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes"
           class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
@@ -200,6 +208,7 @@ import RegisterForm from './components/RegisterForm.vue'
 import ChatSidebar from './components/ChatSidebar.vue'
 import CallBar from './components/CallBar.vue'
 import ChatHeader from './components/ChatHeader.vue'
+import ProfileSettingsModal from './components/ProfileSettingsModal.vue'
 import MessageList from './components/MessageList.vue'
 import MessageInput from './components/MessageInput.vue'
 import ImageViewerModal from './components/ImageViewerModal.vue'
@@ -220,9 +229,17 @@ const sip = useSipStore()
 const call = useCallStore()
 const { temUploadAtivo } = useUploadProgress()
 
+function bloquearContextMenu(e: MouseEvent) {
+  const tag = (e.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+  if ((e.target as HTMLElement)?.isContentEditable) return
+  e.preventDefault()
+}
+
 const erro = ref('')
 const telaCadastro = ref(false)
 const sidebarAberta = ref(!chat.conversaAtivaId)
+const mostrarConfiguracoes = ref(false)
 const abrirModalGrupo = ref(false)
 const modalMembrosGrupo = ref(false)
 const modalParticipantesChamada = ref(false)
@@ -363,7 +380,13 @@ function fecharModalEncaminhamento() {
 
 async function onConversationOpened() {
   sidebarAberta.value = false
+  mostrarConfiguracoes.value = false
   await messageListRef.value?.posicionarAberturaConversaAtiva()
+}
+
+function fecharConfiguracoes() {
+  mostrarConfiguracoes.value = false
+  void sip.inicializarSessao(true)
 }
 
 function solicitarChamada(tipo: TipoChamada, comTela = false) {

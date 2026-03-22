@@ -2,7 +2,7 @@
   <div class="relative flex items-center gap-2 border-b border-slate-700 bg-slate-800 px-3 py-1.5 text-white text-xs">
     <div
       class="h-2 w-2 rounded-full"
-      :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-amber-400 animate-pulse'"
+      :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-warning-400 animate-pulse'"
     ></div>
     <span class="font-medium">
       {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}

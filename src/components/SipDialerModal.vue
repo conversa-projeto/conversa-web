@@ -135,7 +135,7 @@ const statusTexto = computed(() => {
 const statusClasse = computed(() => {
   if (!sip.sipDisponivel) return 'text-surface-700'
   if (sip.isRegistered) return 'text-success-700 dark:text-success-400'
-  if (sip.isConnecting || sip.processandoConexao) return 'text-amber-700 dark:text-amber-400'
+  if (sip.isConnecting || sip.processandoConexao) return 'text-warning-700 dark:text-warning-400'
   if (sip.erro) return 'text-danger-700 dark:text-danger-400'
   return 'text-surface-700'
 })
@@ -143,7 +143,7 @@ const statusClasse = computed(() => {
 const statusBadgeClasse = computed(() => {
   if (!sip.sipDisponivel) return 'bg-surface-300'
   if (sip.isRegistered) return 'bg-success-500'
-  if (sip.isConnecting || sip.processandoConexao) return 'bg-amber-400'
+  if (sip.isConnecting || sip.processandoConexao) return 'bg-warning-400'
   if (sip.erro) return 'bg-danger-500'
   return 'bg-surface-300'
 })
