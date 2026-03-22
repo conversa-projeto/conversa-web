@@ -4,28 +4,55 @@ import { useChatStore } from '../stores/chat'
 import * as api from '../services/conversaApi'
 import type { Mensagem } from '../types/api'
 
+/**
+ * Distância máxima (em px) do final do chat para que o auto-scroll aconteça
+ * quando uma nova mensagem chega. Se o usuário estiver mais longe que isso,
+ * o indicador "Há novas mensagens" aparece em vez de scrollar automaticamente.
+ */
 const LIMIAR_AUTO_SCROLL = 500
 
 export function useScrollManager() {
   const auth = useAuthStore()
   const chat = useChatStore()
 
+  // Ref do container de scroll (<div> com overflow-auto no MessageList.vue)
   const mensagensContainer = ref<HTMLDivElement | null>(null)
+
+  // true quando o usuário está no final do chat (distância ≤ 56px).
+  // Usado para decidir se imagens carregadas devem scrollar para o final.
   const usuarioNoFimDoChat = ref(true)
+
+  // true quando o usuário está muito longe do final (> 1000px).
+  // Usado para mostrar o botão de voltar ao final.
   const distanteDoFinal = ref(false)
+
+  // true enquanto mensagens anteriores estão sendo carregadas via paginação.
+  // Exibe um loading overlay no topo do chat.
   const carregandoHistorico = ref(false)
+
+  // true quando há mensagens novas não visíveis (usuário está longe do final).
+  // Exibe o botão flutuante "Há novas mensagens" acima da barra de input.
   const haNovasMensagens = ref(false)
+
+  // Sinaliza para o MessageList que o indicador de não lidas está ativo,
+  // permitindo que o auto-scroll verifique se scrollar empurraria o indicador
+  // para fora da viewport.
   const indicadorNaoLidasAtivo = ref(false)
+
   let frameValidacaoVisualizacao = 0
   let highlightTimer = 0
 
-  // --- Funções de scroll ---
+  // =====================================================================
+  // FUNÇÕES DE SCROLL
+  // =====================================================================
 
+  /** Scroll instantâneo para o final do chat */
   function rolarParaFinal() {
     if (!mensagensContainer.value) return
     mensagensContainer.value.scrollTop = mensagensContainer.value.scrollHeight
   }
 
+  /** Scroll animado para o final com easing (usado ao clicar no botão "novas mensagens") */
   function rolarParaFinalAnimado() {
     const container = mensagensContainer.value
     if (!container) return
@@ -52,12 +79,20 @@ export function useScrollManager() {
     requestAnimationFrame(animar)
   }
 
+  /**
+   * Scroll para o final com garantia: executa duas vezes (antes e depois do nextTick)
+   * para cobrir casos onde o DOM ainda não refletiu a última mudança.
+   */
   async function rolarParaFinalGarantido() {
     rolarParaFinal()
     await nextTick()
     rolarParaFinal()
   }
 
+  /**
+   * Scroll suave até uma mensagem específica, com destaque visual temporário.
+   * Usado para navegar até uma mensagem referenciada (resposta, busca, etc).
+   */
   function irParaMensagem(mensagemId: number) {
     const node = document.getElementById(`msg-${mensagemId}`)
     if (!node) return
@@ -70,26 +105,41 @@ export function useScrollManager() {
     }, 1200)
   }
 
-  // --- Posição do scroll ---
+  // =====================================================================
+  // POSIÇÃO DO SCROLL
+  // =====================================================================
 
+  /** Calcula a distância em px entre a posição atual e o final do container */
   function obterDistanciaDoFinal(): number {
     if (!mensagensContainer.value) return 0
     const c = mensagensContainer.value
     return c.scrollHeight - c.scrollTop - c.clientHeight
   }
 
+  /**
+   * Atualiza os refs de posição do scroll.
+   * Chamado em cada evento de scroll e após posicionamentos programáticos.
+   * Também limpa o indicador "Há novas mensagens" quando o usuário scrola
+   * para perto do final (≤ LIMIAR_AUTO_SCROLL).
+   */
   function atualizarPosicaoScroll() {
     const distancia = obterDistanciaDoFinal()
     usuarioNoFimDoChat.value = distancia <= 56
     distanteDoFinal.value = distancia > 1000
-    // Limpar indicador de novas mensagens quando próximo do final
     if (distancia <= LIMIAR_AUTO_SCROLL) {
       haNovasMensagens.value = false
     }
   }
 
-  // --- Visualização de mensagens ---
+  // =====================================================================
+  // VISUALIZAÇÃO DE MENSAGENS
+  // =====================================================================
 
+  /**
+   * Agenda a validação de mensagens visíveis via requestAnimationFrame.
+   * Garante que a validação roda no máximo uma vez por frame,
+   * evitando overhead durante scroll rápido.
+   */
   function solicitarValidacaoVisualizacao() {
     if (frameValidacaoVisualizacao) {
       cancelAnimationFrame(frameValidacaoVisualizacao)
@@ -100,6 +150,12 @@ export function useScrollManager() {
     })
   }
 
+  /**
+   * Percorre as mensagens do outro remetente que ainda não foram visualizadas
+   * e verifica se estão completamente visíveis no viewport do container.
+   * Se estiverem, envia a marcação de visualização para o servidor.
+   * Só executa quando a janela do navegador está focada.
+   */
   async function validarMensagensCompletamenteVisiveis() {
     const conversaId = chat.conversaAtivaId
     const usuarioId = auth.user?.id
@@ -130,22 +186,56 @@ export function useScrollManager() {
     }
   }
 
-  // --- Handler de scroll ---
+  // =====================================================================
+  // HANDLER DE SCROLL
+  // =====================================================================
 
+  /**
+   * Handler do evento @scroll do container de mensagens.
+   * Responsável por:
+   * 1. Atualizar refs de posição (usuarioNoFimDoChat, distanteDoFinal)
+   * 2. Agendar validação de mensagens visíveis (para marcar como lidas)
+   * 3. Disparar paginação (prefetch + injeção de mensagens anteriores)
+   */
   function aoScrollChat() {
     atualizarPosicaoScroll()
     solicitarValidacaoVisualizacao()
     void tentarCarregarMensagensAnteriores()
   }
 
-  // --- Paginação ---
+  // =====================================================================
+  // PAGINAÇÃO (CARREGAMENTO DE MENSAGENS ANTERIORES)
+  //
+  // Estratégia em duas fases para carregamento suave:
+  //
+  // Fase 1 - PREFETCH (antecipação):
+  //   Quando o usuário chega a 1.5x a altura visível do topo, dispara uma
+  //   requisição à API e armazena a Promise sem tocar no store reativo.
+  //   Isso não causa nenhuma mudança visual — é apenas rede.
+  //
+  // Fase 2 - INJEÇÃO:
+  //   Quando o usuário chega de fato no topo (scrollTop ≤ 2px), aguarda
+  //   a Promise do prefetch (geralmente já resolvida) e injeta as mensagens
+  //   no store. O scroll é compensado com scrollHeight antes/depois para
+  //   manter a posição visual.
+  //
+  // Proteções:
+  //   - semMaisHistorico: para de buscar quando a API retorna array vazio
+  //   - injetando: impede injeções concorrentes
+  //   - prefetchConversaId: descarta prefetch de conversa diferente
+  //   - Limiar proporcional (1.5x clientHeight) funciona em qualquer tela
+  // =====================================================================
 
-  // Prefetch: busca da API quando perto do topo, injeta no store só quando chegar no topo
   let prefetchPromise: Promise<Mensagem[]> | null = null
   let prefetchConversaId: number | null = null
   let prefetchBuscando = false
   let semMaisHistorico = false
 
+  /**
+   * Inicia a busca de mensagens anteriores na API sem injetar no store.
+   * A Promise é armazenada em prefetchPromise para uso posterior.
+   * Usa o ID da primeira mensagem carregada como referência para a API.
+   */
   function iniciarPrefetch() {
     const conversaId = chat.conversaAtivaId
     if (!conversaId) return
@@ -174,23 +264,35 @@ export function useScrollManager() {
 
   let injetando = false
 
+  /**
+   * Orquestra o prefetch e a injeção de mensagens anteriores.
+   * Chamado em cada evento de scroll pelo aoScrollChat.
+   *
+   * Comportamento:
+   * - A ≤ 1.5x da altura visível do topo: inicia prefetch (apenas API, sem DOM)
+   * - A scrollTop ≤ 2px (topo): aguarda prefetch e injeta no store
+   * - Após injeção: compensa scrollTop para manter a posição visual
+   *   (scrollTop = scrollHeight novo - scrollHeight antes da injeção)
+   */
   async function tentarCarregarMensagensAnteriores() {
     const conversaId = chat.conversaAtivaId
     const container = mensagensContainer.value
     if (!conversaId || !container) return
     if (chat.carregando) return
 
-    // Quando falta 1.5x a altura visível para chegar no topo: iniciar prefetch
+    // Fase 1: Prefetch antecipado — dispara quando falta 1.5x a altura visível para o topo.
+    // Usa proporção da tela para funcionar corretamente em qualquer resolução.
     const limiarPrefetch = container.clientHeight * 1.5
     if (container.scrollTop <= limiarPrefetch && !prefetchPromise && !prefetchBuscando) {
       iniciarPrefetch()
     }
 
-    // Só injeta quando chegar no topo (threshold para subpixel)
+    // Fase 2: Injeção — só quando o usuário chegou de fato no topo.
+    // Threshold de 2px para cobrir subpixel rendering.
     if (container.scrollTop > 2) return
     if (injetando) return
 
-    // Se não tem prefetch para esta conversa, iniciar agora
+    // Se não tem prefetch para esta conversa (mudou de conversa ou nunca iniciou), iniciar agora
     if (!prefetchPromise || prefetchConversaId !== conversaId) {
       prefetchPromise = null
       prefetchConversaId = null
@@ -208,11 +310,14 @@ export function useScrollManager() {
       prefetchConversaId = null
 
       if (!anteriores.length) {
+        // API retornou vazio — não há mais mensagens anteriores nesta conversa.
+        // Parar de tentar para evitar requisições infinitas.
         semMaisHistorico = true
         return
       }
 
-      // Injetar no store
+      // Merge com deduplicação: Map garante que mensagens com mesmo ID não duplicam.
+      // Sort por ID mantém a ordem cronológica.
       const atuais = chat.mensagensAtivas
       const mapa = new Map<number, Mensagem>()
       for (const msg of anteriores) mapa.set(msg.id, msg)
@@ -221,6 +326,9 @@ export function useScrollManager() {
       const adicionadas = merged.length - atuais.length
 
       if (adicionadas > 0) {
+        // Capturar scrollHeight ANTES de injetar — após a injeção + nextTick,
+        // a diferença de scrollHeight corresponde à altura do conteúdo novo.
+        // Somar essa diferença ao scrollTop mantém a posição visual estável.
         const alturaAntes = container.scrollHeight
         chat.definirMensagens(conversaId, merged)
         await nextTick()
@@ -232,8 +340,15 @@ export function useScrollManager() {
     }
   }
 
-  // --- Imagem carregada ---
+  // =====================================================================
+  // IMAGEM CARREGADA
+  // =====================================================================
 
+  /**
+   * Chamado quando uma imagem dentro do chat termina de carregar (evento @load).
+   * Se o usuário estava no final do chat, rola para o final para compensar
+   * a mudança de altura causada pela imagem. Caso contrário, não interfere.
+   */
   function aoCarregarImagemNoChat() {
     if (!usuarioNoFimDoChat.value) return
 
@@ -243,7 +358,24 @@ export function useScrollManager() {
     })
   }
 
-  // --- Abertura de conversa ---
+  // =====================================================================
+  // ABERTURA DE CONVERSA
+  //
+  // Chamado pelo MessageList após a conversa ser selecionada e mensagens
+  // carregadas. Responsável por posicionar o scroll na posição correta:
+  //
+  // - Com mensagens não lidas: posiciona a primeira não lida no topo
+  //   da viewport (com margem de 40px para o indicador visual).
+  // - Sem mensagens não lidas E nunca posicionou: scroll para o final.
+  // - Sem mensagens não lidas E já posicionou: só scroll se o usuário
+  //   ainda estiver perto do final (≤ LIMIAR_AUTO_SCROLL). Isso respeita
+  //   a posição do usuário caso ele tenha scrollado para cima durante o
+  //   carregamento da API.
+  //
+  // Após posicionar, grava ultimoIdConhecido para que o watch de mensagens
+  // não trate mensagens existentes como novas (prevenindo auto-scroll
+  // indesejado que puxaria o usuário de volta para baixo).
+  // =====================================================================
 
   async function posicionarAberturaConversaAtiva(): Promise<number | null> {
     if (!chat.conversaAtivaId || chat.mensagensAtivas.length === 0) return null
@@ -251,25 +383,38 @@ export function useScrollManager() {
     haNovasMensagens.value = false
     await nextTick()
 
+    const container = mensagensContainer.value
     const usuarioId = auth.user?.id
     const primeiraNaoLida = chat.mensagensAtivas.find((mensagem: Mensagem) => {
       return mensagem.remetente_id !== usuarioId && !mensagem.visualizada
     })
 
     if (primeiraNaoLida) {
-      // Scrollar para que a primeira não lida fique no topo da viewport
+      // Posicionar a primeira não lida no topo da viewport com margem para o indicador
       const node = document.getElementById(`msg-${primeiraNaoLida.id}`)
-      const container = mensagensContainer.value
       if (node && container) {
         const cRect = container.getBoundingClientRect()
         const mRect = node.getBoundingClientRect()
-        // Posicionar a mensagem no topo do container com margem para o indicador
         container.scrollTop += mRect.top - cRect.top - 40
       } else {
         await rolarParaFinalGarantido()
       }
-    } else {
+    } else if (!jaPositionouConversa || obterDistanciaDoFinal() <= LIMIAR_AUTO_SCROLL) {
+      // Sem não lidas: scrollar para o final apenas se:
+      // - O scroll nunca foi posicionado nesta conversa (primeira abertura sem cache), ou
+      // - O usuário ainda está perto do final (não scrollou para cima intencionalmente)
       await rolarParaFinalGarantido()
+    }
+
+    jaPositionouConversa = true
+
+    // Gravar o último ID conhecido — o watch de mensagens só fará auto-scroll
+    // para mensagens com ID MAIOR que este valor. Isso impede que mudanças
+    // de IDs causadas pela substituição do cache pela resposta da API
+    // sejam interpretadas como "novas mensagens" e puxem o scroll para baixo.
+    const msgs = chat.mensagensAtivas
+    if (msgs.length > 0) {
+      ultimoIdConhecido = msgs[msgs.length - 1].id
     }
 
     await nextTick()
@@ -279,51 +424,132 @@ export function useScrollManager() {
     return primeiraNaoLida?.id ?? null
   }
 
-  // --- Watches ---
+  // =====================================================================
+  // WATCHES
+  // =====================================================================
 
-  // Auto-scroll em novas mensagens (apenas em tempo real, não no carregamento)
-  let conversaCarregada: number | null = null
+  /**
+   * ID da última mensagem conhecida no momento do posicionamento.
+   * O watch de mensagens só reage a IDs maiores que este valor.
+   *
+   * Ao trocar de conversa, é definido como MAX_SAFE_INTEGER para bloquear
+   * qualquer auto-scroll até que posicionarAberturaConversaAtiva defina
+   * o valor real. Isso previne que mudanças de IDs durante a transição
+   * (cache → API, ou conversa A → conversa B) sejam tratadas como
+   * "mensagens novas" e causem scroll indesejado.
+   */
+  let ultimoIdConhecido = 0
 
-  // Resetar ao trocar de conversa
+  /**
+   * Flag que indica se o scroll já foi posicionado pelo menos uma vez
+   * nesta conversa. Usado para distinguir entre:
+   * - "scroll nunca foi feito" (deve forçar scroll para o final)
+   * - "scroll foi feito e usuário scrollou para cima" (deve respeitar)
+   *
+   * Sem este flag, a verificação de distância falha na primeira abertura
+   * (sem cache) porque a distância é grande mas não por scroll do usuário.
+   */
+  let jaPositionouConversa = false
+
+  /**
+   * Watch de troca de conversa.
+   *
+   * Ao trocar de conversa:
+   * 1. Reseta todos os estados (indicadores, prefetch, flags)
+   * 2. Bloqueia auto-scroll (ultimoIdConhecido = MAX_SAFE_INTEGER)
+   * 3. No próximo tick, tenta scrollar para o final — funciona quando há
+   *    mensagens em cache da conversa. Se não houver cache (array vazio),
+   *    o scroll não tem efeito e o watch de carregando cobre esse caso.
+   */
   watch(() => chat.conversaAtivaId, () => {
     haNovasMensagens.value = false
-    conversaCarregada = null
+    ultimoIdConhecido = Number.MAX_SAFE_INTEGER
+    jaPositionouConversa = false
     prefetchPromise = null
     prefetchConversaId = null
     prefetchBuscando = false
     semMaisHistorico = false
+
+    // Scroll imediato para o final (cobre mensagens do cache).
+    // Executa via nextTick para que o DOM já reflita a nova conversa.
+    // Se conseguiu chegar no final (distância ≤ 56px), marca como posicionado.
+    void nextTick().then(() => {
+      rolarParaFinal()
+      if (obterDistanciaDoFinal() <= 56) jaPositionouConversa = true
+    })
   })
 
+  /**
+   * Watch de carregamento.
+   *
+   * Quando a API termina de carregar mensagens (carregando: true → false):
+   * - Se o scroll nunca foi posicionado (jaPositionouConversa = false):
+   *   scroll para o final. Cobre a primeira abertura sem cache.
+   * - Se já foi posicionado mas o usuário está perto do final:
+   *   scroll para o final (API pode ter retornado mensagens mais recentes).
+   * - Se o usuário scrollou para cima: não interfere.
+   *
+   * Este watch complementa o watch de conversaAtivaId: juntos cobrem
+   * abertura com cache (conversaAtivaId) e sem cache (carregando).
+   */
   watch(() => chat.carregando, (carregando, anteriorCarregando) => {
-    // Marcar a conversa como "recém-carregada" para ignorar a primeira mudança de mensagens
-    if (!carregando && anteriorCarregando) {
-      conversaCarregada = chat.conversaAtivaId
-      // Limpar após 500ms caso o watch de IDs não dispare (cache = API)
-      setTimeout(() => {
-        if (conversaCarregada === chat.conversaAtivaId) {
-          conversaCarregada = null
+    if (!carregando && anteriorCarregando && chat.conversaAtivaId) {
+      void nextTick().then(() => {
+        if (!jaPositionouConversa || obterDistanciaDoFinal() <= LIMIAR_AUTO_SCROLL) {
+          // Se o indicador de não lidas está visível, verificar se scrollar
+          // o empurraria para fora da viewport. Se sim, não scrollar.
+          if (indicadorNaoLidasAtivo.value && jaPositionouConversa) {
+            const container = mensagensContainer.value
+            const indicador = document.getElementById('indicador-nao-lidas')
+            if (container && indicador) {
+              const containerRect = container.getBoundingClientRect()
+              const novoScrollTop = container.scrollHeight - container.clientHeight
+              const deslocamento = novoScrollTop - container.scrollTop
+              const indicadorTop = indicador.getBoundingClientRect().top - deslocamento
+              if (indicadorTop < containerRect.top) {
+                return
+              }
+            }
+          }
+          rolarParaFinal()
+          jaPositionouConversa = true
         }
-      }, 500)
+      })
     }
   })
 
+  /**
+   * Watch de novas mensagens em tempo real.
+   *
+   * Observa mudanças nos IDs das mensagens ativas. Só reage quando:
+   * 1. Havia mensagens antes (anterior.length > 0) — ignora carregamento inicial
+   * 2. O último ID é MAIOR que ultimoIdConhecido — ignora substituições de cache
+   *    pela API e mudanças de conversa. Só reage a mensagens genuinamente novas
+   *    (chegaram via WebSocket/polling após a conversa ter sido posicionada).
+   *
+   * Comportamento quando detecta nova mensagem:
+   * - Mensagem própria: sempre auto-scroll para o final
+   * - Mensagem alheia + perto do final (≤ 500px): auto-scroll,
+   *   EXCETO se o indicador de não lidas ficaria fora da viewport
+   * - Mensagem alheia + longe do final (> 500px): mostra indicador
+   *   "Há novas mensagens" sem interferir no scroll
+   */
   watch(
     () => chat.mensagensAtivas.map((mensagem: Mensagem) => mensagem.id),
     async (atual, anterior) => {
       solicitarValidacaoVisualizacao()
 
-      // Ignorar carregamento inicial
+      // Ignorar carregamento inicial (primeira vez que mensagens aparecem)
       if (!anterior || anterior.length === 0) return
 
-      // Ignorar a mudança que ocorre quando carregarMensagens substitui o cache
-      if (conversaCarregada === chat.conversaAtivaId) {
-        conversaCarregada = null
-        return
-      }
-
-      const ultimoAnterior = anterior[anterior.length - 1] || 0
       const ultimoAtual = atual[atual.length - 1] || 0
-      if (!ultimoAtual || ultimoAtual === ultimoAnterior) return
+
+      // Só reagir a mensagens genuinamente novas — IDs maiores que o último conhecido.
+      // Quando ultimoIdConhecido é MAX_SAFE_INTEGER (transição de conversa),
+      // nenhuma mudança passa por esta verificação até posicionarAberturaConversaAtiva
+      // definir o valor real.
+      if (!ultimoAtual || ultimoAtual <= ultimoIdConhecido) return
+      ultimoIdConhecido = ultimoAtual
 
       const ultimaMensagem = chat.mensagensAtivas[chat.mensagensAtivas.length - 1]
       const eMinha = !!ultimaMensagem && ultimaMensagem.remetente_id === auth.user?.id
@@ -333,7 +559,8 @@ export function useScrollManager() {
         await nextTick()
 
         // Se o indicador de não lidas está visível, verificar se scrollar para o final
-        // o empurraria para fora da viewport — se sim, não scrollar
+        // o empurraria para fora da viewport. Se sim, não scrollar — manter o indicador
+        // visível é mais importante que mostrar a última mensagem.
         if (indicadorNaoLidasAtivo.value && !eMinha) {
           const container = mensagensContainer.value
           const indicador = document.getElementById('indicador-nao-lidas')
@@ -343,7 +570,6 @@ export function useScrollManager() {
             const deslocamento = novoScrollTop - container.scrollTop
             const indicadorTop = indicador.getBoundingClientRect().top - deslocamento
             if (indicadorTop < containerRect.top) {
-              // Indicador sairia da tela — não scrollar
               return
             }
           }
@@ -353,13 +579,17 @@ export function useScrollManager() {
         await nextTick()
         atualizarPosicaoScroll()
       } else {
+        // Usuário está longe do final — não scrollar, mostrar indicador flutuante
         haNovasMensagens.value = true
       }
     }
   )
 
-  // --- Lifecycle ---
+  // =====================================================================
+  // LIFECYCLE
+  // =====================================================================
 
+  /** Ao focar a janela, validar mensagens visíveis para marcar como lidas */
   function aoFocarJanela() {
     solicitarValidacaoVisualizacao()
   }
@@ -379,6 +609,10 @@ export function useScrollManager() {
       highlightTimer = 0
     }
   })
+
+  // =====================================================================
+  // API PÚBLICA
+  // =====================================================================
 
   return {
     mensagensContainer,

@@ -126,12 +126,106 @@ const {
 
 const { anexoUrl, abrirAnexo, limparAnexos } = useAttachments()
 
-// --- Indicador de mensagens não lidas ---
+// =====================================================================
+// INDICADOR DE MENSAGENS NÃO LIDAS
+//
+// O indicador é a barra "X mensagens não lidas" que aparece DENTRO do
+// chat, posicionada entre as mensagens, logo acima da primeira não lida.
+//
+// === REGRAS FUNDAMENTAIS (NÃO QUEBRAR) ===
+//
+// 1. POSIÇÃO FIXA NA PRIMEIRA APARIÇÃO:
+//    O primeiroIdNaoLidoSnapshot é definido UMA ÚNICA VEZ quando o
+//    indicador aparece pela primeira vez. Novas mensagens que chegam
+//    NÃO movem a posição do indicador — ele permanece fixo acima da
+//    mensagem onde apareceu originalmente. Apenas o contador (qtd) é
+//    atualizado para refletir o número total de não lidas.
+//
+// 2. PERSISTÊNCIA ATÉ VISUALIZAÇÃO COMPLETA:
+//    O indicador NÃO desaparece por timeout enquanto houver mensagens
+//    sem visualizar (chat.conversaAtiva.mensagens_sem_visualizar > 0).
+//    O timer de 3s apenas verifica se ainda há pendentes. Se houver,
+//    reagenda. Se não houver mais, aí sim esconde o indicador.
+//
+// 3. AUTO-SCROLL NÃO DEVE ESCONDER O INDICADOR:
+//    Quando uma nova mensagem chega e o scroll deveria ir para o final,
+//    o useScrollManager verifica se isso empurraria o indicador para
+//    fora da viewport. Se sim, o scroll NÃO acontece. Essa verificação
+//    está no watch de mensagens e no watch de carregamento do
+//    useScrollManager.ts, usando o ref indicadorNaoLidasAtivo que é
+//    sincronizado com indicadorNaoLidasVisivel via watch.
+//
+// 4. ABERTURA DE CONVERSA COM NÃO LIDAS:
+//    Ao abrir um chat que já tem mensagens não lidas, o indicador é
+//    ativado ANTES do posicionamento (em posicionarEIndicar), para que
+//    o DOM já contenha o elemento e o scroll possa posicionar na
+//    primeira não lida corretamente.
+//
+// 5. TROCA DE CONVERSA LIMPA TUDO:
+//    Ao trocar de conversa (watch conversaAtivaId), todos os estados
+//    do indicador são resetados (visibilidade, contagem, posição, timer).
+//
+// === FLUXO DO INDICADOR ===
+//
+// Cenário A — Nova mensagem em tempo real (navegador sem foco ou longe do final):
+//   1. Watch detecta novo ultimoId do outro remetente
+//   2. Se navegador focado e perto do final (≤500px) → ignora (usuário já vê)
+//   3. Se indicador ainda não visível → trava primeiroIdNaoLidoSnapshot no ID
+//   4. Atualiza qtdNaoLidasSnapshot com o contador do servidor
+//   5. Ativa indicadorNaoLidasVisivel = true
+//   6. Agenda timer de 3s que verifica se ainda há não lidas
+//
+// Cenário B — Abertura de chat com não lidas:
+//   1. posicionarEIndicar() encontra a primeira mensagem não lida
+//   2. Ativa o indicador com posição e contagem
+//   3. Chama posicionarAberturaConversaAtiva() que posiciona o scroll
+//
+// Cenário C — Timer expira:
+//   1. Verifica mensagens_sem_visualizar no store
+//   2. Se > 0 → reagenda timer (indicador continua visível)
+//   3. Se = 0 → esconde indicador (todas foram visualizadas)
+//
+// Cenário D — Janela recebe foco:
+//   1. Se indicador está visível e timer não está rodando
+//   2. Verifica se ainda há não lidas
+//   3. Se sim → reagenda timer. Se não → esconde indicador
+//
+// === COMUNICAÇÃO COM useScrollManager ===
+//
+// O ref indicadorNaoLidasAtivo (do useScrollManager) é mantido em
+// sincronia com indicadorNaoLidasVisivel (local) via watch. Isso
+// permite que o useScrollManager verifique, antes de fazer auto-scroll,
+// se o elemento DOM #indicador-nao-lidas seria empurrado para fora da
+// viewport. Se seria, o auto-scroll é cancelado.
+//
+// === RENDERIZAÇÃO NO TEMPLATE ===
+//
+// O computed itensMensagens insere o item { tipo: 'nao-lidas' } no
+// array de renderização ANTES da mensagem cujo ID === primeiroIdNaoLidoSnapshot.
+// O contador exibido é lido de chat.conversaAtiva.mensagens_sem_visualizar
+// (valor mais atualizado do servidor) com fallback para qtdNaoLidasSnapshot.
+// =====================================================================
+
+/** Controla se o indicador "X mensagens não lidas" está visível no chat */
 const indicadorNaoLidasVisivel = ref(false)
+
+/** Contagem de mensagens não lidas no momento da primeira ativação */
 const qtdNaoLidasSnapshot = ref(0)
+
+/**
+ * ID da mensagem onde o indicador está posicionado.
+ * Definido UMA VEZ quando o indicador aparece pela primeira vez.
+ * Novas mensagens NÃO alteram esta posição — apenas o contador atualiza.
+ */
 const primeiroIdNaoLidoSnapshot = ref<number | null>(null)
+
+/** Timer que verifica periodicamente se ainda há mensagens sem visualizar */
 let timerIndicador: ReturnType<typeof setTimeout> | null = null
 
+/**
+ * Reseta todos os estados do indicador.
+ * Chamado ao trocar de conversa para evitar vazamento entre chats.
+ */
 function limparIndicador() {
   indicadorNaoLidasVisivel.value = false
   qtdNaoLidasSnapshot.value = 0
@@ -139,25 +233,49 @@ function limparIndicador() {
   if (timerIndicador) { clearTimeout(timerIndicador); timerIndicador = null }
 }
 
+/**
+ * Agenda verificação periódica (3s) para decidir se o indicador deve persistir.
+ *
+ * REGRA CRÍTICA: O indicador só desaparece quando mensagens_sem_visualizar === 0.
+ * Se ainda houver mensagens sem visualizar, o timer é reagendado indefinidamente.
+ * Isso garante que o indicador persista até o usuário scrollar e visualizar todas.
+ */
 function agendarTimerIndicador() {
   if (timerIndicador) clearTimeout(timerIndicador)
   timerIndicador = setTimeout(() => {
     timerIndicador = null
-    if (document.hasFocus()) {
-      const semVisualizar = chat.conversaAtiva?.mensagens_sem_visualizar || 0
-      if (semVisualizar > 0) {
-        agendarTimerIndicador()
-      } else {
-        indicadorNaoLidasVisivel.value = false
-      }
+    const semVisualizar = chat.conversaAtiva?.mensagens_sem_visualizar || 0
+    if (semVisualizar > 0) {
+      // Ainda há não lidas — manter indicador e verificar novamente em 3s
+      agendarTimerIndicador()
+    } else {
+      // Todas visualizadas — esconder indicador
+      indicadorNaoLidasVisivel.value = false
     }
   }, 3000)
 }
 
+/** Ao trocar de conversa, limpar todo o estado do indicador */
 watch(() => chat.conversaAtivaId, () => limparIndicador())
+
+/**
+ * Manter o ref do useScrollManager sincronizado com o estado local.
+ * O useScrollManager usa indicadorNaoLidasAtivo para decidir se deve
+ * cancelar auto-scroll que empurraria o indicador para fora da viewport.
+ */
 watch(indicadorNaoLidasVisivel, (v) => { indicadorNaoLidasAtivo.value = v })
 
-// Detectar nova mensagem do outro remetente adicionada no final do array
+/**
+ * Watch que detecta novas mensagens do outro remetente em tempo real.
+ *
+ * Observa o ID da última mensagem no array. Quando muda:
+ * 1. Ignora mensagens próprias (remetente_id === user.id)
+ * 2. Se o navegador está focado E o scroll está perto do final (≤500px),
+ *    o usuário já vê a mensagem → não mostrar indicador
+ * 3. Caso contrário, ativar/atualizar o indicador:
+ *    - Na PRIMEIRA ativação: travar primeiroIdNaoLidoSnapshot (posição fixa)
+ *    - Em ativações subsequentes: apenas atualizar o contador
+ */
 watch(
   () => {
     const msgs = chat.mensagensAtivas
@@ -168,37 +286,68 @@ watch(
     const ultima = chat.mensagensAtivas[chat.mensagensAtivas.length - 1]
     if (!ultima || ultima.remetente_id === auth.user?.id) return
 
-    // Se o navegador está focado e o scroll está no final, o usuário já vê a mensagem
+    // Se o navegador está focado e o scroll está perto do final,
+    // o usuário já consegue ver a mensagem — não precisa de indicador
     const container = mensagensContainer.value
     if (document.hasFocus() && container) {
       const distancia = container.scrollHeight - container.scrollTop - container.clientHeight
       if (distancia <= 500) return
     }
 
-    // Nova mensagem do outro remetente — mostrar indicador
+    // Atualizar contagem com o valor mais recente do servidor
     const qtd = chat.conversaAtiva?.mensagens_sem_visualizar || 1
     qtdNaoLidasSnapshot.value = qtd
-    // Travar posição do indicador na primeira mensagem não lida (só na primeira vez)
+
+    // POSIÇÃO FIXA: só definir na primeira vez que o indicador aparece.
+    // Novas mensagens não movem o indicador — ele fica travado acima
+    // da mensagem onde apareceu originalmente.
     if (!indicadorNaoLidasVisivel.value) {
       primeiroIdNaoLidoSnapshot.value = ultima.id
     }
+
     indicadorNaoLidasVisivel.value = true
     if (timerIndicador) clearTimeout(timerIndicador)
     agendarTimerIndicador()
   }
 )
 
-// --- Handler do botão "Há novas mensagens" ---
+/**
+ * Handler do botão flutuante "Há novas mensagens" (haNovasMensagens).
+ *
+ * NOTA: Este botão é diferente do indicador "X mensagens não lidas".
+ * - "Há novas mensagens" (haNovasMensagens) → botão flutuante no rodapé,
+ *   controlado pelo useScrollManager quando o usuário está longe do final
+ * - "X mensagens não lidas" (indicadorNaoLidasVisivel) → barra inserida
+ *   entre as mensagens no chat, controlada localmente neste componente
+ */
 function aoClicarNovasMensagens() {
   rolarParaFinalAnimado()
   haNovasMensagens.value = false
 }
 
+/**
+ * Tipos de item que podem ser renderizados na lista de mensagens.
+ * - 'dia': separador de data (ex: "Hoje", "Ontem", "22/03/2026")
+ * - 'nao-lidas': indicador "X mensagens não lidas" posicionado acima da primeira não lida
+ * - 'mensagem': uma mensagem do chat
+ */
 type ItemMensagemView =
   | { tipo: 'dia'; key: string; label: string }
   | { tipo: 'nao-lidas'; key: string; label: string }
   | { tipo: 'mensagem'; key: string; mensagem: Mensagem; mudouRemetente: boolean }
 
+/**
+ * Computed que transforma o array de mensagens em itens renderizáveis,
+ * inserindo separadores de dia e o indicador de não lidas na posição correta.
+ *
+ * O indicador "nao-lidas" é inserido ANTES da mensagem cujo ID ===
+ * primeiroIdNaoLidoSnapshot. O contador é lido de mensagens_sem_visualizar
+ * (servidor, mais preciso) com fallback para qtdNaoLidasSnapshot (local).
+ *
+ * O elemento recebe id="indicador-nao-lidas" no template para que o
+ * useScrollManager possa localizar sua posição no DOM via getElementById
+ * e verificar se auto-scroll o empurraria para fora da viewport.
+ */
 const itensMensagens = computed<ItemMensagemView[]>(() => {
   const itens: ItemMensagemView[] = []
   let diaAtual = ''
@@ -245,9 +394,24 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
   return itens
 })
 
+/**
+ * Handler executado quando a janela do navegador recebe foco.
+ *
+ * Quando o navegador perde foco, o timer não é cancelado mas pode ter
+ * expirado enquanto a janela estava em background. Ao receber foco novamente:
+ * - Se o indicador está visível e o timer não está rodando (expirou em background),
+ *   verifica se ainda há não lidas e reagenda ou esconde conforme necessário.
+ * - Isso evita que o indicador fique "preso" visível se as mensagens foram
+ *   visualizadas por outro dispositivo enquanto a janela estava em background.
+ */
 function aoFocarJanelaIndicador() {
   if (indicadorNaoLidasVisivel.value && !timerIndicador) {
-    indicadorNaoLidasVisivel.value = false
+    const semVisualizar = chat.conversaAtiva?.mensagens_sem_visualizar || 0
+    if (semVisualizar > 0) {
+      agendarTimerIndicador()
+    } else {
+      indicadorNaoLidasVisivel.value = false
+    }
   }
 }
 
@@ -258,6 +422,24 @@ onBeforeUnmount(() => {
   if (timerIndicador) { clearTimeout(timerIndicador); timerIndicador = null }
 })
 
+/**
+ * Wrapper de posicionarAberturaConversaAtiva que ativa o indicador ANTES
+ * de posicionar o scroll.
+ *
+ * ORDEM CRÍTICA:
+ * 1. Primeiro: verificar se há mensagens não lidas e ativar o indicador
+ * 2. Segundo: chamar posicionarAberturaConversaAtiva()
+ *
+ * Essa ordem é necessária porque posicionarAberturaConversaAtiva() no
+ * useScrollManager faz scroll até a primeira não lida com margem de 40px.
+ * Se o indicador não estivesse no DOM antes do scroll, a margem seria
+ * calculada sem considerar a altura do elemento indicador, resultando
+ * em posicionamento errado.
+ *
+ * Este método é exposto via defineExpose como "posicionarAberturaConversaAtiva"
+ * para que o componente pai chame esta versão (com indicador) em vez da
+ * versão direta do useScrollManager.
+ */
 async function posicionarEIndicar() {
   // Ativar indicador ANTES do posicionamento para que o DOM já inclua o indicador
   const usuarioId = auth.user?.id
