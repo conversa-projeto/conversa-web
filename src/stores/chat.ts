@@ -5,7 +5,7 @@ import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSo
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
-import { playNotificationSound, showNotification, requestNotificationPermission } from '../utils/sound'
+import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
 import { useUploadProgress } from '../composables/useUploadProgress'
 
 export const useChatStore = defineStore('chat', () => {
@@ -515,6 +515,16 @@ export const useChatStore = defineStore('chat', () => {
       const conversa = conversas.value.find(c => c.id === conversaId)
       if (conversa) {
         conversa.mensagens_sem_visualizar = Math.max(0, (conversa.mensagens_sem_visualizar || 0) - marcadas)
+
+        // --- Fechar notificação do Windows ao visualizar tudo ---
+        // Quando mensagens_sem_visualizar chega a 0, não há mais motivo para
+        // a notificação persistir. fecharNotificacao() fecha via close() e
+        // remove a referência do mapa em sound.ts.
+        // Este é o ponto de fechamento principal — garante que a notificação
+        // desapareça assim que o usuário vê todas as mensagens pendentes.
+        if (conversa.mensagens_sem_visualizar === 0) {
+          fecharNotificacao(conversaId)
+        }
       }
       void carregarConversas()
     }
@@ -702,29 +712,53 @@ export const useChatStore = defineStore('chat', () => {
     })
 
     if (deOutrosParaNotificar.length > 0) {
-      // Toca o som de notificação
+      // Toca o som de notificação (independente de foco — o som toca sempre)
       playNotificationSound()
 
-      // Mostra notificação para a última mensagem recebida que seja notificável
-      const ultima = deOutrosParaNotificar[deOutrosParaNotificar.length - 1]
-      const contato = contatos.value.find((c) => c.id === ultima.remetente_id)
-      const nomeRemetente = contato?.nome || ultima.remetente || 'Nova mensagem'
-
-      let texto = ''
-      if (ultima.conteudos && ultima.conteudos.length > 0) {
-        const c = ultima.conteudos[0]
-        if (c.tipo === TipoConteudo.Texto) texto = c.conteudo
-        else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
-        else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
-        else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
-        else texto = 'Arquivo'
-      }
-
+      // --- Notificações do Windows ---
+      // Só exibir quando a janela NÃO está focada. Se o usuário já está
+      // olhando para o chat, notificação do sistema é redundante.
       if (!document.hasFocus()) {
-        showNotification(nomeRemetente, {
-          body: texto,
-          silent: true
-        })
+        // Agrupar por conversa: cada conversa mantém UMA notificação no Windows.
+        // O Map naturalmente mantém a última mensagem de cada conversa (sobrescreve).
+        // Isso garante que a notificação mostre o conteúdo mais recente.
+        const porConversa = new Map<number, Mensagem>()
+        for (const msg of deOutrosParaNotificar) {
+          porConversa.set(msg.conversa_id, msg)
+        }
+
+        // Para cada conversa com novas mensagens: criar/atualizar notificação.
+        // O título é o nome do remetente (quem enviou a última mensagem).
+        // O body é o conteúdo da mensagem (texto, ou tipo "Imagem", "Audio", etc).
+        // showNotification() cuida de fechar a anterior e criar a nova
+        // (ver documentação detalhada em sound.ts).
+        for (const [convId, ultima] of porConversa) {
+          const contato = contatos.value.find((c) => c.id === ultima.remetente_id)
+          const conversa = conversas.value.find((c) => c.id === convId)
+          const nomeRemetente = contato?.nome || ultima.remetente || 'Nova mensagem'
+
+          // Avatar: prioridade contato > conversa > logo do app
+          const avatarUrl = contato?.avatar_url || conversa?.avatar_url || '/logo.png'
+
+          let texto = ''
+          if (ultima.conteudos && ultima.conteudos.length > 0) {
+            const c = ultima.conteudos[0]
+            if (c.tipo === TipoConteudo.Texto) texto = c.conteudo
+            else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
+            else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
+            else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
+            else texto = 'Arquivo'
+          }
+
+          showNotification(convId, nomeRemetente, {
+            body: texto,
+            icon: avatarUrl,
+            silent: true
+          }, () => {
+            // Ao clicar na notificação: abrir a conversa correspondente
+            void selecionarConversa(convId)
+          })
+        }
       }
     }
 
