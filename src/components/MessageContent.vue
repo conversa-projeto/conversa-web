@@ -63,7 +63,7 @@
         </div>
       </div>
       <!-- Imagem carregando / carregada -->
-      <div v-else class="relative inline-block">
+      <div v-else class="relative inline-block" :style="!imagensCarregadas.has(conteudo.ordem) ? { minHeight: '10rem', minWidth: '14rem' } : {}">
         <img
           :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
           alt="Imagem"

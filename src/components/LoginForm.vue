@@ -9,6 +9,7 @@
       <label class="block text-sm font-medium text-surface-700">
         Usu&aacute;rio
         <input
+          ref="inputUsuario"
           v-model="login"
           type="text"
           class="mt-1 w-full rounded-xl border border-surface-300 px-3 py-2 bg-surface-100 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 text-surface-800"
@@ -47,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useCallStore } from '../stores/call'
@@ -62,10 +63,15 @@ const auth = useAuthStore()
 const chat = useChatStore()
 const call = useCallStore()
 
+const inputUsuario = ref<HTMLInputElement | null>(null)
 const login = ref('')
 const senha = ref('')
 const carregandoLogin = ref(false)
 const erro = ref('')
+
+onMounted(() => {
+  inputUsuario.value?.focus()
+})
 
 async function fazerLogin() {
   erro.value = ''

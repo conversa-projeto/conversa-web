@@ -100,9 +100,6 @@ export const useChatStore = defineStore('chat', () => {
 
   async function inicializar() {
     await Promise.all([carregarContatos(), carregarConversas()])
-    if (!conversaAtivaId.value && conversas.value.length > 0) {
-      await selecionarConversa(conversas.value[0].id)
-    }
     conectarWebSocket()
     iniciarPolling()
 
@@ -159,6 +156,10 @@ export const useChatStore = defineStore('chat', () => {
     const antes = atuais.length
     mensagensPorConversa.value[conversaId] = merged
     return Math.max(0, merged.length - antes)
+  }
+
+  function definirMensagens(conversaId: number, mensagens: Mensagem[]) {
+    mensagensPorConversa.value[conversaId] = mensagens
   }
 
   async function obterOuCriarConversaDireta(contato: Contato) {
@@ -990,6 +991,7 @@ export const useChatStore = defineStore('chat', () => {
     carregarConversas,
     selecionarConversa,
     carregarMensagensAnteriores,
+    definirMensagens,
     iniciarConversaDireta,
     encaminharMensagemParaConversa,
     encaminharMensagemParaContato,

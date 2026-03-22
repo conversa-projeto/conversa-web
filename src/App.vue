@@ -81,7 +81,7 @@
         />
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-surface-500">
-          <span>Selecione uma conversa para comecar.</span>
+          <span class="select-none">Selecione uma conversa.</span>
           <button class="rounded bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 md:hidden" @click="sidebarAberta = true">
             Ver conversas
           </button>
@@ -318,7 +318,6 @@ onMounted(async () => {
         void call.tratarEventoChamada(evento)
       })
       void call.verificarChamadasPendentes()
-      await messageListRef.value?.posicionarAberturaConversaAtiva()
     } catch (e) {
       auth.logout()
       if (!(e instanceof ErroNaoAutenticado)) {
@@ -338,8 +337,8 @@ onUnmounted(() => {
   limparAnexos()
 })
 
-async function onLoginSuccess() {
-  await messageListRef.value?.posicionarAberturaConversaAtiva()
+function onLoginSuccess() {
+  // Nenhuma conversa é selecionada automaticamente após login
 }
 
 function sair() {
@@ -347,6 +346,7 @@ function sair() {
   call.encerrarChamada()
   chat.removerHandlerChamada()
   chat.encerrarTempoReal()
+  chat.conversaAtivaId = null
   void sip.encerrar()
   auth.logout()
 }

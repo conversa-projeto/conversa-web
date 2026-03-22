@@ -95,9 +95,8 @@ const menuAcoesAberto = ref(false)
 const acoesRef = ref<InstanceType<typeof MensagemAcoes>>()
 
 function onMouseLeave() {
-  if (menuAcoesAberto.value) {
-    menuAcoesAberto.value = false
-  }
+  // Não fechar aqui — o menu fixed pode estar fora da bolha.
+  // O fechamento é tratado pelo click externo e evento global.
 }
 
 function onContextMenu() {

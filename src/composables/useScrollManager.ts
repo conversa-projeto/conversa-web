@@ -1,7 +1,10 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
+import * as api from '../services/conversaApi'
 import type { Mensagem } from '../types/api'
+
+const LIMIAR_AUTO_SCROLL = 500
 
 export function useScrollManager() {
   const auth = useAuthStore()
@@ -10,10 +13,13 @@ export function useScrollManager() {
   const mensagensContainer = ref<HTMLDivElement | null>(null)
   const usuarioNoFimDoChat = ref(true)
   const distanteDoFinal = ref(false)
-  const forcarScrollImagemAteFinal = ref(false)
-  const posicionandoAberturaConversa = ref(false)
   const carregandoHistorico = ref(false)
+  const haNovasMensagens = ref(false)
+  const indicadorNaoLidasAtivo = ref(false)
   let frameValidacaoVisualizacao = 0
+  let highlightTimer = 0
+
+  // --- Funções de scroll ---
 
   function rolarParaFinal() {
     if (!mensagensContainer.value) return
@@ -50,35 +56,7 @@ export function useScrollManager() {
     rolarParaFinal()
     await nextTick()
     rolarParaFinal()
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-    rolarParaFinal()
-    await new Promise<void>((resolve) => setTimeout(resolve, 60))
-    rolarParaFinal()
   }
-
-  function rolarMensagemParaVisibilidadeCompleta(mensagemId: number) {
-    const container = mensagensContainer.value
-    const node = document.getElementById(`msg-${mensagemId}`)
-    if (!container || !node) return
-
-    const margem = 8
-    const cRect = container.getBoundingClientRect()
-    const mRect = node.getBoundingClientRect()
-
-    if (mRect.height > container.clientHeight) {
-      container.scrollTop += mRect.top - cRect.top - margem
-      return
-    }
-    if (mRect.top < cRect.top + margem) {
-      container.scrollTop += mRect.top - cRect.top - margem
-      return
-    }
-    if (mRect.bottom > cRect.bottom - margem) {
-      container.scrollTop += mRect.bottom - cRect.bottom + margem
-    }
-  }
-
-  let highlightTimer = 0
 
   function irParaMensagem(mensagemId: number) {
     const node = document.getElementById(`msg-${mensagemId}`)
@@ -92,17 +70,25 @@ export function useScrollManager() {
     }, 1200)
   }
 
-  function atualizarPosicaoScroll() {
-    if (!mensagensContainer.value) {
-      usuarioNoFimDoChat.value = true
-      return
-    }
-    const container = mensagensContainer.value
-    const margem = 56
-    const distanciaDoFinal = container.scrollHeight - container.scrollTop - container.clientHeight
-    usuarioNoFimDoChat.value = distanciaDoFinal <= margem
-    distanteDoFinal.value = distanciaDoFinal > 1000
+  // --- Posição do scroll ---
+
+  function obterDistanciaDoFinal(): number {
+    if (!mensagensContainer.value) return 0
+    const c = mensagensContainer.value
+    return c.scrollHeight - c.scrollTop - c.clientHeight
   }
+
+  function atualizarPosicaoScroll() {
+    const distancia = obterDistanciaDoFinal()
+    usuarioNoFimDoChat.value = distancia <= 56
+    distanteDoFinal.value = distancia > 1000
+    // Limpar indicador de novas mensagens quando próximo do final
+    if (distancia <= LIMIAR_AUTO_SCROLL) {
+      haNovasMensagens.value = false
+    }
+  }
+
+  // --- Visualização de mensagens ---
 
   function solicitarValidacaoVisualizacao() {
     if (frameValidacaoVisualizacao) {
@@ -144,95 +130,235 @@ export function useScrollManager() {
     }
   }
 
+  // --- Handler de scroll ---
+
   function aoScrollChat() {
     atualizarPosicaoScroll()
     solicitarValidacaoVisualizacao()
     void tentarCarregarMensagensAnteriores()
   }
+
+  // --- Paginação ---
+
+  // Prefetch: busca da API quando perto do topo, injeta no store só quando chegar no topo
+  let prefetchPromise: Promise<Mensagem[]> | null = null
+  let prefetchConversaId: number | null = null
+  let prefetchBuscando = false
+  let semMaisHistorico = false
+
+  function iniciarPrefetch() {
+    const conversaId = chat.conversaAtivaId
+    if (!conversaId) return
+    if (prefetchBuscando || prefetchPromise || semMaisHistorico) return
+
+    const atuais = chat.mensagensAtivas
+    if (atuais.length === 0) return
+
+    const referencia = atuais[0]?.id || 0
+    if (!referencia) return
+
+    prefetchBuscando = true
+    prefetchConversaId = conversaId
+    prefetchPromise = api.getMensagens(conversaId, referencia, 60, 0)
+      .then(msgs => {
+        prefetchBuscando = false
+        return msgs
+      })
+      .catch(() => {
+        prefetchBuscando = false
+        prefetchPromise = null
+        prefetchConversaId = null
+        return []
+      })
+  }
+
+  let injetando = false
+
   async function tentarCarregarMensagensAnteriores() {
     const conversaId = chat.conversaAtivaId
     const container = mensagensContainer.value
     if (!conversaId || !container) return
-    if (carregandoHistorico.value || chat.carregando) return
+    if (chat.carregando) return
 
-    // Topo quase alcançado: busca página anterior.
-    if (container.scrollTop > 40) return
+    // Quando falta 1.5x a altura visível para chegar no topo: iniciar prefetch
+    const limiarPrefetch = container.clientHeight * 1.5
+    if (container.scrollTop <= limiarPrefetch && !prefetchPromise && !prefetchBuscando) {
+      iniciarPrefetch()
+    }
 
+    // Só injeta quando chegar no topo (threshold para subpixel)
+    if (container.scrollTop > 2) return
+    if (injetando) return
+
+    // Se não tem prefetch para esta conversa, iniciar agora
+    if (!prefetchPromise || prefetchConversaId !== conversaId) {
+      prefetchPromise = null
+      prefetchConversaId = null
+      iniciarPrefetch()
+    }
+
+    if (!prefetchPromise) return
+
+    injetando = true
     carregandoHistorico.value = true
-    const alturaAntes = container.scrollHeight
-    const topoAntes = container.scrollTop
 
     try {
-      const adicionadas = await chat.carregarMensagensAnteriores(conversaId, 60)
+      const anteriores = await prefetchPromise
+      prefetchPromise = null
+      prefetchConversaId = null
+
+      if (!anteriores.length) {
+        semMaisHistorico = true
+        return
+      }
+
+      // Injetar no store
+      const atuais = chat.mensagensAtivas
+      const mapa = new Map<number, Mensagem>()
+      for (const msg of anteriores) mapa.set(msg.id, msg)
+      for (const msg of atuais) mapa.set(msg.id, msg)
+      const merged = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+      const adicionadas = merged.length - atuais.length
+
       if (adicionadas > 0) {
+        const alturaAntes = container.scrollHeight
+        chat.definirMensagens(conversaId, merged)
         await nextTick()
-        const alturaDepois = container.scrollHeight
-        container.scrollTop = Math.max(0, alturaDepois - alturaAntes + topoAntes)
+        container.scrollTop = container.scrollHeight - alturaAntes
       }
     } finally {
       carregandoHistorico.value = false
+      injetando = false
     }
   }
 
+  // --- Imagem carregada ---
+
   function aoCarregarImagemNoChat() {
-    if (!forcarScrollImagemAteFinal.value && !usuarioNoFimDoChat.value) return
+    if (!usuarioNoFimDoChat.value) return
 
     void nextTick().then(() => {
       rolarParaFinal()
       atualizarPosicaoScroll()
-      forcarScrollImagemAteFinal.value = false
     })
   }
 
-  async function posicionarAberturaConversaAtiva() {
-    if (!chat.conversaAtivaId || chat.mensagensAtivas.length === 0) return
+  // --- Abertura de conversa ---
 
-    posicionandoAberturaConversa.value = true
-    try {
-      const usuarioId = auth.user?.id
-      const primeiraNaoLida = chat.mensagensAtivas.find((mensagem: Mensagem) => {
-        return mensagem.remetente_id !== usuarioId && !mensagem.visualizada
-      })
+  async function posicionarAberturaConversaAtiva(): Promise<number | null> {
+    if (!chat.conversaAtivaId || chat.mensagensAtivas.length === 0) return null
 
-      await nextTick()
-      if (primeiraNaoLida) {
-        rolarMensagemParaVisibilidadeCompleta(primeiraNaoLida.id)
+    haNovasMensagens.value = false
+    await nextTick()
+
+    const usuarioId = auth.user?.id
+    const primeiraNaoLida = chat.mensagensAtivas.find((mensagem: Mensagem) => {
+      return mensagem.remetente_id !== usuarioId && !mensagem.visualizada
+    })
+
+    if (primeiraNaoLida) {
+      // Scrollar para que a primeira não lida fique no topo da viewport
+      const node = document.getElementById(`msg-${primeiraNaoLida.id}`)
+      const container = mensagensContainer.value
+      if (node && container) {
+        const cRect = container.getBoundingClientRect()
+        const mRect = node.getBoundingClientRect()
+        // Posicionar a mensagem no topo do container com margem para o indicador
+        container.scrollTop += mRect.top - cRect.top - 40
       } else {
         await rolarParaFinalGarantido()
       }
-
-      await nextTick()
-      atualizarPosicaoScroll()
-      solicitarValidacaoVisualizacao()
-    } finally {
-      posicionandoAberturaConversa.value = false
+    } else {
+      await rolarParaFinalGarantido()
     }
+
+    await nextTick()
+    atualizarPosicaoScroll()
+    solicitarValidacaoVisualizacao()
+
+    return primeiraNaoLida?.id ?? null
   }
 
-  // Auto-scroll on new messages
+  // --- Watches ---
+
+  // Auto-scroll em novas mensagens (apenas em tempo real, não no carregamento)
+  let conversaCarregada: number | null = null
+
+  // Resetar ao trocar de conversa
+  watch(() => chat.conversaAtivaId, () => {
+    haNovasMensagens.value = false
+    conversaCarregada = null
+    prefetchPromise = null
+    prefetchConversaId = null
+    prefetchBuscando = false
+    semMaisHistorico = false
+  })
+
+  watch(() => chat.carregando, (carregando, anteriorCarregando) => {
+    // Marcar a conversa como "recém-carregada" para ignorar a primeira mudança de mensagens
+    if (!carregando && anteriorCarregando) {
+      conversaCarregada = chat.conversaAtivaId
+      // Limpar após 500ms caso o watch de IDs não dispare (cache = API)
+      setTimeout(() => {
+        if (conversaCarregada === chat.conversaAtivaId) {
+          conversaCarregada = null
+        }
+      }, 500)
+    }
+  })
+
   watch(
     () => chat.mensagensAtivas.map((mensagem: Mensagem) => mensagem.id),
     async (atual, anterior) => {
-      if (posicionandoAberturaConversa.value) return
-
       solicitarValidacaoVisualizacao()
 
-      const estavaNoFim = usuarioNoFimDoChat.value
-      const ultimoIdAnterior = anterior[anterior.length - 1] || 0
-      const ultimoIdAtual = atual[atual.length - 1] || 0
-      if (!ultimoIdAtual || ultimoIdAtual === ultimoIdAnterior) return
+      // Ignorar carregamento inicial
+      if (!anterior || anterior.length === 0) return
+
+      // Ignorar a mudança que ocorre quando carregarMensagens substitui o cache
+      if (conversaCarregada === chat.conversaAtivaId) {
+        conversaCarregada = null
+        return
+      }
+
+      const ultimoAnterior = anterior[anterior.length - 1] || 0
+      const ultimoAtual = atual[atual.length - 1] || 0
+      if (!ultimoAtual || ultimoAtual === ultimoAnterior) return
 
       const ultimaMensagem = chat.mensagensAtivas[chat.mensagensAtivas.length - 1]
-      const isOwnMessage = !!ultimaMensagem && ultimaMensagem.remetente_id === auth.user?.id
-      const recebidaDeOutroUsuario = !!ultimaMensagem && ultimaMensagem.remetente_id !== auth.user?.id
-      if (!isOwnMessage && (!recebidaDeOutroUsuario || !estavaNoFim)) return
+      const eMinha = !!ultimaMensagem && ultimaMensagem.remetente_id === auth.user?.id
+      const distancia = obterDistanciaDoFinal()
 
-      await nextTick()
-      rolarParaFinal()
-      await nextTick()
-      atualizarPosicaoScroll()
+      if (eMinha || distancia <= LIMIAR_AUTO_SCROLL) {
+        await nextTick()
+
+        // Se o indicador de não lidas está visível, verificar se scrollar para o final
+        // o empurraria para fora da viewport — se sim, não scrollar
+        if (indicadorNaoLidasAtivo.value && !eMinha) {
+          const container = mensagensContainer.value
+          const indicador = document.getElementById('indicador-nao-lidas')
+          if (container && indicador) {
+            const containerRect = container.getBoundingClientRect()
+            const novoScrollTop = container.scrollHeight - container.clientHeight
+            const deslocamento = novoScrollTop - container.scrollTop
+            const indicadorTop = indicador.getBoundingClientRect().top - deslocamento
+            if (indicadorTop < containerRect.top) {
+              // Indicador sairia da tela — não scrollar
+              return
+            }
+          }
+        }
+
+        rolarParaFinal()
+        await nextTick()
+        atualizarPosicaoScroll()
+      } else {
+        haNovasMensagens.value = true
+      }
     }
   )
+
+  // --- Lifecycle ---
 
   function aoFocarJanela() {
     solicitarValidacaoVisualizacao()
@@ -258,13 +384,11 @@ export function useScrollManager() {
     mensagensContainer,
     usuarioNoFimDoChat,
     distanteDoFinal,
-    forcarScrollImagemAteFinal,
-    posicionandoAberturaConversa,
     carregandoHistorico,
+    haNovasMensagens,
+    indicadorNaoLidasAtivo,
     rolarParaFinal,
     rolarParaFinalAnimado,
-    rolarParaFinalGarantido,
-    rolarMensagemParaVisibilidadeCompleta,
     irParaMensagem,
     aoScrollChat,
     aoCarregarImagemNoChat,

@@ -183,6 +183,9 @@ function calcularPosicao(largura: number, altura: number): CSSProperties {
 }
 
 function abrirMenu() {
+  // Fechar qualquer outro menu aberto antes de abrir este
+  document.dispatchEvent(new CustomEvent('fechar-menu-acoes', { detail: props.mensagem.id }))
+
   menuStyle.value = calcularPosicao(MENU_LARGURA, MENU_ALTURA_ESTIMADA)
   menuAberto.value = true
   emit('menu-toggle', true)
@@ -208,6 +211,13 @@ function fecharMenu() {
   menuAberto.value = false
   pickerAberto.value = false
   emit('menu-toggle', false)
+}
+
+function onFecharMenuGlobal(e: Event) {
+  const idOrigem = (e as CustomEvent).detail
+  if (menuAberto.value && idOrigem !== props.mensagem.id) {
+    fecharMenu()
+  }
 }
 
 function acaoResponder() {
@@ -249,8 +259,30 @@ function abrirViaContextMenu() {
   abrirMenu()
 }
 
-onMounted(() => document.addEventListener('click', fecharMenuExterno))
-onBeforeUnmount(() => document.removeEventListener('click', fecharMenuExterno))
+let scrollContainer: HTMLElement | null = null
+
+function onScrollContainer() {
+  if (menuAberto.value) {
+    fecharMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', fecharMenuExterno)
+  document.addEventListener('fechar-menu-acoes', onFecharMenuGlobal)
+  scrollContainer = getScrollContainer(containerRef.value ?? null)
+  if (scrollContainer) {
+    scrollContainer.addEventListener('scroll', onScrollContainer, { passive: true })
+  }
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', fecharMenuExterno)
+  document.removeEventListener('fechar-menu-acoes', onFecharMenuGlobal)
+  if (scrollContainer) {
+    scrollContainer.removeEventListener('scroll', onScrollContainer)
+    scrollContainer = null
+  }
+})
 
 defineExpose({ abrirViaContextMenu })
 </script>
