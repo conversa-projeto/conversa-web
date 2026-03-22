@@ -9,7 +9,7 @@
       accept="*/*"
     />
 
-    <div class="mx-auto w-full max-w-[1200px]">
+    <div class="mx-auto w-full max-w-[850px]">
       <p v-if="erro" class="mb-2 rounded bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
 
       <!-- File queue preview -->

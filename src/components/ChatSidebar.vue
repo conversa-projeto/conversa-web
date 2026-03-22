@@ -157,11 +157,14 @@
           <button
             v-for="contato in contatosFiltrados"
             :key="contato.id"
-            class="flex w-full items-center justify-between border-b border-surface-100 px-3 py-2 text-left text-sm hover:bg-surface-50"
+            class="flex w-full items-center gap-3 border-b border-surface-100 px-3 py-2 text-left text-sm hover:bg-surface-50"
             @click="selecionarContatoNovaConversa(contato.id)"
           >
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-200 text-xs font-semibold text-surface-700">
+              <img v-if="contato.avatar_url" :src="contato.avatar_url" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+              <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
+            </div>
             <span>{{ contato.nome }}</span>
-            <span class="text-xs text-surface-500">@{{ contato.login }}</span>
           </button>
         </div>
       </div>

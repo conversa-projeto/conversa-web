@@ -27,7 +27,7 @@
         </div>
       </div>
 
-      <div class="mx-auto w-full max-w-[1200px]">
+      <div class="mx-auto w-full max-w-[850px]">
 
         <template v-for="item in itensMensagens" :key="item.key">
           <div v-if="item.tipo === 'dia'" class="my-3 flex justify-center">
@@ -63,7 +63,7 @@
 
     <!-- Botão rolar para o final -->
     <div v-if="distanteDoFinal" class="pointer-events-none absolute inset-x-0 bottom-4 z-20 px-4">
-      <div class="mx-auto w-full max-w-[1200px]">
+      <div class="mx-auto w-full max-w-[850px]">
         <button
           class="pointer-events-auto float-right flex h-9 w-9 items-center justify-center rounded-full border border-surface-300 bg-surface-base text-surface-500 shadow-md transition hover:bg-surface-200 hover:text-surface-700"
           title="Ir para o final"
