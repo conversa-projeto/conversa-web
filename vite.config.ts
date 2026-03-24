@@ -44,7 +44,11 @@ export default defineConfig({
             return 'framework'
           }
 
-          if (id.includes('node_modules/highlight.js') || id.includes('node_modules/hash-wasm')) {
+          if (id.includes('node_modules/highlight.js')) {
+            return 'highlightjs'
+          }
+
+          if (id.includes('node_modules/hash-wasm')) {
             return 'vendor-utils'
           }
 

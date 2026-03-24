@@ -201,6 +201,7 @@ export function useScrollManager() {
     atualizarPosicaoScroll()
     solicitarValidacaoVisualizacao()
     void tentarCarregarMensagensAnteriores()
+    void tentarCarregarMensagensSeguintes()
   }
 
   // =====================================================================
@@ -230,6 +231,14 @@ export function useScrollManager() {
   let prefetchConversaId: number | null = null
   let prefetchBuscando = false
   let semMaisHistorico = false
+
+  // Estado de paginação para BAIXO (mensagens seguintes).
+  // semMaisSeguintes começa true — em modo normal já estamos nas mensagens mais recentes.
+  // Ao navegar para uma mensagem via busca, ativarPaginacaoBidirecional() seta para false.
+  let prefetchSeguintesPromise: Promise<Mensagem[]> | null = null
+  let prefetchSeguintesConversaId: number | null = null
+  let prefetchSeguintesBuscando = false
+  let semMaisSeguintes = true
 
   /**
    * Inicia a busca de mensagens anteriores na API sem injetar no store.
@@ -337,6 +346,139 @@ export function useScrollManager() {
     } finally {
       carregandoHistorico.value = false
       injetando = false
+    }
+  }
+
+  // =====================================================================
+  // PAGINAÇÃO PARA BAIXO (MENSAGENS SEGUINTES)
+  //
+  // Espelho da paginação para cima. Ativado quando o usuário navega para
+  // uma mensagem via busca e scrola para baixo além das mensagens carregadas.
+  // Usa o mesmo padrão de prefetch + injeção em duas fases.
+  // =====================================================================
+
+  /**
+   * Ativa a paginação para baixo. Chamado externamente após navegar
+   * para uma mensagem via busca (carregarContextoMensagem).
+   */
+  /**
+   * Ativa a paginação bidirecional. Chamado externamente após navegar
+   * para uma mensagem via busca (carregarContextoMensagem).
+   * Reseta ambas as direções para permitir carregamento para cima e para baixo.
+   */
+  function ativarPaginacaoBidirecional() {
+    semMaisSeguintes = false
+    prefetchSeguintesPromise = null
+    prefetchSeguintesConversaId = null
+    prefetchSeguintesBuscando = false
+    semMaisHistorico = false
+    prefetchPromise = null
+    prefetchConversaId = null
+    prefetchBuscando = false
+  }
+
+  /**
+   * Inicia a busca de mensagens seguintes na API sem injetar no store.
+   * Usa o ID da última mensagem carregada como referência.
+   */
+  function iniciarPrefetchSeguintes() {
+    const conversaId = chat.conversaAtivaId
+    if (!conversaId) return
+    if (prefetchSeguintesBuscando || prefetchSeguintesPromise || semMaisSeguintes) return
+
+    const atuais = chat.mensagensAtivas
+    if (atuais.length === 0) return
+
+    const referencia = atuais[atuais.length - 1]?.id || 0
+    if (!referencia) return
+
+    prefetchSeguintesBuscando = true
+    prefetchSeguintesConversaId = conversaId
+    prefetchSeguintesPromise = api.getMensagens(conversaId, referencia, 0, 60)
+      .then(msgs => {
+        prefetchSeguintesBuscando = false
+        return msgs
+      })
+      .catch(() => {
+        prefetchSeguintesBuscando = false
+        prefetchSeguintesPromise = null
+        prefetchSeguintesConversaId = null
+        return []
+      })
+  }
+
+  let injetandoSeguintes = false
+
+  // Ref para indicar carregamento de mensagens seguintes no final do chat
+  const carregandoSeguintes = ref(false)
+
+  /**
+   * Orquestra o prefetch e a injeção de mensagens seguintes.
+   * Chamado em cada evento de scroll pelo aoScrollChat.
+   *
+   * - A ≤ 1.5x da altura visível do final: inicia prefetch
+   * - A distância ≤ 2px do final: aguarda prefetch e injeta no store
+   */
+  async function tentarCarregarMensagensSeguintes() {
+    const conversaId = chat.conversaAtivaId
+    const container = mensagensContainer.value
+    if (!conversaId || !container) return
+    if (chat.carregando) return
+    if (semMaisSeguintes) return
+
+    const distanciaDoFinal = obterDistanciaDoFinal()
+
+    // Fase 1: Prefetch antecipado
+    const limiarPrefetch = container.clientHeight * 1.5
+    if (distanciaDoFinal <= limiarPrefetch && !prefetchSeguintesPromise && !prefetchSeguintesBuscando) {
+      iniciarPrefetchSeguintes()
+    }
+
+    // Fase 2: Injeção — só quando o usuário chegou de fato no final
+    if (distanciaDoFinal > 2) return
+    if (injetandoSeguintes) return
+
+    if (!prefetchSeguintesPromise || prefetchSeguintesConversaId !== conversaId) {
+      prefetchSeguintesPromise = null
+      prefetchSeguintesConversaId = null
+      iniciarPrefetchSeguintes()
+    }
+
+    if (!prefetchSeguintesPromise) return
+
+    injetandoSeguintes = true
+    carregandoSeguintes.value = true
+
+    try {
+      const seguintes = await prefetchSeguintesPromise
+      prefetchSeguintesPromise = null
+      prefetchSeguintesConversaId = null
+
+      if (!seguintes.length) {
+        semMaisSeguintes = true
+        return
+      }
+
+      const atuais = chat.mensagensAtivas
+      const mapa = new Map<number, Mensagem>()
+      for (const msg of atuais) mapa.set(msg.id, msg)
+      for (const msg of seguintes) mapa.set(msg.id, msg)
+      const merged = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+      const adicionadas = merged.length - atuais.length
+
+      if (adicionadas > 0) {
+        chat.definirMensagens(conversaId, merged)
+        // Atualizar ultimoIdConhecido para evitar que o watch de mensagens
+        // interprete as mensagens injetadas como "novas" e cause auto-scroll
+        ultimoIdConhecido = merged[merged.length - 1].id
+        await nextTick()
+      } else {
+        // API retornou apenas mensagens já conhecidas — chegamos ao final
+        semMaisSeguintes = true
+      }
+    } finally {
+      carregandoSeguintes.value = false
+      injetandoSeguintes = false
     }
   }
 
@@ -469,13 +611,20 @@ export function useScrollManager() {
     prefetchConversaId = null
     prefetchBuscando = false
     semMaisHistorico = false
+    prefetchSeguintesPromise = null
+    prefetchSeguintesConversaId = null
+    prefetchSeguintesBuscando = false
+    semMaisSeguintes = true
 
     // Scroll imediato para o final (cobre mensagens do cache).
     // Executa via nextTick para que o DOM já reflita a nova conversa.
     // Se conseguiu chegar no final (distância ≤ 56px), marca como posicionado.
     void nextTick().then(() => {
       rolarParaFinal()
-      if (obterDistanciaDoFinal() <= 56) jaPositionouConversa = true
+      // Só marcar como posicionado se há mensagens renderizadas.
+      // Container vazio (sem cache) tem distância 0 mas não é um posicionamento real —
+      // marcar como true aqui impediria o scroll posterior quando a API retornar mensagens.
+      if (obterDistanciaDoFinal() <= 56 && chat.mensagensAtivas.length > 0) jaPositionouConversa = true
     })
   })
 
@@ -619,6 +768,7 @@ export function useScrollManager() {
     usuarioNoFimDoChat,
     distanteDoFinal,
     carregandoHistorico,
+    carregandoSeguintes,
     haNovasMensagens,
     indicadorNaoLidasAtivo,
     rolarParaFinal,
@@ -627,6 +777,7 @@ export function useScrollManager() {
     aoScrollChat,
     aoCarregarImagemNoChat,
     posicionarAberturaConversaAtiva,
-    solicitarValidacaoVisualizacao
+    solicitarValidacaoVisualizacao,
+    ativarPaginacaoBidirecional
   }
 }

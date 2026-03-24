@@ -2,12 +2,12 @@
   <div
     class="border-l-4 px-2.5 py-0.5"
     :class="[
-      isOwn ? 'border-primary-100/40 bg-primary-100/10' : 'border-surface-300 bg-surface-200/50',
+      isOwn ? 'border-white/40 bg-white/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]',
       navegavel ? 'cursor-pointer hover:opacity-80' : ''
     ]"
     @click.stop="abrirReferencia"
   >
-    <span class="text-[10px] font-semibold" :class="isOwn ? 'text-primary-100/60' : 'text-surface-500'">
+    <span class="text-[10px] font-semibold" :class="isOwn ? 'text-white/70' : 'text-surface-500'">
       {{ titulo }}
       <span v-if="mensagemRef?.inserida" class="font-normal">
         &middot; {{ formatarHora(mensagemRef.inserida) }}

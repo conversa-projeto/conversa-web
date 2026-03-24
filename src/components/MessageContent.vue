@@ -18,7 +18,7 @@
               >{{ linkSeg.conteudo }}</a>
             </template>
           </p>
-          <div v-else-if="seg.tipo === 'codigo'" class="group relative mb-1 last:mb-0 max-w-full">
+          <div v-else-if="seg.tipo === 'codigo'" class="group relative mb-1 last:mb-0 min-w-0 max-w-full overflow-hidden">
             <div class="flex items-center justify-between bg-surface-200 px-3 py-1" :class="codigoSemBorda ? 'rounded-t-[10px]' : 'rounded-t'">
               <span class="text-[10px] text-surface-500">{{ seg.linguagem || 'code' }}</span>
               <button
@@ -27,7 +27,7 @@
                 @click="copiarCodigo(seg.conteudo, `${mensagemId}-${segIdx}`)"
               >{{ codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
             </div>
-            <pre class="overflow-x-auto bg-surface-50 p-3 text-xs leading-relaxed text-surface-800" :class="codigoSemBorda ? '' : 'rounded-b border border-surface-200'"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+            <pre class="whitespace-pre-wrap break-words bg-surface-50 p-3 text-xs leading-relaxed text-surface-800" :class="codigoSemBorda ? '' : 'rounded-b border border-surface-200'"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
           </div>
         </template>
       </template>
@@ -63,19 +63,18 @@
         </div>
       </div>
       <!-- Imagem carregando / carregada -->
-      <div v-else class="relative inline-block" :style="!imagensCarregadas.has(conteudo.ordem) ? { minHeight: '10rem', minWidth: '14rem' } : {}">
+      <div v-else class="relative inline-block overflow-hidden rounded border-2" :class="isOwn ? 'border-primary-600 dark:border-primary-700' : 'border-surface-base'" :style="!imagensCarregadas.has(conteudo.ordem) ? { minHeight: '10rem', minWidth: '14rem' } : {}">
         <img
           :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
           alt="Imagem"
-          class="max-h-64 rounded border-2"
-          :class="[
-            isOwn ? 'border-primary-600 dark:border-primary-700' : 'border-surface-base',
-            imagensCarregadas.has(conteudo.ordem) ? 'cursor-zoom-in' : ''
-          ]"
+          class="block max-h-64"
+          :class="imagensCarregadas.has(conteudo.ordem) ? 'cursor-zoom-in' : ''"
           decoding="async"
           @load="onImagemCarregada(conteudo)"
           @click="imagensCarregadas.has(conteudo.ordem) && emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
         />
+        <!-- Sombra radial no canto inferior direito para o horário (só em BolhaImagem) -->
+        <div v-if="mostrarGradienteImagem" class="pointer-events-none absolute bottom-0 right-0 h-8 w-28" style="background: radial-gradient(ellipse at 100% 100%, rgba(0,0,0,0.75) 0%, transparent 70%)" />
         <!-- Overlay de carregamento sobre a imagem parcial -->
         <div
           v-if="liberados.has(conteudo.ordem) && !imagensCarregadas.has(conteudo.ordem)"
@@ -125,10 +124,10 @@
           </button>
         </template>
       </template>
-      <div v-else class="flex items-center gap-2 rounded border px-2 py-2" :class="isOwn ? 'border-primary-100/20 bg-primary-100/10 text-primary-100' : 'border-surface-200 bg-surface-50 text-surface-800'">
+      <div v-else class="-mx-1.5 flex items-center gap-2 rounded-lg px-2 py-2" :class="isOwn ? 'bg-white/10 text-primary-100' : 'bg-black/[0.04] dark:bg-white/[0.06] text-surface-800'">
         <div class="min-w-12 text-center">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mx-auto h-7 w-7" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
-          <div class="mt-1 max-w-28 truncate text-[11px]" :title="conteudo.nome || 'Arquivo'">
+          <div class="mt-1 truncate text-[11px]" :title="conteudo.nome || 'Arquivo'">
             {{ conteudo.nome || 'Arquivo' }}
           </div>
         </div>
@@ -174,7 +173,7 @@ import { reactive } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
-import { useCodeHighlight } from '../composables/useCodeHighlight'
+import { useCodeHighlight, temCodigoFormatado, parseCodeBlocks } from '../composables/useCodeHighlight'
 import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
@@ -205,6 +204,7 @@ defineProps<{
   reproduzida?: boolean
   isOwn?: boolean
   codigoSemBorda?: boolean
+  mostrarGradienteImagem?: boolean
   getAnexoUrl: (identificador: string) => string
 }>()
 
@@ -214,7 +214,7 @@ const emit = defineEmits<{
   'download': [identificador: string, nome: string]
 }>()
 
-const { codigosCopiados, copiarCodigo, temCodigoFormatado, parseCodeBlocks, highlightCodigo } = useCodeHighlight()
+const { codigosCopiados, copiarCodigo, highlightCodigo } = useCodeHighlight()
 
 function ehTipo(valor: number | string, tipo: number) {
   return Number(valor) === tipo

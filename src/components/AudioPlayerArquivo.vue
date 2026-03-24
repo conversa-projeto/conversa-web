@@ -1,11 +1,11 @@
 <template>
-  <div class="w-56 max-w-full md:w-72">
+  <div class="w-56 max-w-full pt-1.5 md:w-72">
     <!-- Name (only for audio files with a name) -->
-    <div v-if="nome" class="truncate pl-10 text-[11px]" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'" :title="nome">
+    <div v-if="nome" class="truncate pl-10 pr-3 text-[11px]" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'" :title="nome">
       {{ nome }}
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 pr-3">
       <!-- Play/Pause button -->
       <button
         class="-my-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition"
@@ -30,8 +30,8 @@
       <!-- Progress bar -->
       <div
         ref="barraRef"
-        class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full"
-        :class="isOwn ? 'bg-primary-100/30' : 'bg-surface-200'"
+        class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full border"
+        :class="isOwn ? 'border-primary-100/40 bg-primary-100/30' : 'border-surface-300 bg-surface-200'"
         @pointerdown="iniciarSeek"
       >
         <div

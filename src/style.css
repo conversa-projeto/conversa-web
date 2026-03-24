@@ -109,17 +109,17 @@ pre code.hljs {
   --color-surface-900: #1a1d1e;
   --color-surface-950: #0e1010;
 
-  /* Primary Scale (Purple) */
-  --color-primary-50: #f5f1ff;
-  --color-primary-100: #ebe4ff;
-  --color-primary-200: #d4c5ff;
-  --color-primary-300: #b49dff;
-  --color-primary-400: #9475ff;
-  --color-primary-500: #744dff;
-  --color-primary-600: #5a1fff;
-  --color-primary-700: #4b19db;
-  --color-primary-800: #3c13b7;
-  --color-primary-900: #2d0e93;
+  /* Primary Scale (Green — base #1D6847) */
+  --color-primary-50: #f0faf5;
+  --color-primary-100: #d9f2e6;
+  --color-primary-200: #b0e4cc;
+  --color-primary-300: #7ccfaa;
+  --color-primary-400: #47b385;
+  --color-primary-500: #279567;
+  --color-primary-600: #1d6847;
+  --color-primary-700: #185639;
+  --color-primary-800: #14442e;
+  --color-primary-900: #0f3524;
 
   /* Success Scale (Base: Emerald) */
   --color-success-50: #ecfdf5;
@@ -216,4 +216,23 @@ pre,
 code {
   user-select: text;
   -webkit-user-select: text;
+}
+
+/* Padrão tecido ondulado 3D de fundo do chat */
+.chat-pattern {
+  position: relative;
+}
+.chat-pattern::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.09;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231D6847' stop-opacity='0.3'/%3E%3Cstop offset='0.5' stop-color='%231D6847' stop-opacity='1'/%3E%3Cstop offset='1' stop-color='%231D6847' stop-opacity='0.3'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 25 C25 0,50 0,75 25 S125 50,150 25 S200 0,200 25' fill='none' stroke='url(%23a)' stroke-width='0.6' stroke-dasharray='2 3'/%3E%3Cpath d='M0 50 C25 25,50 25,75 50 S125 75,150 50 S200 25,200 50' fill='none' stroke='url(%23a)' stroke-width='0.8' stroke-dasharray='2.5 2.5'/%3E%3Cpath d='M0 75 C25 50,50 50,75 75 S125 100,150 75 S200 50,200 75' fill='none' stroke='url(%23a)' stroke-width='1' stroke-dasharray='3 2'/%3E%3Cpath d='M0 100 C25 75,50 75,75 100 S125 125,150 100 S200 75,200 100' fill='none' stroke='url(%23a)' stroke-width='1.1' stroke-dasharray='3 2'/%3E%3Cpath d='M0 125 C25 100,50 100,75 125 S125 150,150 125 S200 100,200 125' fill='none' stroke='url(%23a)' stroke-width='1' stroke-dasharray='2.5 2.5'/%3E%3Cpath d='M0 150 C25 125,50 125,75 150 S125 175,150 150 S200 125,200 150' fill='none' stroke='url(%23a)' stroke-width='0.8' stroke-dasharray='2 3'/%3E%3Cpath d='M0 175 C25 150,50 150,75 175 S125 200,150 175 S200 150,200 175' fill='none' stroke='url(%23a)' stroke-width='0.6' stroke-dasharray='1.5 3.5'/%3E%3Cpath d='M25 0 C0 25,0 50,25 75 S50 125,25 150 S0 200,25 200' fill='none' stroke='url(%23a)' stroke-width='0.6' stroke-dasharray='2 3'/%3E%3Cpath d='M50 0 C25 25,25 50,50 75 S75 125,50 150 S25 200,50 200' fill='none' stroke='url(%23a)' stroke-width='0.8' stroke-dasharray='2.5 2.5'/%3E%3Cpath d='M75 0 C50 25,50 50,75 75 S100 125,75 150 S50 200,75 200' fill='none' stroke='url(%23a)' stroke-width='1' stroke-dasharray='3 2'/%3E%3Cpath d='M100 0 C75 25,75 50,100 75 S125 125,100 150 S75 200,100 200' fill='none' stroke='url(%23a)' stroke-width='1.1' stroke-dasharray='3 2'/%3E%3Cpath d='M125 0 C100 25,100 50,125 75 S150 125,125 150 S100 200,125 200' fill='none' stroke='url(%23a)' stroke-width='1' stroke-dasharray='2.5 2.5'/%3E%3Cpath d='M150 0 C125 25,125 50,150 75 S175 125,150 150 S125 200,150 200' fill='none' stroke='url(%23a)' stroke-width='0.8' stroke-dasharray='2 3'/%3E%3Cpath d='M175 0 C150 25,150 50,175 75 S200 125,175 150 S150 200,175 200' fill='none' stroke='url(%23a)' stroke-width='0.6' stroke-dasharray='1.5 3.5'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+.dark .chat-pattern::before {
+  opacity: 0.12;
+  filter: brightness(1.5);
 }

@@ -57,7 +57,7 @@ export function getConversas() {
 }
 
 export function getUsuariosConversa(conversaId: number) {
-  return requestApi<Array<{ id: number; usuario_id: number; nome: string }>>('/conversa/usuarios', 'GET', {
+  return requestApi<Array<{ id: number; usuario_id: number; nome: string; avatar_url?: string | null }>>('/conversa/usuarios', 'GET', {
     query: { conversa: conversaId }
   })
 }
@@ -189,13 +189,10 @@ export function reagirMensagem(mensagemId: number, emoji: string) {
   })
 }
 
-export function pesquisarMensagens(usuarioId: number, texto: string) {
-  return requestApi<Mensagem[]>('/pesquisar', 'GET', {
-    query: {
-      usuario: usuarioId,
-      texto
-    }
-  })
+export function pesquisarMensagens(usuarioId: number, texto: string, conversaId?: number) {
+  const query: Record<string, string | number> = { usuario: usuarioId, texto }
+  if (conversaId) query.conversa = conversaId
+  return requestApi<Mensagem[]>('/pesquisar', 'GET', { query })
 }
 
 export function getMensagensNovas(ultimaMensagemId: number) {

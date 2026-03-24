@@ -6,7 +6,7 @@
     <div class="flex max-w-[80%] flex-col" :class="isOwn ? 'items-end' : 'items-start'">
       <div
         ref="wrapperRef"
-        class="group/bubble relative flex w-fit items-start"
+        class="group/bubble relative flex w-fit items-end gap-1"
         @mouseleave="onMouseLeave"
         @contextmenu.prevent="onContextMenu"
       >
@@ -33,22 +33,74 @@
           @download="(id: string, nome: string) => emit('download', id, nome)"
           @go-to-message="(id: number) => emit('go-to-message', id)"
         />
+
+        <!-- Indicador de status de entrega (fora da bolha) -->
+        <div v-if="isOwn && mensagem.id > 0" class="mb-1 shrink-0">
+          <svg
+            v-if="mensagem.enviando"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="h-3.5 w-3.5 text-surface-600"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <svg
+            v-else-if="mensagem.visualizada"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2.5"
+            stroke="currentColor"
+            class="h-3.5 w-3.5 text-primary-500"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
+          </svg>
+          <svg
+            v-else-if="mensagem.recebida"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2.5"
+            stroke="currentColor"
+            class="h-3.5 w-3.5 text-surface-600"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
+          </svg>
+          <svg
+            v-else
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2"
+            stroke="currentColor"
+            class="h-3.5 w-3.5 text-surface-600"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
       </div>
 
       <!-- Reações existentes abaixo da bolha -->
       <div
         v-if="mensagem.reacoes && mensagem.reacoes.length > 0"
-        class="flex flex-wrap gap-1 mt-0.5 px-1"
-        :class="isOwn ? 'justify-end' : 'justify-start'"
+        class="mt-0.5 flex flex-wrap gap-1 px-1"
+        :class="isOwn ? 'mr-[19px] justify-end self-end pr-0' : 'justify-start self-start pl-0'"
       >
         <button
           v-for="reacao in mensagem.reacoes"
           :key="reacao.emoji"
-          class="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition hover:bg-surface-100"
+          class="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition hover:bg-surface-100 dark:hover:bg-surface-300"
           :title="emojiNome(reacao.emoji)"
           :class="reacao.reagiu
-            ? 'border-primary-300 bg-primary-50 dark:border-primary-600 dark:bg-primary-900/30'
-            : 'border-surface-200 bg-surface-base'"
+            ? (isOwn
+                ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-surface-200'
+                : 'border-surface-300 bg-surface-300 dark:border-surface-300 dark:bg-surface-200')
+            : 'border-surface-300 bg-surface-100 dark:border-surface-300 dark:bg-surface-200'"
           @click.stop="emit('reagir', mensagem.id, reacao.emoji)"
         >
           <span>{{ reacao.emoji }}</span>

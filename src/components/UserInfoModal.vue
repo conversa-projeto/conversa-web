@@ -19,7 +19,7 @@
       </div>
 
       <div class="-mt-2 flex flex-col items-center text-center">
-        <div class="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-3xl font-semibold text-primary-700 shadow-inner">
+        <div class="flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-5xl font-semibold text-primary-700">
           <img v-if="avatarUrl" :src="avatarUrl" alt="Avatar do usuario" class="h-full w-full object-cover" @error="ocultarAvatar = true" />
           <span v-else>{{ inicialUsuario }}</span>
         </div>

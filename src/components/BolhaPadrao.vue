@@ -1,7 +1,7 @@
 <template>
   <div
     class="min-w-0 overflow-hidden rounded-xl px-2.5 py-0.5"
-    :class="isOwn ? 'bg-gradient-to-r from-primary-700 to-primary-400 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
   >
     <p
       v-if="isGroup && !isOwn"
@@ -10,7 +10,7 @@
       {{ mensagem.remetente }}
     </p>
 
-    <div>
+    <div :class="mensagem.conteudos.length > 1 ? (isOwn ? 'divide-y divide-white/15' : 'divide-y divide-surface-400/30') : ''">
       <MessageContent
         v-for="conteudo in mensagem.conteudos"
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"

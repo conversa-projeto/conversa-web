@@ -1,7 +1,7 @@
 <template>
   <div
     class="rounded-xl px-2.5 py-0.5"
-    :class="isOwn ? 'bg-gradient-to-r from-primary-700 to-primary-400 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
   >
     <p
       v-if="isGroup && !isOwn"

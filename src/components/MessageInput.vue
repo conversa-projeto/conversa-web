@@ -152,13 +152,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { useFilaArquivos } from '../composables/useFilaArquivos'
 import AnexoPopup from './AnexoPopup.vue'
-import CodigoModal from './CodigoModal.vue'
+const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
 import BarraGravacao from './BarraGravacao.vue'
 import FilaArquivosPreview from './FilaArquivosPreview.vue'

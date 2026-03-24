@@ -1,72 +1,93 @@
 import { ref, onUnmounted } from 'vue'
-import hljs from 'highlight.js/lib/core'
-import hljsJavascript from 'highlight.js/lib/languages/javascript'
-import hljsTypescript from 'highlight.js/lib/languages/typescript'
-import hljsPython from 'highlight.js/lib/languages/python'
-import hljsSql from 'highlight.js/lib/languages/sql'
-import hljsJson from 'highlight.js/lib/languages/json'
-import hljsXml from 'highlight.js/lib/languages/xml'
-import hljsCss from 'highlight.js/lib/languages/css'
-import hljsBash from 'highlight.js/lib/languages/bash'
-import hljsCsharp from 'highlight.js/lib/languages/csharp'
-import hljsDelphi from 'highlight.js/lib/languages/delphi'
 
-hljs.registerLanguage('plaintext', () => ({ name: 'Plain Text', contains: [] }))
-hljs.registerLanguage('text', () => ({ name: 'Plain Text', contains: [] }))
-hljs.registerLanguage('texto', () => ({ name: 'Plain Text', contains: [] }))
-hljs.registerLanguage('plain', () => ({ name: 'Plain Text', contains: [] }))
+export { temCodigoFormatado, parseCodeBlocks } from '../utils/codeBlocks'
+export type { SegmentoTexto } from '../utils/codeBlocks'
 
-hljs.registerLanguage('javascript', hljsJavascript)
-hljs.registerLanguage('js', hljsJavascript)
-hljs.registerLanguage('typescript', hljsTypescript)
-hljs.registerLanguage('ts', hljsTypescript)
-hljs.registerLanguage('python', hljsPython)
-hljs.registerLanguage('py', hljsPython)
-hljs.registerLanguage('sql', hljsSql)
-hljs.registerLanguage('json', hljsJson)
-hljs.registerLanguage('xml', hljsXml)
-hljs.registerLanguage('html', hljsXml)
-hljs.registerLanguage('css', hljsCss)
-hljs.registerLanguage('bash', hljsBash)
-hljs.registerLanguage('sh', hljsBash)
-hljs.registerLanguage('csharp', hljsCsharp)
-hljs.registerLanguage('cs', hljsCsharp)
-hljs.registerLanguage('pascal', hljsDelphi)
-hljs.registerLanguage('delphi', hljsDelphi)
+// highlight.js é carregado sob demanda — só quando uma mensagem com código é renderizada.
+// Enquanto não carrega, highlightCodigo retorna texto escapado (sem cores).
+// Quando carrega, hljsReady muda para true → Vue re-renderiza e aplica syntax highlighting.
 
-export interface SegmentoTexto {
-  tipo: 'texto' | 'codigo'
-  conteudo: string
-  linguagem?: string
+let hljsInstance: {
+  registerLanguage: (name: string, lang: any) => void
+  getLanguage: (name: string) => any
+  highlight: (code: string, options: { language: string }) => { value: string }
+  highlightAuto: (code: string) => { value: string }
+} | null = null
+
+let hljsPromise: Promise<void> | null = null
+const hljsReady = ref(false)
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
-export function temCodigoFormatado(texto: string): boolean {
-  return /```\w*\n[\s\S]*?```/.test(texto)
-}
+async function carregarHljs() {
+  if (hljsInstance) return
+  if (hljsPromise) { await hljsPromise; return }
+  hljsPromise = (async () => {
+    const [
+      mod, js, ts, py, sqlLang, jsonLang, xml, cssLang, bash, cs, delphi
+    ] = await Promise.all([
+      import('highlight.js/lib/core'),
+      import('highlight.js/lib/languages/javascript'),
+      import('highlight.js/lib/languages/typescript'),
+      import('highlight.js/lib/languages/python'),
+      import('highlight.js/lib/languages/sql'),
+      import('highlight.js/lib/languages/json'),
+      import('highlight.js/lib/languages/xml'),
+      import('highlight.js/lib/languages/css'),
+      import('highlight.js/lib/languages/bash'),
+      import('highlight.js/lib/languages/csharp'),
+      import('highlight.js/lib/languages/delphi'),
+    ])
 
-export function parseCodeBlocks(texto: string): SegmentoTexto[] {
-  const regex = /```(\w*)\n([\s\S]*?)```/g
-  const segmentos: SegmentoTexto[] = []
-  let ultimo = 0
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(texto)) !== null) {
-    if (match.index > ultimo) {
-      segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo, match.index) })
-    }
-    segmentos.push({ tipo: 'codigo', conteudo: match[2], linguagem: match[1] || undefined })
-    ultimo = match.index + match[0].length
-  }
-  if (ultimo < texto.length) {
-    segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo) })
-  }
-  return segmentos
+    const hljs = mod.default
+
+    hljs.registerLanguage('plaintext', () => ({ name: 'Plain Text', contains: [] }))
+    hljs.registerLanguage('text', () => ({ name: 'Plain Text', contains: [] }))
+    hljs.registerLanguage('texto', () => ({ name: 'Plain Text', contains: [] }))
+    hljs.registerLanguage('plain', () => ({ name: 'Plain Text', contains: [] }))
+
+    hljs.registerLanguage('javascript', js.default)
+    hljs.registerLanguage('js', js.default)
+    hljs.registerLanguage('typescript', ts.default)
+    hljs.registerLanguage('ts', ts.default)
+    hljs.registerLanguage('python', py.default)
+    hljs.registerLanguage('py', py.default)
+    hljs.registerLanguage('sql', sqlLang.default)
+    hljs.registerLanguage('json', jsonLang.default)
+    hljs.registerLanguage('xml', xml.default)
+    hljs.registerLanguage('html', xml.default)
+    hljs.registerLanguage('css', cssLang.default)
+    hljs.registerLanguage('bash', bash.default)
+    hljs.registerLanguage('sh', bash.default)
+    hljs.registerLanguage('csharp', cs.default)
+    hljs.registerLanguage('cs', cs.default)
+    hljs.registerLanguage('pascal', delphi.default)
+    hljs.registerLanguage('delphi', delphi.default)
+
+    hljsInstance = hljs
+    hljsReady.value = true
+  })()
+  await hljsPromise
 }
 
 export function highlightCodigo(codigo: string, linguagem?: string): string {
-  if (linguagem && hljs.getLanguage(linguagem)) {
-    return hljs.highlight(codigo, { language: linguagem }).value
+  // Acessar hljsReady.value para que Vue rastreie a dependência reativa.
+  // Quando hljs terminar de carregar, o componente re-renderiza automaticamente.
+  if (!hljsReady.value || !hljsInstance) {
+    void carregarHljs()
+    return escapeHtml(codigo)
   }
-  return hljs.highlightAuto(codigo).value
+
+  if (linguagem && hljsInstance.getLanguage(linguagem)) {
+    return hljsInstance.highlight(codigo, { language: linguagem }).value
+  }
+  return hljsInstance.highlightAuto(codigo).value
 }
 
 export function useCodeHighlight() {
@@ -104,8 +125,6 @@ export function useCodeHighlight() {
   return {
     codigosCopiados,
     copiarCodigo,
-    temCodigoFormatado,
-    parseCodeBlocks,
     highlightCodigo
   }
 }

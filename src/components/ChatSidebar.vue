@@ -1,7 +1,7 @@
 <template>
   <aside
-    class="relative w-full flex-col border-r border-surface-300 bg-surface-200 md:flex md:max-w-[334px]"
-    :class="sidebarAberta ? 'flex' : 'hidden'"
+    class="relative w-full flex-col border-r border-surface-300 bg-surface-200 md:max-w-[334px]"
+    :class="ocultarCompleta ? 'hidden lg:flex' : sidebarAberta ? 'flex' : 'hidden md:flex'"
   >
     <div class="border-b border-surface-300 p-4">
       <div class="mb-3 flex items-center justify-between gap-2">
@@ -34,7 +34,10 @@
             title="Configuracoes"
             @click="emit('open-settings')"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 0 1 15 0m-15 0a7.5 7.5 0 0 0 15 0m-15 0H3m16.5 0H21m-9-9V3m0 18v-1.5m6.364-11.864 1.06-1.06M4.576 19.424l1.06-1.06m0-12.728-1.06-1.06m14.788 14.788-1.06-1.06" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.279c.066.39.322.72.681.901.37.186.808.194 1.183.034l1.192-.509a1.125 1.125 0 0 1 1.374.486l1.296 2.244a1.125 1.125 0 0 1-.262 1.438l-.98.829a1.125 1.125 0 0 0-.369 1.118c.074.406.074.822 0 1.228.073.431.209.836.37 1.118l.979.83c.42.355.53.954.262 1.437l-1.296 2.245a1.125 1.125 0 0 1-1.374.485l-1.192-.509a1.125 1.125 0 0 0-1.183.034 1.125 1.125 0 0 0-.68.901l-.214 1.28a1.125 1.125 0 0 1-1.11.94h-2.592a1.125 1.125 0 0 1-1.11-.94l-.213-1.28a1.125 1.125 0 0 0-.681-.9 1.125 1.125 0 0 0-1.183-.035l-1.192.509a1.125 1.125 0 0 1-1.374-.485L2.76 17.25a1.125 1.125 0 0 1 .262-1.437l.98-.83c.31-.262.456-.67.369-1.118a6.548 6.548 0 0 1 0-1.228 1.125 1.125 0 0 0-.37-1.118l-.979-.829a1.125 1.125 0 0 1-.262-1.438l1.296-2.244a1.125 1.125 0 0 1 1.374-.486l1.192.509c.375.16.812.152 1.183-.034.36-.18.615-.51.681-.901l.213-1.279Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75A3.75 3.75 0 1 0 12 8.25a3.75 3.75 0 0 0 0 7.5Z" />
+            </svg>
           </button>
           <button class="flex items-center gap-1 rounded px-2 py-1 text-sm text-surface-600 hover:bg-surface-300 hover:text-surface-900" @click="emit('logout')">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
@@ -163,7 +166,7 @@
             @click="selecionarContatoNovaConversa(contato.id)"
           >
             <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
-              <img v-if="contato.avatar_url" :src="contato.avatar_url" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+              <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
               <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
             </div>
             <span>{{ contato.nome }}</span>
@@ -194,6 +197,7 @@ const SipDialerModal = defineAsyncComponent(() => import('./SipDialerModal.vue')
 
 defineProps<{
   sidebarAberta: boolean
+  ocultarCompleta?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -320,6 +324,13 @@ function fecharUsuarioInfo() {
 
 function onAvatarError() {
   void auth.resolverAvatarUrl()
+}
+
+function avatarContato(contato: Contato) {
+  const conversaDireta = chat.conversas.find((conversa) =>
+    conversa.tipo === TipoConversa.Direta && conversa.destinatario_id === contato.id
+  )
+  return contato.avatar_url || conversaDireta?.avatar_url || ''
 }
 
 async function abrirConversa(conversaId: number) {

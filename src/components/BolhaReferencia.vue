@@ -1,7 +1,7 @@
 <template>
   <div
     class="overflow-hidden rounded-xl"
-    :class="isOwn ? 'bg-gradient-to-r from-primary-700 to-primary-400 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
   >
     <p
       v-if="isGroup && !isOwn"
@@ -14,12 +14,12 @@
       v-if="referencia"
       class="border-l-4 px-2.5 py-0.5"
       :class="[
-        isOwn ? 'border-primary-100/40 bg-primary-100/10' : 'border-surface-300 bg-surface-200/50',
+        isOwn ? 'border-white/40 bg-white/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]',
         navegavel ? 'cursor-pointer hover:opacity-80' : ''
       ]"
       @click="abrirReferencia"
     >
-      <span class="text-[10px] font-semibold" :class="isOwn ? 'text-primary-100/60' : 'text-surface-500'">
+      <span class="text-[10px] font-semibold" :class="isOwn ? 'text-white/70' : 'text-surface-500'">
         {{ titulo }}
         <span v-if="referencia.inserida" class="font-normal">
           &middot; {{ formatarHora(referencia.inserida) }}
@@ -53,7 +53,7 @@
       />
     </div>
 
-    <div class="px-2.5 py-0.5">
+    <div class="px-2.5 py-0.5" :class="conteudosProprios.length > 1 ? (isOwn ? 'divide-y divide-white/15' : 'divide-y divide-surface-400/30') : ''">
       <MessageContent
         v-for="conteudo in conteudosProprios"
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"

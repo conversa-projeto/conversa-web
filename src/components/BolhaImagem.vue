@@ -7,7 +7,7 @@
       {{ mensagem.remetente }}
     </p>
 
-    <div>
+    <div class="relative">
       <MessageContent
         v-for="conteudo in mensagem.conteudos"
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
@@ -16,6 +16,7 @@
         :conversa-id="mensagem.conversa_id"
         :reproduzida="mensagem.reproduzida"
         :is-own="isOwn"
+        :mostrar-gradiente-imagem="true"
         :get-anexo-url="getAnexoUrl"
         @open-image="(id, nome) => emit('open-image', id, nome)"
         @image-loaded="emit('image-loaded')"

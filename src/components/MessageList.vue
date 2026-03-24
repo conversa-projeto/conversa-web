@@ -1,5 +1,5 @@
 <template>
-  <div v-if="chat.conversaAtiva" class="relative flex flex-col flex-1 min-h-0 bg-surface-100">
+  <div v-if="chat.conversaAtiva" class="chat-pattern relative flex flex-col flex-1 min-h-0 bg-surface-100">
     <div
       class="flex-1 overflow-auto p-4"
       ref="mensagensContainer"
@@ -58,6 +58,17 @@
             @reagir="(mensagemId, emoji) => chat.reagirMensagem(mensagemId, emoji)"
           />
         </template>
+      </div>
+
+      <!-- Loading paginação para baixo -->
+      <div v-if="carregandoSeguintes" class="pointer-events-none absolute inset-x-0 bottom-2 z-20 flex justify-center">
+        <div class="flex items-center gap-2 rounded-full bg-surface-200 px-4 py-1.5 shadow">
+          <svg class="h-4 w-4 animate-spin text-surface-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span class="text-xs text-surface-500">Carregando mensagens seguintes</span>
+        </div>
       </div>
     </div>
 
@@ -120,8 +131,10 @@ const {
   irParaMensagem,
   distanteDoFinal,
   carregandoHistorico,
+  carregandoSeguintes,
   haNovasMensagens,
-  indicadorNaoLidasAtivo
+  indicadorNaoLidasAtivo,
+  ativarPaginacaoBidirecional
 } = useScrollManager()
 
 const { anexoUrl, abrirAnexo, limparAnexos } = useAttachments()
@@ -458,7 +471,8 @@ defineExpose({
   posicionarAberturaConversaAtiva: posicionarEIndicar,
   rolarParaFinal,
   irParaMensagem,
-  limparAnexos
+  limparAnexos,
+  ativarPaginacaoBidirecional
 })
 </script>
 

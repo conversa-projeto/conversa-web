@@ -5,10 +5,10 @@
       <button class="ml-3 font-bold" @click="erro = ''">&times;</button>
     </div>
 
-    <template v-if="!auth.isAuthenticated">
+    <div v-if="!auth.isAuthenticated" class="chat-pattern min-h-dvh bg-surface-100">
       <RegisterForm v-if="telaCadastro" @go-login="telaCadastro = false" />
       <LoginForm v-else @login-success="onLoginSuccess" @go-register="telaCadastro = true" />
-    </template>
+    </div>
 
     <div v-else class="relative flex h-dvh flex-col overflow-hidden bg-surface-base">
       <div
@@ -23,16 +23,17 @@
       <div class="relative flex flex-1 overflow-hidden">
       <ChatSidebar
         :sidebar-aberta="sidebarAberta"
+        :ocultar-completa="mostrarConfiguracoes"
         @update:sidebar-aberta="sidebarAberta = $event"
         @logout="sair"
         @open-group-modal="abrirModalGrupo = true"
         @conversation-opened="onConversationOpened"
-        @open-settings="mostrarConfiguracoes = true"
+        @open-settings="abrirConfiguracoes"
       />
 
       <main
         class="relative flex-col overflow-hidden bg-surface-100 md:flex md:flex-1"
-        :class="sidebarAberta ? 'hidden md:flex' : 'flex flex-1'"
+        :class="sidebarAberta && !mostrarConfiguracoes ? 'hidden md:flex' : 'flex flex-1'"
         @dragenter.prevent="onDragEnter"
         @dragover.prevent="onDragOver"
         @dragleave.prevent="onDragLeave"
@@ -88,7 +89,7 @@
           @close="fecharConfiguracoes"
         />
 
-        <div v-else-if="!mostrarChamadaNoPrincipal" class="flex flex-1 flex-col items-center justify-center gap-3 text-surface-500">
+        <div v-else-if="!mostrarChamadaNoPrincipal" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-3 bg-surface-100 text-surface-500">
           <span class="select-none">Selecione uma conversa.</span>
           <button class="rounded bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 md:hidden" @click="sidebarAberta = true">
             Ver conversas
@@ -384,8 +385,15 @@ async function onConversationOpened() {
   await messageListRef.value?.posicionarAberturaConversaAtiva()
 }
 
+function abrirConfiguracoes() {
+  chat.conversaAtivaId = null
+  mostrarConfiguracoes.value = true
+  sidebarAberta.value = false
+}
+
 function fecharConfiguracoes() {
   mostrarConfiguracoes.value = false
+  sidebarAberta.value = true
   void sip.inicializarSessao(true)
 }
 
@@ -468,6 +476,7 @@ async function abrirResultadoBusca(mensagemId: number) {
     const ok = await chat.carregarContextoMensagem(conversaId, mensagemId, 30, 30)
     await nextTick()
     if (ok) {
+      messageListRef.value?.ativarPaginacaoBidirecional()
       messageListRef.value?.irParaMensagem(mensagemId)
     } else {
       erro.value = 'Nao foi possivel localizar esta mensagem no contexto da conversa.'

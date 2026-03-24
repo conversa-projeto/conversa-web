@@ -31,15 +31,21 @@
             </p>
             <div
               v-if="isGrupo && chat.usuariosConversaAtiva.length"
-              class="invisible absolute left-0 top-full z-20 mt-1 max-h-48 min-w-[180px] overflow-y-auto rounded border border-surface-200 bg-surface-base py-1 shadow-lg group-hover:visible"
+              class="invisible absolute left-0 top-full z-20 max-h-48 min-w-[200px] overflow-y-auto rounded-lg border border-surface-200 bg-surface-base py-1 shadow-lg group-hover:visible"
+              style="margin-top: -2px; padding-top: 6px"
             >
-              <div
+              <button
                 v-for="u in chat.usuariosConversaAtiva"
                 :key="u.usuario_id"
-                class="px-3 py-1.5 text-sm text-surface-700"
+                class="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
+                @click="abrirChatComMembro(u.usuario_id)"
               >
-                {{ u.nome }}
-              </div>
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-xs font-semibold text-surface-600">
+                  <img v-if="avatarMembro(u)" :src="avatarMembro(u)!" alt="" class="h-full w-full object-cover" />
+                  <span v-else>{{ u.nome.charAt(0).toUpperCase() }}</span>
+                </div>
+                <span class="truncate">{{ u.nome }}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -158,6 +164,7 @@ const emit = defineEmits<{
   'start-call': [tipo: TipoChamada, comTela?: boolean]
   'go-to-message': [id: number]
   'open-group-members': []
+  'open-chat-with': [usuarioId: number]
 }>()
 
 const chat = useChatStore()
@@ -208,6 +215,18 @@ function abrirUsuarioInfo(usuario: UsuarioPopup | null) {
 function fecharUsuarioInfo() {
   mostrarUsuarioInfo.value = false
   usuarioSelecionado.value = null
+}
+
+function avatarMembro(u: { avatar_url?: string | null }): string | null {
+  return u.avatar_url || null
+}
+
+function abrirChatComMembro(usuarioId: number) {
+  const contato = chat.contatos.find(c => c.id === usuarioId)
+  if (contato) {
+    void chat.iniciarConversaDireta(contato)
+    emit('open-chat-with', usuarioId)
+  }
 }
 
 async function pesquisarNoChat() {

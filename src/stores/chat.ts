@@ -24,7 +24,7 @@ export const useChatStore = defineStore('chat', () => {
   const marcandoVisualizacao = new Set<number>()
 
   const mensagemRespondendo = ref<Mensagem | null>(null)
-  const usuariosConversa = ref<Record<number, Array<{ id: number; usuario_id: number; nome: string }>>>({})
+  const usuariosConversa = ref<Record<number, Array<{ id: number; usuario_id: number; nome: string; avatar_url?: string | null }>>>({})
 
   let digitandoDebounceTimer: number | null = null
   let ultimoDigitandoEnviado = 0
@@ -427,11 +427,6 @@ export const useChatStore = defineStore('chat', () => {
     await enviarMensagemComConteudos('', [{ blob, nomeArquivo, mimeType, isAudio }])
   }
   async function carregarContextoMensagem(conversaId: number, mensagemId: number, previas = 30, seguintes = 30) {
-    const atuais = mensagensPorConversa.value[conversaId] || []
-    if (atuais.some(m => m.id === mensagemId)) {
-      return true
-    }
-
     let bloco = await api.getMensagens(conversaId, mensagemId, previas, seguintes)
 
     if (!bloco.some(m => m.id === mensagemId)) {
@@ -441,11 +436,9 @@ export const useChatStore = defineStore('chat', () => {
 
     if (!bloco.length) return false
 
-    const mapa = new Map<number, Mensagem>()
-    for (const msg of atuais) mapa.set(msg.id, msg)
-    for (const msg of bloco) mapa.set(msg.id, msg)
-
-    mensagensPorConversa.value[conversaId] = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+    // Substituir (não merge) para que a paginação bidirecional funcione
+    // a partir do contexto da mensagem encontrada.
+    mensagensPorConversa.value[conversaId] = [...bloco].sort((a, b) => a.id - b.id)
     return mensagensPorConversa.value[conversaId].some(m => m.id === mensagemId)
   }
   async function buscarNaConversa(texto: string) {
@@ -461,7 +454,8 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    const resultado = await api.pesquisarMensagens(auth.user.id, termo)
+    const resultado = await api.pesquisarMensagens(auth.user.id, termo, conversaAtivaId.value!)
+    // Filtro no frontend como fallback caso o backend não filtre por conversa
     resultadosBuscaConversa.value = resultado.filter((mensagem) => mensagem.conversa_id === conversaAtivaId.value)
   }
 

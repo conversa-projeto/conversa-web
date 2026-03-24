@@ -1,5 +1,5 @@
 import { TipoConteudo, type Mensagem } from '../types/api'
-import { temCodigoFormatado } from '../composables/useCodeHighlight'
+import { temCodigoFormatado } from './codeBlocks'
 import { obterReferenciaPrincipal } from './messageReferences'
 import { isMensagemSoEmoji } from './formatters'
 
