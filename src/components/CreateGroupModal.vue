@@ -40,7 +40,7 @@
 
       <div class="mt-4 flex justify-end gap-2">
         <button class="rounded border border-surface-300 px-3 py-2 text-sm hover:bg-surface-100" @click="cancelar">Cancelar</button>
-        <button class="rounded bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700" @click="confirmar">Criar</button>
+        <button class="rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700" @click="confirmar">Criar</button>
       </div>
     </div>
   </div>

@@ -10,14 +10,6 @@
     </button>
       <aside class="border-b border-surface-200 bg-surface-50 md:w-72 md:shrink-0 md:border-b-0 md:border-r">
         <div class="border-b border-surface-200 p-5" :class="inline ? '' : 'pr-16'">
-          <button
-            v-if="inline"
-            class="mb-2 flex items-center gap-1.5 text-sm text-surface-500 transition hover:text-surface-800"
-            @click="fechar"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
-            Voltar
-          </button>
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-surface-500">Configuracoes</p>
             <h2 class="mt-1 text-lg font-semibold text-surface-900">Preferencias da conta</h2>

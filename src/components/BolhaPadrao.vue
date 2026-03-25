@@ -1,6 +1,6 @@
 <template>
   <div
-    class="min-w-0 overflow-hidden rounded-xl px-2.5 py-0.5"
+    class="min-w-0 overflow-hidden rounded-xl px-2.5 pb-0.5 pt-1"
     :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
   >
     <p
@@ -37,7 +37,7 @@
         v-if="!somenteAudio"
         :mensagem="mensagem"
         :is-own="isOwn"
-        variante="padrao"
+        :variante="somenteTexto ? 'texto' : 'padrao'"
       />
     </div>
   </div>
@@ -66,5 +66,10 @@ const emit = defineEmits<{
 const somenteAudio = computed(() =>
   props.mensagem.conteudos.length > 0 &&
   props.mensagem.conteudos.every((c) => Number(c.tipo) === TipoConteudo.Audio || Number(c.tipo) === TipoConteudo.GravacaoAudio)
+)
+
+const somenteTexto = computed(() =>
+  props.mensagem.conteudos.length > 0 &&
+  props.mensagem.conteudos.every((c) => Number(c.tipo) === TipoConteudo.Texto)
 )
 </script>

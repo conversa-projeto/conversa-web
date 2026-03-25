@@ -29,20 +29,6 @@
             <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><circle cx="12" cy="12" r="4.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25v1.5m0 16.5v1.5M4.219 4.219l1.06 1.06m12.442 12.442 1.06 1.06M2.25 12h1.5m16.5 0h1.5M4.219 19.781l1.06-1.06m12.442-12.442 1.06-1.06" /></svg>
             <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
           </button>
-          <button
-            class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-300 hover:text-surface-900"
-            title="Configuracoes"
-            @click="emit('open-settings')"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.279c.066.39.322.72.681.901.37.186.808.194 1.183.034l1.192-.509a1.125 1.125 0 0 1 1.374.486l1.296 2.244a1.125 1.125 0 0 1-.262 1.438l-.98.829a1.125 1.125 0 0 0-.369 1.118c.074.406.074.822 0 1.228.073.431.209.836.37 1.118l.979.83c.42.355.53.954.262 1.437l-1.296 2.245a1.125 1.125 0 0 1-1.374.485l-1.192-.509a1.125 1.125 0 0 0-1.183.034 1.125 1.125 0 0 0-.68.901l-.214 1.28a1.125 1.125 0 0 1-1.11.94h-2.592a1.125 1.125 0 0 1-1.11-.94l-.213-1.28a1.125 1.125 0 0 0-.681-.9 1.125 1.125 0 0 0-1.183-.035l-1.192.509a1.125 1.125 0 0 1-1.374-.485L2.76 17.25a1.125 1.125 0 0 1 .262-1.437l.98-.83c.31-.262.456-.67.369-1.118a6.548 6.548 0 0 1 0-1.228 1.125 1.125 0 0 0-.37-1.118l-.979-.829a1.125 1.125 0 0 1-.262-1.438l1.296-2.244a1.125 1.125 0 0 1 1.374-.486l1.192.509c.375.16.812.152 1.183-.034.36-.18.615-.51.681-.901l.213-1.279Z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75A3.75 3.75 0 1 0 12 8.25a3.75 3.75 0 0 0 0 7.5Z" />
-            </svg>
-          </button>
-          <button class="flex items-center gap-1 rounded px-2 py-1 text-sm text-surface-600 hover:bg-surface-300 hover:text-surface-900" @click="emit('logout')">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
-            Sair
-          </button>
         </div>
       </div>
 

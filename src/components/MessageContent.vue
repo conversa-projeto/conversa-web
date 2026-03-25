@@ -68,7 +68,7 @@
           :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
           alt="Imagem"
           class="block max-h-64"
-          :class="imagensCarregadas.has(conteudo.ordem) ? 'cursor-zoom-in' : ''"
+          :class="imagensCarregadas.has(conteudo.ordem) ? 'cursor-default' : ''"
           decoding="async"
           @load="onImagemCarregada(conteudo)"
           @click="imagensCarregadas.has(conteudo.ordem) && emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"

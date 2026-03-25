@@ -97,11 +97,42 @@ export function useImageViewer(
     resetarZoom()
   }
 
+  async function copiarImagemParaClipboard() {
+    if (!imagemTelaCheiaUrl.value) return
+    try {
+      const resp = await fetch(imagemTelaCheiaUrl.value)
+      const blob = await resp.blob()
+      const pngBlob = blob.type === 'image/png'
+        ? blob
+        : await new Promise<Blob>((resolve) => {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.onload = () => {
+              const canvas = document.createElement('canvas')
+              canvas.width = img.naturalWidth
+              canvas.height = img.naturalHeight
+              canvas.getContext('2d')!.drawImage(img, 0, 0)
+              canvas.toBlob((b) => resolve(b!), 'image/png')
+            }
+            img.src = imagemTelaCheiaUrl.value
+          })
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': pngBlob })
+      ])
+    } catch {
+      // Silently fail if clipboard API not available
+    }
+  }
+
   function aoTeclaGlobal(event: KeyboardEvent) {
     if (!imagemTelaCheiaAberta.value) return
     if (event.key === 'Escape') { fecharImagemTelaCheia(); return }
     if (event.key === '+' || event.key === '=') { ajustarZoomImagem(1); return }
-    if (event.key === '-') ajustarZoomImagem(-1)
+    if (event.key === '-') { ajustarZoomImagem(-1); return }
+    if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+      event.preventDefault()
+      void copiarImagemParaClipboard()
+    }
   }
 
   watch(imagemTelaCheiaAberta, (aberta) => {
@@ -131,6 +162,7 @@ export function useImageViewer(
     finalizarArrasto,
     resetarZoom,
     resetarZoomComTransicao,
-    transicaoAtiva
+    transicaoAtiva,
+    copiarImagemParaClipboard
   }
 }

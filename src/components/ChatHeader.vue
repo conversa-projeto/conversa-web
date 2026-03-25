@@ -11,7 +11,7 @@
           </button>
           <button
             type="button"
-            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-700 transition hover:ring-2 hover:ring-primary-200"
+            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-sm font-semibold text-surface-800 transition hover:ring-2 hover:ring-surface-300"
             :disabled="!perfilConversaAtiva"
             :class="perfilConversaAtiva ? 'cursor-pointer' : 'cursor-default'"
             @click="abrirUsuarioInfo(perfilConversaAtiva)"

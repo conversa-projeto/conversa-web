@@ -20,20 +20,39 @@
         </svg>
         Conexao em tempo real indisponivel — usando atualizacao periodica
       </div>
-      <div class="relative flex flex-1 overflow-hidden">
+      <div class="relative flex flex-1 overflow-hidden pb-10 md:pb-0">
+      <NavBar v-model:secao-ativa="secaoAtiva" @logout="sair" />
+
+      <!-- Configurações -->
+      <ProfileSettingsModal
+        v-if="secaoAtiva === 'config'"
+        :aberta="true"
+        inline
+        class="flex-1 bg-surface-base"
+        @close="fecharConfiguracoes"
+      />
+
+      <!-- Tela "Em desenvolvimento" para seções não implementadas -->
+      <div v-else-if="secaoAtiva !== 'chat'" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-4 bg-surface-100 text-surface-500">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="h-16 w-16">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+        </svg>
+        <span class="text-lg font-medium">Em desenvolvimento</span>
+      </div>
+
       <ChatSidebar
+        v-show="secaoAtiva === 'chat'"
         :sidebar-aberta="sidebarAberta"
-        :ocultar-completa="mostrarConfiguracoes"
         @update:sidebar-aberta="sidebarAberta = $event"
         @logout="sair"
         @open-group-modal="abrirModalGrupo = true"
         @conversation-opened="onConversationOpened"
-        @open-settings="abrirConfiguracoes"
       />
 
       <main
-        class="relative flex-col overflow-hidden bg-surface-100 md:flex md:flex-1"
-        :class="sidebarAberta && !mostrarConfiguracoes ? 'hidden md:flex' : 'flex flex-1'"
+        v-show="secaoAtiva === 'chat'"
+        class="chat-pattern relative flex-col overflow-hidden bg-surface-100 md:flex md:flex-1"
+        :class="sidebarAberta ? 'hidden md:flex' : 'flex flex-1'"
         @dragenter.prevent="onDragEnter"
         @dragover.prevent="onDragOver"
         @dragleave.prevent="onDragLeave"
@@ -66,27 +85,20 @@
         />
 
         <ChatHeader
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           @update:sidebar-aberta="sidebarAberta = $event"
           @start-call="solicitarChamada"
           @go-to-message="abrirResultadoBusca"
           @open-group-members="modalMembrosGrupo = true"
         />
 
-        <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes" />
+        <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal" />
 
         <MessageList
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           ref="messageListRef"
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
-        />
-
-        <ProfileSettingsModal
-          v-else-if="mostrarConfiguracoes && !mostrarChamadaNoPrincipal"
-          :aberta="true"
-          inline
-          @close="fecharConfiguracoes"
         />
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-3 bg-surface-100 text-surface-500">
@@ -98,7 +110,7 @@
 
         <MessageInput
           ref="messageInputRef"
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal && !mostrarConfiguracoes"
+          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
@@ -138,6 +150,7 @@
       @drag-move="processarArrasto"
       @drag-end="finalizarArrasto"
       @reset-zoom="resetarZoomComTransicao"
+      @copy="copiarImagemParaClipboard"
     />
 
     <ImagePreviewModal
@@ -223,6 +236,7 @@ import VideoUpgradeModal from './components/VideoUpgradeModal.vue'
 import AddUserToCallModal from './components/AddUserToCallModal.vue'
 import CallWindow from './CallWindow.vue'
 import UploadIndicador from './components/UploadIndicador.vue'
+import NavBar from './components/NavBar.vue'
 
 const auth = useAuthStore()
 const chat = useChatStore()
@@ -239,8 +253,8 @@ function bloquearContextMenu(e: MouseEvent) {
 
 const erro = ref('')
 const telaCadastro = ref(false)
+const secaoAtiva = ref('chat')
 const sidebarAberta = ref(!chat.conversaAtivaId)
-const mostrarConfiguracoes = ref(false)
 const abrirModalGrupo = ref(false)
 const modalMembrosGrupo = ref(false)
 const modalParticipantesChamada = ref(false)
@@ -275,6 +289,10 @@ const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null)
 
 const { garantirAnexoUrl, anexosUrl, limparAnexos } = useAttachments()
 
+watch(() => chat.conversaAtivaId, (id) => {
+  if (id) nextTick(() => messageInputRef.value?.focarInput())
+})
+
 const {
   sairDaChamadaAtual,
   upgradeParaVideoUI,
@@ -298,7 +316,8 @@ const {
   processarArrasto,
   finalizarArrasto,
   resetarZoomComTransicao,
-  transicaoAtiva: imagemTransicaoAtiva
+  transicaoAtiva: imagemTransicaoAtiva,
+  copiarImagemParaClipboard
 } = useImageViewer(garantirAnexoUrl, anexosUrl)
 
 const {
@@ -381,18 +400,12 @@ function fecharModalEncaminhamento() {
 
 async function onConversationOpened() {
   sidebarAberta.value = false
-  mostrarConfiguracoes.value = false
+  secaoAtiva.value = 'chat'
   await messageListRef.value?.posicionarAberturaConversaAtiva()
 }
 
-function abrirConfiguracoes() {
-  chat.conversaAtivaId = null
-  mostrarConfiguracoes.value = true
-  sidebarAberta.value = false
-}
-
 function fecharConfiguracoes() {
-  mostrarConfiguracoes.value = false
+  secaoAtiva.value = 'chat'
   sidebarAberta.value = true
   void sip.inicializarSessao(true)
 }

@@ -52,8 +52,22 @@ export function useScrollManager() {
     mensagensContainer.value.scrollTop = mensagensContainer.value.scrollHeight
   }
 
-  /** Scroll animado para o final com easing (usado ao clicar no botão "novas mensagens") */
-  function rolarParaFinalAnimado() {
+  /**
+   * Scroll animado para o final com easing.
+   * Se há um gap (não estamos nas mensagens mais recentes), recarrega
+   * as mensagens mais recentes e posiciona no final instantaneamente.
+   */
+  async function rolarParaFinalAnimado() {
+    if (!semMaisSeguintes) {
+      const conversaId = chat.conversaAtivaId
+      if (!conversaId) return
+      await chat.recarregarMensagensRecentes(conversaId)
+      semMaisSeguintes = true
+      await nextTick()
+      rolarParaFinal()
+      return
+    }
+
     const container = mensagensContainer.value
     if (!container) return
     const inicio = container.scrollTop
@@ -92,15 +106,27 @@ export function useScrollManager() {
   /**
    * Scroll suave até uma mensagem específica, com destaque visual temporário.
    * Usado para navegar até uma mensagem referenciada (resposta, busca, etc).
+   * Se a mensagem não estiver no DOM, carrega o contexto dela via API.
    */
-  function irParaMensagem(mensagemId: number) {
-    const node = document.getElementById(`msg-${mensagemId}`)
-    if (!node) return
+  async function irParaMensagem(mensagemId: number) {
+    let node = document.getElementById(`msg-${mensagemId}`)
+
+    if (!node) {
+      const conversaId = chat.conversaAtivaId
+      if (!conversaId) return
+      const ok = await chat.carregarContextoMensagem(conversaId, mensagemId, 30, 30)
+      if (!ok) return
+      semMaisSeguintes = false
+      await nextTick()
+      node = document.getElementById(`msg-${mensagemId}`)
+      if (!node) return
+    }
+
     node.scrollIntoView({ behavior: 'smooth', block: 'center' })
     node.classList.add('ring-2', 'ring-amber-400')
     if (highlightTimer) window.clearTimeout(highlightTimer)
     highlightTimer = window.setTimeout(() => {
-      node.classList.remove('ring-2', 'ring-amber-400')
+      node!.classList.remove('ring-2', 'ring-amber-400')
       highlightTimer = 0
     }, 1200)
   }

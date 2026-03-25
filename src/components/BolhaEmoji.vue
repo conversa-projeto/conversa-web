@@ -1,5 +1,5 @@
 <template>
-  <div class="w-fit px-2.5 py-1">
+  <div class="w-fit py-1">
     <p
       v-if="isGroup && !isOwn"
       class="mb-0.5 w-full text-xs font-semibold text-surface-500"
@@ -7,7 +7,7 @@
       {{ mensagem.remetente }}
     </p>
 
-    <div>
+    <div class="flex flex-col" :class="isOwn ? 'items-end' : 'items-start'">
       <p class="text-4xl leading-tight">{{ mensagem.conteudos[0].conteudo }}</p>
 
       <MensagemStatus

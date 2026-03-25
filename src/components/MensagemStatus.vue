@@ -14,7 +14,7 @@ import { computed } from 'vue'
 import type { Mensagem } from '../types/api'
 import { formatarHora } from '../utils/formatters'
 
-export type VarianteStatus = 'imagem' | 'codigo' | 'emoji' | 'texto-curto' | 'padrao'
+export type VarianteStatus = 'imagem' | 'codigo' | 'emoji' | 'texto-curto' | 'texto' | 'padrao'
 
 const props = defineProps<{
   mensagem: Mensagem
@@ -29,9 +29,11 @@ const classeContainer = computed(() => {
     case 'codigo':
       return 'mt-0.5 px-2.5 pb-0.5'
     case 'emoji':
-      return 'mt-0.5 rounded-full px-2 py-0.5 w-fit ml-auto ' + (props.isOwn ? 'bg-primary-600 dark:bg-primary-700' : 'bg-surface-300 dark:bg-surface-200')
+      return 'mt-0.5 rounded-full px-2 py-0.5 w-fit ' + (props.isOwn ? 'bg-primary-600 dark:bg-primary-700' : 'bg-surface-300 dark:bg-surface-200')
     case 'texto-curto':
       return '-mt-1'
+    case 'texto':
+      return '-mt-1.5'
     default:
       return 'mt-0.5'
   }

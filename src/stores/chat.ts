@@ -1005,6 +1005,10 @@ export const useChatStore = defineStore('chat', () => {
     desconectarWebSocket()
   }
 
+  async function recarregarMensagensRecentes(conversaId: number) {
+    await carregarMensagens(conversaId)
+  }
+
   return {
     contatos,
     conversas,
@@ -1051,7 +1055,8 @@ export const useChatStore = defineStore('chat', () => {
     cancelarResposta,
     adicionarMembroGrupo,
     removerMembroGrupo,
-    reagirMensagem
+    reagirMensagem,
+    recarregarMensagensRecentes
   }
 })
 

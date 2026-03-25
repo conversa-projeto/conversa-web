@@ -6,7 +6,8 @@
     <div class="flex max-w-[80%] flex-col" :class="isOwn ? 'items-end' : 'items-start'">
       <div
         ref="wrapperRef"
-        class="group/bubble relative flex w-fit items-end gap-1"
+        class="group/bubble relative flex w-fit items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
+        :class="isOwn ? 'before:-left-8' : 'before:-right-8'"
         @mouseleave="onMouseLeave"
         @contextmenu.prevent="onContextMenu"
       >
@@ -18,6 +19,7 @@
           :menu-aberto="menuAcoesAberto"
           @reply="(msg) => emit('reply', msg)"
           @forward="(msg) => emit('forward', msg)"
+          @copiar="copiarMensagem"
           @reagir="(emoji) => emit('reagir', mensagem.id, emoji)"
           @menu-toggle="(aberto) => menuAcoesAberto = aberto"
         />
@@ -91,21 +93,41 @@
         class="mt-0.5 flex flex-wrap gap-1 px-1"
         :class="isOwn ? 'mr-[19px] justify-end self-end pr-0' : 'justify-start self-start pl-0'"
       >
-        <button
+        <div
           v-for="reacao in mensagem.reacoes"
           :key="reacao.emoji"
-          class="flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition hover:bg-surface-100 dark:hover:bg-surface-300"
-          :title="emojiNome(reacao.emoji)"
-          :class="reacao.reagiu
-            ? (isOwn
-                ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-surface-200'
-                : 'border-surface-300 bg-surface-300 dark:border-surface-300 dark:bg-surface-200')
-            : 'border-surface-300 bg-surface-100 dark:border-surface-300 dark:bg-surface-200'"
-          @click.stop="emit('reagir', mensagem.id, reacao.emoji)"
+          class="group/reacao relative"
         >
-          <span>{{ reacao.emoji }}</span>
-          <span class="text-surface-500">{{ reacao.quantidade }}</span>
-        </button>
+          <button
+            class="reacao-btn flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition"
+            :class="reacao.reagiu ? 'reacao-reagiu' : 'reacao-normal'"
+            @click.stop="emit('reagir', mensagem.id, reacao.emoji)"
+          >
+            <span>{{ reacao.emoji }}</span>
+            <span class="text-surface-500">{{ reacao.quantidade }}</span>
+          </button>
+
+          <!-- Tooltip com usuários que reagiram -->
+          <div
+            v-if="reacao.usuarios && reacao.usuarios.length > 0"
+            class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden w-max -translate-x-1/2 rounded-lg border border-surface-300 bg-surface-100 px-2 py-1.5 shadow-lg group-hover/reacao:block dark:border-surface-500 dark:bg-surface-200"
+          >
+            <div class="flex flex-col gap-1">
+              <div
+                v-for="u in reacao.usuarios"
+                :key="u.usuario_id"
+                class="flex items-center gap-2"
+              >
+                <div class="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-[9px] font-semibold text-primary-700">
+                  <img v-if="u.avatar_url" :src="u.avatar_url" alt="" class="h-full w-full object-cover" />
+                  <span v-else>{{ u.nome.charAt(0).toUpperCase() }}</span>
+                </div>
+                <span class="text-xs text-surface-700 dark:text-surface-600">{{ u.nome }}</span>
+                <span class="text-[10px] text-surface-500">{{ formatarHoraReacao(u.reagido_em) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -114,6 +136,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Mensagem } from '../types/api'
+import { TipoConteudo } from '../types/api'
 import { classificarMensagem, TipoExibicaoMensagem } from '../utils/classificarMensagem'
 import MensagemAcoes from './MensagemAcoes.vue'
 import { emojiNome } from '../utils/emojiNomes'
@@ -155,6 +178,49 @@ function onContextMenu() {
   if (props.mensagem.id > 0 && acoesRef.value) {
     acoesRef.value.abrirViaContextMenu()
   }
+}
+
+async function copiarMensagem(msg: Mensagem) {
+  const imagemConteudo = msg.conteudos.find(c => Number(c.tipo) === TipoConteudo.Imagem)
+  if (imagemConteudo) {
+    try {
+      const url = props.getAnexoUrl(imagemConteudo.conteudo)
+      const resp = await fetch(url)
+      const blob = await resp.blob()
+      const pngBlob = blob.type === 'image/png'
+        ? blob
+        : await new Promise<Blob>((resolve) => {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.onload = () => {
+              const canvas = document.createElement('canvas')
+              canvas.width = img.naturalWidth
+              canvas.height = img.naturalHeight
+              canvas.getContext('2d')!.drawImage(img, 0, 0)
+              canvas.toBlob((b) => resolve(b!), 'image/png')
+            }
+            img.src = url
+          })
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+    } catch { /* silently fail */ }
+    return
+  }
+
+  const textos = msg.conteudos
+    .filter(c => Number(c.tipo) === TipoConteudo.Texto)
+    .map(c => c.conteudo)
+    .join('\n')
+  if (textos) {
+    await navigator.clipboard.writeText(textos)
+  }
+}
+
+function formatarHoraReacao(data: string): string {
+  const d = new Date(data.endsWith('Z') ? data : data + 'Z')
+  const agora = new Date()
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === agora.toDateString()) return hora
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + hora
 }
 
 const tipoExibicao = computed(() => classificarMensagem(props.mensagem))

@@ -130,10 +130,18 @@ export interface MensagemReferencia {
   } | null
 }
 
+export interface ReacaoUsuario {
+  usuario_id: number
+  nome: string
+  avatar_url?: string | null
+  reagido_em: string
+}
+
 export interface Reacao {
   emoji: string
   quantidade: number
   reagiu: boolean
+  usuarios?: ReacaoUsuario[]
 }
 
 export interface Mensagem {

@@ -2,13 +2,14 @@
   <div
     v-if="aberta"
     class="fixed inset-0 z-30 flex flex-col items-center justify-center overflow-hidden bg-black/90"
-    @click.self="emit('close')"
+    @click.self="menuContexto ? (menuContexto = null) : emit('close')"
+    @mousedown="fecharMenu"
     @mousemove="emit('drag-move', $event)"
     @mouseup="emit('drag-end')"
     @mouseleave="emit('drag-end')"
   >
     <div class="flex flex-1 items-center justify-center p-4" @click.self="emit('close')">
-      <div class="relative" :style="!imagemCarregada ? { minHeight: '12rem', minWidth: '16rem' } : {}">
+      <div class="relative" :style="!imagemCarregada ? { minHeight: '12rem', minWidth: '16rem' } : {}" @click.self="emit('close')">
         <img
           :src="url"
           :alt="nome"
@@ -20,9 +21,28 @@
           :style="{ transform: `scale(${zoom}) translate(${translateX / zoom}px, ${translateY / zoom}px)` }"
           @load="imagemCarregada = true"
           @wheel.prevent="(e) => emit('zoom-wheel', e)"
-          @mousedown.prevent="emit('drag-start', $event)"
+          @mousedown.left.prevent="emit('drag-start', $event)"
           @dblclick.prevent="emit('reset-zoom')"
+          @contextmenu.prevent="menuContexto = { x: $event.clientX, y: $event.clientY }"
         />
+
+        <!-- Menu de contexto customizado -->
+        <div
+          v-if="menuContexto"
+          class="fixed z-50 min-w-40 rounded-lg border border-surface-200 bg-surface-base py-1 shadow-xl"
+          :style="{ left: menuContexto.x + 'px', top: menuContexto.y + 'px' }"
+        >
+          <button
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 hover:bg-surface-100"
+            @click="emit('copy'); menuContexto = null"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
+              <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
+            </svg>
+            Copiar imagem
+          </button>
+        </div>
         <!-- Overlay de carregamento sobre a imagem -->
         <div v-if="!imagemCarregada" class="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div class="flex flex-col items-center gap-3">
@@ -36,12 +56,22 @@
       </div>
     </div>
 
-    <div class="relative z-10 mb-4 flex items-center gap-3 rounded-full bg-black/60 px-5 py-2 backdrop-blur-sm">
-      <button class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-base/15 text-white text-lg hover:bg-surface-base/25" @click="emit('zoom-out')">-</button>
-      <span class="min-w-14 text-center text-xs text-white/70">{{ Math.round(zoom * 100) }}%</span>
-      <button class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-base/15 text-white text-lg hover:bg-surface-base/25" @click="emit('zoom-in')">+</button>
-      <div class="mx-2 h-5 w-px bg-surface-base/20"></div>
-      <button class="rounded-full bg-surface-base/15 px-4 py-1.5 text-xs text-white hover:bg-surface-base/25" @click="emit('close')">Fechar</button>
+    <div class="relative z-10 mb-4 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+      <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-out')">-</button>
+      <span class="min-w-10 text-center text-xs text-white/70">{{ Math.round(zoom * 100) }}%</span>
+      <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-in')">+</button>
+      <div class="mx-1 h-5 w-px bg-white/20"></div>
+      <button
+        class="flex h-8 w-8 items-center justify-center rounded-full text-white hover:bg-white/15"
+        title="Copiar imagem (Ctrl+C)"
+        @click="emit('copy')"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
+          <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
+        </svg>
+      </button>
+      <button class="rounded-full px-4 py-1.5 text-xs text-white hover:bg-white/15" @click="emit('close')">Fechar</button>
     </div>
   </div>
 </template>
@@ -61,13 +91,24 @@ const props = defineProps<{
 }>()
 
 const imagemCarregada = ref(false)
+const menuContexto = ref<{ x: number; y: number } | null>(null)
+
+function fecharMenu(e: MouseEvent) {
+  if (menuContexto.value) {
+    menuContexto.value = null
+    e.stopPropagation()
+  }
+}
 
 watch(() => props.url, () => {
   imagemCarregada.value = false
 })
 
 watch(() => props.aberta, (aberta) => {
-  if (!aberta) imagemCarregada.value = false
+  if (!aberta) {
+    imagemCarregada.value = false
+    menuContexto.value = null
+  }
 })
 
 const emit = defineEmits<{
@@ -79,5 +120,6 @@ const emit = defineEmits<{
   'drag-move': [event: MouseEvent]
   'drag-end': []
   'reset-zoom': []
+  'copy': []
 }>()
 </script>

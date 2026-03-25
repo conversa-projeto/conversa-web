@@ -192,7 +192,7 @@ function adicionarArquivosExternos(files: FileList) {
   fila.adicionarArquivos(files)
 }
 
-defineExpose({ adicionarArquivosExternos })
+defineExpose({ adicionarArquivosExternos, focarInput: () => focarTextarea() })
 
 function selecionarArquivo(event: Event) {
   const target = event.target as HTMLInputElement

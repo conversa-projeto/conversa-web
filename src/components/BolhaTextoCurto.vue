@@ -1,6 +1,6 @@
 <template>
   <div
-    class="rounded-xl px-2.5 py-0.5"
+    class="rounded-xl px-2.5 pb-0.5 pt-1"
     :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
   >
     <p

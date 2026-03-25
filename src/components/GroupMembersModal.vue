@@ -31,7 +31,7 @@
           <span class="text-surface-700">{{ membro.nome }}</span>
           <button
             v-if="membro.usuario_id !== auth.user?.id"
-            class="rounded px-2 py-0.5 text-xs text-danger-600 hover:bg-danger-50 dark:bg-danger-900"
+            class="rounded px-2 py-0.5 text-xs text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-white/10"
             :disabled="removendo === membro.id"
             @click="remover(membro)"
           >
@@ -60,7 +60,7 @@
             </option>
           </select>
           <button
-            class="rounded bg-success-600 px-3 py-2 text-sm font-medium text-white hover:bg-success-700 disabled:opacity-50"
+            class="rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
             :disabled="!usuarioSelecionado || adicionando"
             @click="adicionar"
           >
