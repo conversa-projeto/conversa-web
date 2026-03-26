@@ -35,7 +35,13 @@ export const useSipStore = defineStore('sip', () => {
 
   watch(sipError, (valor) => {
     if (!valor) return
-    erro.value = valor instanceof Error ? valor.message : String(valor)
+    if (valor instanceof Error) {
+      erro.value = valor.message
+    } else if (typeof valor === 'string' && valor !== 'true') {
+      erro.value = valor
+    } else {
+      erro.value = 'Falha na conexao do ramal SIP.'
+    }
   })
 
   function limparErro() {

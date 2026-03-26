@@ -2,88 +2,133 @@
   <!-- Desktop: barra vertical à esquerda -->
   <nav class="hidden w-[60px] shrink-0 flex-col items-center justify-between border-r border-surface-300 bg-surface-200 pb-2 md:flex">
     <div class="flex w-full flex-col items-center">
+      <!-- Avatar do usuário -->
       <button
-        v-for="(item, idx) in itensPrincipais"
+        class="relative flex w-full flex-col items-center gap-0.5 px-1 py-2.5 text-[10px] transition"
+        :class="secaoAtiva === 'config'
+          ? 'bg-surface-50 text-primary-500'
+          : 'text-surface-500 hover:bg-surface-300 hover:text-surface-700'"
+        title="Configurações"
+        @click="emit('update:secaoAtiva', 'config')"
+      >
+        <span
+          v-if="secaoAtiva === 'config'"
+          class="absolute inset-y-0 left-0 w-px bg-primary-500"
+        />
+        <span class="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-base font-semibold text-primary-700">
+          <img v-if="avatarUrl" :src="avatarUrl" alt="Perfil" class="h-full w-full object-cover" @error="emit('avatar-error')" />
+          <span v-else>{{ inicialUsuario }}</span>
+        </span>
+      </button>
+
+      <button
+        v-for="item in itensVisiveis"
         :key="item.id"
         class="relative flex w-full flex-col items-center gap-0.5 px-1 py-2.5 text-[10px] transition"
         :class="secaoAtiva === item.id
           ? 'bg-surface-50 text-primary-500'
           : 'text-surface-500 hover:bg-surface-300 hover:text-surface-700'"
-        @click="emit('update:secaoAtiva', item.id)"
+        @click="onItemClick(item.id)"
       >
         <span
           v-if="secaoAtiva === item.id"
-          class="absolute inset-y-0 left-0 w-[3px] bg-primary-500"
+          class="absolute inset-y-0 left-0 w-px bg-primary-500"
         />
-        <!-- Canto arredondado invertido no topo do primeiro botão -->
-        <span
-          v-if="secaoAtiva === item.id && idx === 0"
-          class="pointer-events-none absolute -top-2 right-0 h-2 w-2"
-          style="background: radial-gradient(circle at 0% 100%, transparent 8px, var(--color-surface-50) 8px)"
-        />
-        <component :is="item.icone" class="h-5 w-5" />
+        <span class="relative">
+          <component :is="item.icone" class="h-5 w-5" />
+          <span
+            v-if="item.id === 'ramal' && sipStatus !== 'desconectado'"
+            class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-surface-200"
+            :class="{
+              'bg-success-500': sipStatus === 'conectado',
+              'bg-warning-400': sipStatus === 'conectando',
+              'bg-danger-500': sipStatus === 'erro',
+            }"
+          />
+        </span>
         <span>{{ item.label }}</span>
-      </button>
-    </div>
-
-    <div class="flex w-full flex-col items-center">
-      <button
-        class="relative flex w-full flex-col items-center gap-0.5 px-1 py-2.5 text-[10px] transition"
-        :class="secaoAtiva === 'config'
-          ? 'nav-item-active bg-surface-50 text-primary-500'
-          : 'text-surface-500 hover:bg-surface-300 hover:text-surface-700'"
-        @click="emit('update:secaoAtiva', 'config')"
-      >
-        <span
-          v-if="secaoAtiva === 'config'"
-          class="absolute inset-y-0 left-0 w-[3px] bg-primary-500"
-        />
-        <IconeConfig class="h-5 w-5" />
-        <span>Config</span>
-      </button>
-      <button
-        class="flex w-full flex-col items-center gap-0.5 px-1 py-2.5 text-[10px] text-surface-500 transition hover:bg-surface-300 hover:text-danger-500"
-        title="Sair"
-        @click="emit('logout')"
-      >
-        <IconeSair class="h-5 w-5" />
-        <span>Sair</span>
       </button>
     </div>
   </nav>
 
   <!-- Mobile: barra horizontal no rodapé -->
-  <nav class="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-surface-300 bg-surface-200 py-1 md:hidden">
+  <nav class="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-surface-300 bg-surface-200 md:hidden">
+    <!-- Avatar do usuário -->
     <button
-      v-for="item in [...itensPrincipais, { id: 'config', label: 'Config', icone: IconeConfig }]"
-      :key="item.id"
-      class="relative flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] transition"
-      :class="secaoAtiva === item.id
-        ? 'text-primary-500'
+      class="relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-1 text-[10px] transition"
+      :class="secaoAtiva === 'config'
+        ? 'bg-surface-50 text-primary-500'
         : 'text-surface-500 hover:text-surface-700'"
-      @click="emit('update:secaoAtiva', item.id)"
+      @click="emit('update:secaoAtiva', 'config')"
+    >
+      <span
+        v-if="secaoAtiva === 'config'"
+        class="absolute bottom-0 inset-x-0 h-px bg-primary-500"
+      />
+      <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+        <img v-if="avatarUrl" :src="avatarUrl" alt="Perfil" class="h-full w-full object-cover" @error="emit('avatar-error')" />
+        <span v-else>{{ inicialUsuario }}</span>
+      </span>
+    </button>
+
+    <button
+      v-for="item in itensVisiveis"
+      :key="item.id"
+      class="relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-1 text-[10px] transition"
+      :class="secaoAtiva === item.id
+        ? 'bg-surface-50 text-primary-500'
+        : 'text-surface-500 hover:text-surface-700'"
+      @click="onItemClick(item.id)"
     >
       <span
         v-if="secaoAtiva === item.id"
-        class="absolute bottom-0 left-1/2 h-[3px] w-6 -translate-x-1/2 rounded-t-full bg-primary-500"
+        class="absolute bottom-0 inset-x-0 h-px bg-primary-500"
       />
-      <component :is="item.icone" class="h-5 w-5" />
+      <span class="relative">
+        <component :is="item.icone" class="h-5 w-5" />
+        <span
+          v-if="item.id === 'ramal' && sipStatus !== 'desconectado'"
+          class="absolute -right-1 -top-1 h-2 w-2 rounded-full border border-surface-200"
+          :class="{
+            'bg-success-500': sipStatus === 'conectado',
+            'bg-warning-400': sipStatus === 'conectando',
+            'bg-danger-500': sipStatus === 'erro',
+          }"
+        />
+      </span>
       <span>{{ item.label }}</span>
     </button>
   </nav>
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
+import { computed, h } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   secaoAtiva: string
+  avatarUrl: string
+  inicialUsuario: string
+  sipDisponivel: boolean
+  sipStatus: 'conectado' | 'conectando' | 'erro' | 'desconectado'
 }>()
 
 const emit = defineEmits<{
   'update:secaoAtiva': [secao: string]
-  'logout': []
+  'avatar-error': []
+  'open-dialer': []
 }>()
+
+function onItemClick(id: string) {
+  if (id === 'ramal') {
+    emit('open-dialer')
+  } else {
+    emit('update:secaoAtiva', id)
+  }
+}
+
+const itensVisiveis = computed(() =>
+  itensPrincipais.filter(item => item.id !== 'ramal' || props.sipDisponivel)
+)
 
 const IconeChat = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z' })
@@ -104,15 +149,6 @@ const IconeChamadas = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill
 const IconeRamal = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z' }),
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M13.5 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z' })
-])
-
-const IconeConfig = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.279c.066.39.322.72.681.901.37.186.808.194 1.183.034l1.192-.509a1.125 1.125 0 0 1 1.374.486l1.296 2.244a1.125 1.125 0 0 1-.262 1.438l-.98.829a1.125 1.125 0 0 0-.369 1.118c.074.406.074.822 0 1.228.073.431.209.836.37 1.118l.979.83c.42.355.53.954.262 1.437l-1.296 2.245a1.125 1.125 0 0 1-1.374.485l-1.192-.509a1.125 1.125 0 0 0-1.183.034 1.125 1.125 0 0 0-.68.901l-.214 1.28a1.125 1.125 0 0 1-1.11.94h-2.592a1.125 1.125 0 0 1-1.11-.94l-.213-1.28a1.125 1.125 0 0 0-.681-.9 1.125 1.125 0 0 0-1.183-.035l-1.192.509a1.125 1.125 0 0 1-1.374-.485L2.76 17.25a1.125 1.125 0 0 1 .262-1.437l.98-.83c.31-.262.456-.67.369-1.118a6.548 6.548 0 0 1 0-1.228 1.125 1.125 0 0 0-.37-1.118l-.979-.829a1.125 1.125 0 0 1-.262-1.438l1.296-2.244a1.125 1.125 0 0 1 1.374-.486l1.192.509c.375.16.812.152 1.183-.034.36-.18.615-.51.681-.901l.213-1.279Z' }),
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M12 15.75A3.75 3.75 0 1 0 12 8.25a3.75 3.75 0 0 0 0 7.5Z' })
-])
-
-const IconeSair = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9' })
 ])
 
 const itensPrincipais = [

@@ -1,9 +1,10 @@
 <template>
-  <div class="border-b border-surface-300 bg-surface-50 px-4 py-2">
+  <div class="border-b border-surface-300 bg-surface-50 px-4 py-1.5">
     <div class="mx-auto w-full max-w-[850px]">
-      <div class="mb-2 flex items-center justify-between">
+      <div class="flex items-center justify-between">
         <div class="flex min-w-0 items-center gap-2">
           <button
+            v-if="!props.popout"
             class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200 md:hidden"
             @click="emit('update:sidebar-aberta', true)"
 >
@@ -158,6 +159,10 @@ import type { TipoChamada } from '../types/api'
 import { resolverUsuarioDaConversa } from '../utils/userProfile'
 import type { UsuarioPopup } from '../utils/userProfile'
 import UserInfoModal from './UserInfoModal.vue'
+
+const props = withDefaults(defineProps<{
+  popout?: boolean
+}>(), { popout: false })
 
 const emit = defineEmits<{
   'update:sidebar-aberta': [value: boolean]

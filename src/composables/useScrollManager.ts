@@ -137,7 +137,7 @@ export function useScrollManager() {
 
   /** Calcula a distância em px entre a posição atual e o final do container */
   function obterDistanciaDoFinal(): number {
-    if (!mensagensContainer.value) return 0
+    if (!mensagensContainer.value) return Infinity
     const c = mensagensContainer.value
     return c.scrollHeight - c.scrollTop - c.clientHeight
   }
@@ -757,6 +757,24 @@ export function useScrollManager() {
         // Usuário está longe do final — não scrollar, mostrar indicador flutuante
         haNovasMensagens.value = true
       }
+    }
+  )
+
+  /**
+   * Auto-scroll quando uma reação é adicionada/removida na última mensagem.
+   * Só faz scroll se o usuário já estiver no final do chat (≤ 56px).
+   */
+  watch(
+    () => {
+      const msgs = chat.mensagensAtivas
+      if (!msgs.length) return 0
+      const ultima = msgs[msgs.length - 1]
+      return (ultima.reacoes || []).reduce((acc: number, r: { quantidade: number }) => acc + r.quantidade, 0)
+    },
+    async () => {
+      if (!usuarioNoFimDoChat.value) return
+      await nextTick()
+      rolarParaFinal()
     }
   )
 

@@ -20,8 +20,16 @@
         </svg>
         Conexao em tempo real indisponivel — usando atualizacao periodica
       </div>
-      <div class="relative flex flex-1 overflow-hidden pb-10 md:pb-0">
-      <NavBar v-model:secao-ativa="secaoAtiva" @logout="sair" />
+      <div class="relative flex flex-1 overflow-hidden pb-[50px] md:pb-0">
+      <NavBar
+        v-model:secao-ativa="secaoAtiva"
+        :avatar-url="auth.avatarUrl || ''"
+        :inicial-usuario="inicialUsuarioNav"
+        :sip-disponivel="sip.sipDisponivel"
+        :sip-status="sipStatusNav"
+        @avatar-error="auth.resolverAvatarUrl()"
+        @open-dialer="abrirDiscador = true"
+      />
 
       <!-- Configurações -->
       <ProfileSettingsModal
@@ -30,6 +38,7 @@
         inline
         class="flex-1 bg-surface-base"
         @close="fecharConfiguracoes"
+        @logout="sair"
       />
 
       <!-- Tela "Em desenvolvimento" para seções não implementadas -->
@@ -44,9 +53,9 @@
         v-show="secaoAtiva === 'chat'"
         :sidebar-aberta="sidebarAberta"
         @update:sidebar-aberta="sidebarAberta = $event"
-        @logout="sair"
         @open-group-modal="abrirModalGrupo = true"
         @conversation-opened="onConversationOpened"
+        @popout="abrirChatPopup"
       />
 
       <main
@@ -194,6 +203,8 @@
 
     <VideoUpgradeModal />
 
+    <SipDialerModal :aberta="abrirDiscador" @close="abrirDiscador = false" />
+
     <AddUserToCallModal
       :aberta="modalAdicionarUsuario"
       @close="modalAdicionarUsuario = false"
@@ -202,7 +213,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useSipStore } from './stores/sip'
@@ -237,6 +248,7 @@ import AddUserToCallModal from './components/AddUserToCallModal.vue'
 import CallWindow from './CallWindow.vue'
 import UploadIndicador from './components/UploadIndicador.vue'
 import NavBar from './components/NavBar.vue'
+const SipDialerModal = defineAsyncComponent(() => import('./components/SipDialerModal.vue'))
 
 const auth = useAuthStore()
 const chat = useChatStore()
@@ -254,6 +266,17 @@ function bloquearContextMenu(e: MouseEvent) {
 const erro = ref('')
 const telaCadastro = ref(false)
 const secaoAtiva = ref('chat')
+const inicialUsuarioNav = computed(() => {
+  const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
+  return nome.charAt(0).toUpperCase()
+})
+const sipStatusNav = computed<'conectado' | 'conectando' | 'erro' | 'desconectado'>(() => {
+  if (sip.isRegistered) return 'conectado'
+  if (sip.isConnecting || sip.processandoConexao) return 'conectando'
+  if (sip.erro) return 'erro'
+  return 'desconectado'
+})
+const abrirDiscador = ref(false)
 const sidebarAberta = ref(!chat.conversaAtivaId)
 const abrirModalGrupo = ref(false)
 const modalMembrosGrupo = ref(false)
@@ -497,6 +520,20 @@ async function abrirResultadoBusca(mensagemId: number) {
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao abrir resultado da pesquisa'
   }
+}
+
+function abrirChatPopup(conversaId?: number) {
+  const id = conversaId || chat.conversaAtivaId
+  if (!id) return
+  const largura = 900
+  const altura = 700
+  const esquerda = window.screenX + Math.round((window.outerWidth - largura) / 2)
+  const topo = window.screenY + Math.round((window.outerHeight - altura) / 2)
+  window.open(
+    `/chat-popup.html?conversa=${id}`,
+    `chat-popup-${id}`,
+    `width=${largura},height=${altura},left=${esquerda},top=${topo}`
+  )
 }
 
 async function handleOpenImage(identificador: string, nome: string) {

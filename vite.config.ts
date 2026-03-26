@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { resolve } from 'node:path'
 
 function devUrlPlugin(): Plugin {
   return {
@@ -30,6 +31,10 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 700,
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        'chat-popup': resolve(__dirname, 'chat-popup.html'),
+      },
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) {

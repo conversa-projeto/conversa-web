@@ -8,7 +8,10 @@
     >
       &times;
     </button>
-      <aside class="border-b border-surface-200 bg-surface-50 md:w-72 md:shrink-0 md:border-b-0 md:border-r">
+      <aside
+        class="border-b border-surface-200 bg-surface-50 md:w-72 md:shrink-0 md:border-b-0 md:border-r"
+        :class="subnivelMobile ? 'hidden md:block' : ''"
+      >
         <div class="border-b border-surface-200 p-5" :class="inline ? '' : 'pr-16'">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-surface-500">Configuracoes</p>
@@ -23,7 +26,7 @@
             type="button"
             class="mb-2 w-full rounded-xl px-4 py-3 text-left transition"
             :class="abaAtiva === aba.id ? 'bg-primary-600 text-white shadow-lg' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-900'"
-            @click="abaAtiva = aba.id"
+            @click="selecionarAba(aba.id)"
           >
             <span class="block text-sm font-semibold">{{ aba.titulo }}</span>
             <span class="mt-1 block truncate text-xs opacity-80">{{ aba.descricao }}</span>
@@ -31,10 +34,23 @@
         </div>
       </aside>
 
-      <section class="flex min-h-0 flex-1 flex-col">
+      <section
+        class="flex min-h-0 flex-1 flex-col"
+        :class="!subnivelMobile ? 'hidden md:flex' : ''"
+      >
         <div class="border-b border-surface-200 px-5 py-4">
-          <h3 class="text-base font-semibold text-surface-900">{{ abaAtual?.titulo }}</h3>
-          <p class="mt-1 text-sm text-surface-500">{{ abaAtual?.descricao }}</p>
+          <div class="flex items-center gap-3">
+            <button
+              class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200 md:hidden"
+              @click="voltarMenuMobile"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-surface-600"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+            </button>
+            <div>
+              <h3 class="text-base font-semibold text-surface-900">{{ abaAtual?.titulo }}</h3>
+              <p class="mt-1 text-sm text-surface-500">{{ abaAtual?.descricao }}</p>
+            </div>
+          </div>
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
@@ -84,6 +100,26 @@
                     @change="selecionarAvatar"
                   />
                   <p v-if="erroAvatar" class="mt-2 text-xs text-danger-600">{{ erroAvatar }}</p>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex h-9 w-9 items-center justify-center rounded-lg text-surface-500 transition hover:bg-surface-200 hover:text-surface-900"
+                    :title="isDark ? 'Tema claro' : 'Tema escuro'"
+                    @click="toggleTheme"
+                  >
+                    <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><circle cx="12" cy="12" r="4.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25v1.5m0 16.5v1.5M4.219 4.219l1.06 1.06m12.442 12.442 1.06 1.06M2.25 12h1.5m16.5 0h1.5M4.219 19.781l1.06-1.06m12.442-12.442 1.06-1.06" /></svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex h-9 w-9 items-center justify-center rounded-lg text-danger-500 transition hover:bg-danger-50 hover:text-danger-600"
+                    title="Sair"
+                    @click="emit('logout')"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
+                  </button>
                 </div>
               </div>
             </section>
@@ -192,13 +228,27 @@
               <p v-if="erroDispositivos" class="mb-4 rounded-xl bg-warning-50 dark:bg-warning-900 px-3 py-2 text-sm text-warning-700 dark:text-warning-400">{{ erroDispositivos }}</p>
 
               <div v-if="dispositivosMidia.length" class="space-y-3">
-                <article v-for="dispositivo in dispositivosMidia" :key="dispositivo.id" class="rounded-xl border border-surface-200 bg-surface-50 p-3">
-                  <div class="flex items-start justify-between gap-3">
+                <article
+                  v-for="dispositivo in dispositivosMidia"
+                  :key="dispositivo.id"
+                  class="rounded-xl border p-3"
+                  :class="dispositivo.variante === 'padrao'
+                    ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/30'
+                    : 'border-surface-200 bg-surface-50'"
+                >
+                  <div class="flex items-start justify-between gap-2">
                     <div>
                       <p class="text-sm font-medium text-surface-800">{{ dispositivo.label }}</p>
                       <p class="mt-1 text-xs uppercase tracking-wide text-surface-500">{{ dispositivo.tipo }}</p>
                     </div>
-                    <span class="rounded-full bg-surface-base px-2 py-1 text-xs text-surface-500">{{ dispositivo.id }}</span>
+                    <span
+                      v-if="dispositivo.variante === 'padrao'"
+                      class="shrink-0 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-semibold text-white"
+                    >Padrao</span>
+                    <span
+                      v-else-if="dispositivo.variante === 'comunicacao'"
+                      class="shrink-0 rounded-full bg-surface-300 dark:bg-surface-600 px-2 py-0.5 text-[10px] font-semibold text-surface-700 dark:text-surface-300"
+                    >Comunicacao</span>
                   </div>
                 </article>
               </div>
@@ -313,6 +363,7 @@ import type { SipConfig } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import { sipAtivo } from '../utils/sip'
+import { useTheme } from '../composables/useTheme'
 
 type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip'
 
@@ -320,6 +371,7 @@ type DispositivoMidiaItem = {
   id: string
   label: string
   tipo: string
+  variante?: 'padrao' | 'comunicacao'
 }
 
 type VoipForm = {
@@ -342,7 +394,10 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   close: []
+  logout: []
 }>()
+
+const { isDark, toggle: toggleTheme } = useTheme()
 
 const auth = useAuthStore()
 
@@ -354,6 +409,16 @@ const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
 ]
 
 const abaAtiva = ref<AbaId>('usuario')
+const subnivelMobile = ref<AbaId | null>(null)
+
+function selecionarAba(id: AbaId) {
+  abaAtiva.value = id
+  subnivelMobile.value = id
+}
+
+function voltarMenuMobile() {
+  subnivelMobile.value = null
+}
 
 const senhaNova = ref('')
 const confirmacaoSenha = ref('')
@@ -571,6 +636,7 @@ function detectarNavegador() {
 
 function resetarEstado() {
   abaAtiva.value = 'usuario'
+  subnivelMobile.value = null
   senhaNova.value = ''
   confirmacaoSenha.value = ''
   erro.value = ''
@@ -612,11 +678,16 @@ async function carregarDispositivosMidia() {
     }
 
     const lista = await navigator.mediaDevices.enumerateDevices()
-    dispositivosMidia.value = lista.map((item, index) => ({
-      id: item.deviceId || `dispositivo-${index + 1}`,
-      label: item.label || nomeTipoDispositivo(item.kind, index + 1),
-      tipo: tipoDispositivoFormatado(item.kind),
-    }))
+    dispositivosMidia.value = lista
+      .filter(item => item.label)
+      .map((item, index) => ({
+        id: item.deviceId || `dispositivo-${index + 1}`,
+        label: item.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim(),
+        tipo: tipoDispositivoFormatado(item.kind),
+        variante: item.deviceId === 'default' ? 'padrao' as const
+          : item.deviceId === 'communications' ? 'comunicacao' as const
+          : undefined,
+      }))
   } catch (e) {
     dispositivosMidia.value = []
     erroDispositivos.value = e instanceof Error ? e.message : 'Nao foi possivel listar os dispositivos de midia.'

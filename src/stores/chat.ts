@@ -960,6 +960,18 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function resolverNomeUsuario(usuarioId: number): { nome: string; avatar_url?: string | null } {
+    const auth = useAuthStore()
+    if (usuarioId === auth.user?.id) {
+      return { nome: auth.user.nome || auth.user.login, avatar_url: auth.avatarUrl || auth.user.avatar_url }
+    }
+    const contato = contatos.value.find(c => c.id === usuarioId)
+    if (contato) {
+      return { nome: contato.nome, avatar_url: contato.avatar_url }
+    }
+    return { nome: `Usuário ${usuarioId}` }
+  }
+
   function atualizarReacaoLocal(msg: Mensagem, emoji: string, usuarioId: number, acao?: string) {
     if (!msg.reacoes) msg.reacoes = []
 
@@ -974,16 +986,26 @@ export const useChatStore = defineStore('chat', () => {
       if (reacaoExistente) {
         reacaoExistente.quantidade--
         if (souEu) reacaoExistente.reagiu = false
+        if (reacaoExistente.usuarios) {
+          reacaoExistente.usuarios = reacaoExistente.usuarios.filter(u => u.usuario_id !== usuarioId)
+        }
         if (reacaoExistente.quantidade <= 0) {
           msg.reacoes = msg.reacoes.filter(r => r.emoji !== emoji)
         }
       }
     } else {
+      const info = resolverNomeUsuario(usuarioId)
+      const novoUsuario = { usuario_id: usuarioId, nome: info.nome, avatar_url: info.avatar_url, reagido_em: new Date().toISOString() }
+
       if (reacaoExistente) {
         reacaoExistente.quantidade++
         if (souEu) reacaoExistente.reagiu = true
+        if (!reacaoExistente.usuarios) reacaoExistente.usuarios = []
+        if (!reacaoExistente.usuarios.some(u => u.usuario_id === usuarioId)) {
+          reacaoExistente.usuarios.push(novoUsuario)
+        }
       } else {
-        msg.reacoes.push({ emoji, quantidade: 1, reagiu: souEu })
+        msg.reacoes.push({ emoji, quantidade: 1, reagiu: souEu, usuarios: [novoUsuario] })
       }
     }
   }

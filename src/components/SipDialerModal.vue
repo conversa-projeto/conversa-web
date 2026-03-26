@@ -6,7 +6,7 @@
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-surface-500">Discador SIP</p>
           <h2 class="mt-1 text-lg font-semibold text-surface-900">Ramal {{ sip.sipConfig?.sip_user || 'indisponivel' }}</h2>
         </div>
-        <button class="flex h-10 w-10 items-center justify-center rounded-full text-lg text-surface-500 transition hover:bg-surface-100 hover:text-surface-800" @click="emit('close')">&times;</button>
+        <button class="flex h-10 w-10 items-center justify-center rounded-full text-lg text-surface-500 transition hover:bg-surface-200 hover:text-surface-800" @click="emit('close')">&times;</button>
       </div>
 
       <div class="space-y-5 px-5 py-5">
@@ -32,7 +32,7 @@
             />
             <button
               type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-100 hover:text-surface-900 disabled:opacity-50"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200 hover:text-surface-900 disabled:opacity-50"
               :disabled="!numero"
               @click="apagarUltimoDigito"
             >
@@ -48,7 +48,7 @@
             v-for="tecla in teclas"
             :key="tecla.valor"
             type="button"
-            class="rounded-2xl border border-surface-200 bg-surface-base px-3 py-4 text-center shadow-sm transition hover:border-primary-300 hover:bg-primary-50"
+            class="rounded-2xl border border-surface-200 bg-surface-base px-3 py-4 text-center shadow-sm transition hover:border-primary-300 hover:bg-surface-200"
             @click="pressionarTecla(tecla.valor)"
           >
             <span class="block text-2xl font-semibold text-surface-900">{{ tecla.valor }}</span>
