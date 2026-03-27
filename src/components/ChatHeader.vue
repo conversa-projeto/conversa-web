@@ -21,11 +21,21 @@
             <span v-else>{{ inicialConversa }}</span>
           </button>
           <div class="group relative min-w-0">
-            <h2 class="truncate select-none text-lg font-semibold text-surface-800">
+            <h2 class="truncate select-none text-lg font-semibold leading-tight text-surface-800">
               {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
             </h2>
+            <div class="typing-subtitle" :class="atividadeVisivel ? 'typing-subtitle-open' : ''">
+              <div class="flex max-w-[300px] items-center gap-2.5">
+                <span class="flex items-end gap-[2px]">
+                  <span class="typing-dot" :style="{ animationDelay: '0ms', background: corAtividade }"></span>
+                  <span class="typing-dot" :style="{ animationDelay: '200ms', background: corAtividade }"></span>
+                  <span class="typing-dot" :style="{ animationDelay: '400ms', background: corAtividade }"></span>
+                </span>
+                <span class="truncate text-[10px]" :class="chat.gravandoNaConversaAtiva.length ? 'text-danger-500/70' : 'text-primary-500/70'">{{ textoAtividade }}</span>
+              </div>
+            </div>
             <p
-              v-if="isGrupo && chat.usuariosConversaAtiva.length"
+              v-if="!atividadeVisivel && isGrupo && chat.usuariosConversaAtiva.length"
               class="max-w-[300px] truncate text-xs text-surface-500"
             >
               {{ nomesMembrosGrupo }}
@@ -199,6 +209,35 @@ const nomesMembrosGrupo = computed(() => {
   return chat.usuariosConversaAtiva.map((u: { nome: string }) => u.nome).join(', ')
 })
 
+function formatarAtividade(nomes: string[], acao: string, acaoPlural: string): string {
+  if (nomes.length === 0) return ''
+  if (!isGrupo.value) return `${acao}...`
+  if (nomes.length === 1) return `${nomes[0]} está ${acao.toLowerCase()}...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} ${acaoPlural.toLowerCase()}...`
+  if (nomes.length === 3) return `${nomes[0]}, ${nomes[1]} e ${nomes[2]} ${acaoPlural.toLowerCase()}...`
+  return `${nomes[0]}, ${nomes[1]}, ${nomes[2]} e outras ${nomes.length - 3} pessoas ${acaoPlural.toLowerCase()}...`
+}
+
+const textoDigitando = computed(() =>
+  formatarAtividade(chat.digitandoNaConversaAtiva, 'Digitando', 'estão digitando')
+)
+
+const textoGravando = computed(() =>
+  formatarAtividade(chat.gravandoNaConversaAtiva, 'Gravando áudio', 'estão gravando áudio')
+)
+
+const atividadeVisivel = computed(() =>
+  chat.digitandoNaConversaAtiva.length > 0 || chat.gravandoNaConversaAtiva.length > 0
+)
+
+const textoAtividade = computed(() =>
+  chat.gravandoNaConversaAtiva.length ? textoGravando.value : textoDigitando.value
+)
+
+const corAtividade = computed(() =>
+  chat.gravandoNaConversaAtiva.length ? 'var(--color-danger-500)' : 'var(--color-primary-500)'
+)
+
 watch(() => chat.conversaAtiva, (conversa) => {
   ocultarAvatar.value = false
   if (conversa && conversa.tipo === TipoConversa.Grupo) {
@@ -238,3 +277,30 @@ async function pesquisarNoChat() {
   await chat.buscarNaConversa(buscaNoChat.value)
 }
 </script>
+
+<style>
+@keyframes typing-wave {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+.typing-dot {
+  display: inline-block;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  animation: typing-wave 1.2s ease-in-out infinite;
+}
+.typing-subtitle {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+}
+.typing-subtitle > * {
+  overflow: hidden;
+}
+.typing-subtitle-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+</style>

@@ -3,8 +3,8 @@
     <div class="w-full max-w-md overflow-hidden rounded-3xl bg-surface-base shadow-2xl">
       <div class="flex items-start justify-between border-b border-surface-200 px-5 py-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-surface-500">Discador SIP</p>
-          <h2 class="mt-1 text-lg font-semibold text-surface-900">Ramal {{ sip.sipConfig?.sip_user || 'indisponivel' }}</h2>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-surface-500">Ramal</p>
+          <h2 class="mt-1 text-lg font-semibold text-surface-900">{{ sip.sipConfig?.sip_user || 'Indisponivel' }}</h2>
         </div>
         <button class="flex h-10 w-10 items-center justify-center rounded-full text-lg text-surface-500 transition hover:bg-surface-200 hover:text-surface-800" @click="emit('close')">&times;</button>
       </div>
@@ -56,9 +56,9 @@
           </button>
         </div>
 
-        <div v-if="sip.chamadaEmAndamento" class="rounded-2xl border border-primary-100 bg-primary-50 px-4 py-3">
-          <p class="text-sm font-semibold text-primary-900">Chamada em andamento</p>
-          <p class="mt-1 text-sm text-primary-700">{{ chamadaDestino }}</p>
+        <div v-if="sip.chamadaEmAndamento" class="rounded-2xl border border-primary-100 bg-primary-50 dark:border-primary-800 dark:bg-primary-900/30 px-4 py-3">
+          <p class="text-sm font-semibold text-primary-900 dark:text-primary-200">Chamada em andamento</p>
+          <p class="mt-1 text-sm text-primary-700 dark:text-primary-400">{{ chamadaDestino }}</p>
         </div>
 
         <div class="flex items-center gap-3">
@@ -75,17 +75,32 @@
             {{ sip.processandoConexao ? 'Conectando...' : 'Ligar' }}
           </button>
 
-          <button
-            v-else
-            type="button"
-            class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-danger-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-danger-700"
-            @click="encerrarChamadaAtual"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 9.75c3.75-1.5 9.75-1.5 13.5 0m-13.5 0a18.439 18.439 0 0 0-1.318 4.849A1.5 1.5 0 0 0 5.426 16.5h.258c.398 0 .779-.158 1.06-.439l1.283-1.282a1.5 1.5 0 0 1 1.06-.44h5.826c.398 0 .779.158 1.06.44l1.283 1.282c.281.281.662.439 1.06.439h.258a1.5 1.5 0 0 0 1.494-1.901A18.438 18.438 0 0 0 18.75 9.75m-13.5 0 .963-2.89A1.875 1.875 0 0 1 7.994 5.625h8.012c.807 0 1.523.516 1.781 1.235l.963 2.89" />
-            </svg>
-            Encerrar chamada
-          </button>
+          <template v-else>
+            <button
+              type="button"
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-surface-200 transition hover:bg-surface-200"
+              :class="sip.mutado ? 'bg-warning-100 border-warning-300 dark:bg-warning-900/40 dark:border-warning-700' : ''"
+              @click="sip.mutado ? sip.desmutar() : sip.mutar()"
+            >
+              <svg v-if="!sip.mutado" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-surface-700">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-warning-600 dark:text-warning-400">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m3 3 18 18M12 18.75a6 6 0 0 0 5.854-4.682M9.537 8.463A3 3 0 0 0 9 10.5v2.25a3 3 0 0 0 5.463 1.537M15 10.5V6a3 3 0 0 0-6 0v.75M12 18.75v3.75m-3.75 0h7.5M6 12.75v-1.5" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-danger-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-danger-700"
+              @click="encerrarChamadaAtual"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 9.75c3.75-1.5 9.75-1.5 13.5 0m-13.5 0a18.439 18.439 0 0 0-1.318 4.849A1.5 1.5 0 0 0 5.426 16.5h.258c.398 0 .779-.158 1.06-.439l1.283-1.282a1.5 1.5 0 0 1 1.06-.44h5.826c.398 0 .779.158 1.06.44l1.283 1.282c.281.281.662.439 1.06.439h.258a1.5 1.5 0 0 0 1.494-1.901A18.438 18.438 0 0 0 18.75 9.75m-13.5 0 .963-2.89A1.875 1.875 0 0 1 7.994 5.625h8.012c.807 0 1.523.516 1.781 1.235l.963 2.89" />
+              </svg>
+              Encerrar chamada
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -154,7 +169,7 @@ const destinoFormatado = computed(() => {
   return `sip:${numero.value}@${dominio}`
 })
 
-const chamadaDestino = computed(() => sip.chamada.remoteUri || "" || destinoFormatado.value)
+const chamadaDestino = computed(() => sip.chamadaDestinoUri || destinoFormatado.value)
 const podeLigar = computed(() => !!numero.value.trim() && sip.sipDisponivel)
 
 function pressionarTecla(valor: string) {

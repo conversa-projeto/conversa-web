@@ -1062,6 +1062,7 @@ export const useChatStore = defineStore('chat', () => {
     desconectarWebSocket,
     encerrarTempoReal,
     marcarMensagensComoVisualizadas,
+    digitandoPorConversa,
     digitandoNaConversaAtiva,
     enviarDigitando,
     limparDigitandoConversaAtiva,

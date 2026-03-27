@@ -535,11 +535,11 @@ onBeforeUnmount(() => {
 }
 
 .indicador-digitando::after {
-  background: rgba(34, 197, 94, 0.6);
+  background: color-mix(in srgb, var(--color-primary-500) 60%, transparent);
   box-shadow:
-    0 0 6px 2px rgba(34, 197, 94, 0.4),
-    0 0 16px 4px rgba(34, 197, 94, 0.2),
-    0 0 30px 8px rgba(34, 197, 94, 0.08);
+    0 0 6px 2px color-mix(in srgb, var(--color-primary-500) 40%, transparent),
+    0 0 16px 4px color-mix(in srgb, var(--color-primary-500) 20%, transparent),
+    0 0 30px 8px color-mix(in srgb, var(--color-primary-500) 8%, transparent);
 }
 
 .indicador-gravando::after {
@@ -551,11 +551,11 @@ onBeforeUnmount(() => {
 }
 
 :root.dark .indicador-digitando::after {
-  background: rgba(34, 197, 94, 0.5);
+  background: color-mix(in srgb, var(--color-primary-500) 50%, transparent);
   box-shadow:
-    0 0 6px 2px rgba(34, 197, 94, 0.35),
-    0 0 16px 4px rgba(34, 197, 94, 0.15),
-    0 0 30px 8px rgba(34, 197, 94, 0.06);
+    0 0 6px 2px color-mix(in srgb, var(--color-primary-500) 35%, transparent),
+    0 0 16px 4px color-mix(in srgb, var(--color-primary-500) 15%, transparent),
+    0 0 30px 8px color-mix(in srgb, var(--color-primary-500) 6%, transparent);
 }
 
 :root.dark .indicador-gravando::after {

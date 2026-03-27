@@ -31,7 +31,7 @@
 
         <template v-for="item in itensMensagens" :key="item.key">
           <div v-if="item.tipo === 'dia'" class="my-3 flex justify-center">
-            <span class="rounded-full bg-surface-200 px-3 py-1 text-xs text-surface-600">
+            <span class="rounded-full bg-surface-300 px-3 py-1 text-xs text-surface-700 dark:bg-surface-200 dark:text-surface-500">
               {{ item.label }}
             </span>
           </div>
@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { formatarDiaSeparador } from '../utils/formatters'
@@ -137,7 +137,9 @@ const {
   ativarPaginacaoBidirecional
 } = useScrollManager()
 
-const { anexoUrl, abrirAnexo, limparAnexos } = useAttachments()
+const { anexoUrl, renovarAnexoUrl, abrirAnexo, limparAnexos } = useAttachments()
+
+provide('renovarAnexoUrl', renovarAnexoUrl)
 
 // =====================================================================
 // INDICADOR DE MENSAGENS NÃO LIDAS

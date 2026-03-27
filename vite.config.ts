@@ -41,8 +41,8 @@ export default defineConfig({
             return
           }
 
-          if (id.includes('node_modules/vuesip') || id.includes('node_modules/jssip')) {
-            return 'vuesip'
+          if (id.includes('node_modules/sip.js')) {
+            return 'sipjs'
           }
 
           if (id.includes('node_modules/vue') || id.includes('node_modules/pinia')) {

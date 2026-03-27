@@ -5,24 +5,23 @@
   >
     <div class="flex-1 overflow-hidden">
       <section class="flex h-full flex-col">
-        <div class="px-4 pt-2">
-          <div class="mb-2 flex items-center justify-between">
-            <h2 class="select-none text-xs font-semibold uppercase tracking-wide text-surface-500">Conversas</h2>
+        <div class="flex items-end px-3 pb-3" style="height: 64px">
+          <div class="relative flex min-w-0 flex-1 items-center rounded-full border border-surface-300 bg-surface-50 pr-2 focus-within:border-primary-500">
+            <input
+              v-model="filtroConversa"
+              type="text"
+              class="min-w-0 flex-1 bg-transparent pl-4 pr-1 py-1.5 text-sm text-surface-800 outline-none"
+              placeholder="Pesquisar..."
+            />
             <button
               type="button"
-              class="flex h-7 w-7 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-300 hover:text-surface-700"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:text-surface-700"
               title="Novo grupo"
               @click="emit('open-group-modal')"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>
             </button>
           </div>
-          <input
-            v-model="filtroConversa"
-            type="text"
-            class="mb-2 w-full rounded border border-surface-300 bg-surface-50 px-2 py-1.5 text-sm text-surface-800 outline-none focus:border-primary-500"
-            placeholder="Pesquisar..."
-          />
         </div>
         <div class="flex-1 overflow-auto bg-surface-200">
           <div
@@ -71,6 +70,15 @@
                   </span>
                 </div>
                 <p class="truncate text-xs text-surface-500">{{ conversa.ultima_mensagem_texto || 'Sem mensagens' }}</p>
+              </div>
+              <div
+                v-if="conversasComDigitando.has(conversa.id)"
+                class="mr-2 flex shrink-0 items-center gap-0.5 md:group-hover/conv:hidden"
+                title="Digitando..."
+              >
+                <span class="typing-dot" style="animation-delay: 0ms; background: var(--color-primary-500)"></span>
+                <span class="typing-dot" style="animation-delay: 200ms; background: var(--color-primary-500)"></span>
+                <span class="typing-dot" style="animation-delay: 400ms; background: var(--color-primary-500)"></span>
               </div>
               <button
                 class="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-surface-500 hover:bg-surface-200 hover:text-surface-700 md:group-hover/conv:flex"
@@ -233,6 +241,17 @@ async function abrirConversa(conversaId: number) {
   }
 }
 
+const conversasComDigitando = computed(() => {
+  const resultado = new Set<number>()
+  const userId = auth.user?.id
+  for (const [conversaId, mapa] of chat.digitandoPorConversa) {
+    if (!mapa || mapa.size === 0) continue
+    if (mapa.size === 1 && userId && mapa.has(userId)) continue
+    resultado.add(conversaId)
+  }
+  return resultado
+})
+
 async function selecionarContatoNovaConversa(contatoId: number) {
   filtroConversa.value = ''
   const contato = chat.contatos.find((item: Contato) => item.id === contatoId)
@@ -249,3 +268,17 @@ async function selecionarContatoNovaConversa(contatoId: number) {
 
 
 </script>
+
+<style>
+@keyframes typing-wave {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-4px); }
+}
+.typing-dot {
+  display: inline-block;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  animation: typing-wave 1.2s ease-in-out infinite;
+}
+</style>

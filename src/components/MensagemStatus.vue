@@ -29,7 +29,7 @@ const classeContainer = computed(() => {
     case 'codigo':
       return 'mt-0.5 px-2.5 pb-0.5'
     case 'emoji':
-      return 'mt-0.5 rounded-full px-2 py-0.5 w-fit ' + (props.isOwn ? 'bg-primary-600 dark:bg-primary-700' : 'bg-surface-300 dark:bg-surface-200')
+      return 'mt-0.5 rounded-full px-2 py-0.5 w-fit ' + (props.isOwn ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-200')
     case 'texto-curto':
       return '-mt-1'
     case 'texto':

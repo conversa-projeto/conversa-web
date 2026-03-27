@@ -233,7 +233,7 @@
                   :key="dispositivo.id"
                   class="rounded-xl border p-3"
                   :class="dispositivo.variante === 'padrao'
-                    ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/30'
+                    ? 'border-primary-400 bg-primary-50 dark:border-primary-600 dark:!bg-surface-50'
                     : 'border-surface-200 bg-surface-50'"
                 >
                   <div class="flex items-start justify-between gap-2">
@@ -362,7 +362,6 @@ import { useAuthStore } from '../stores/auth'
 import type { SipConfig } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
-import { sipAtivo } from '../utils/sip'
 import { useTheme } from '../composables/useTheme'
 
 type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip'
@@ -497,7 +496,7 @@ function mapearSipParaForm(data: SipConfig | null | undefined): VoipForm {
     display_name: String(data.display_name || ''),
     domain: String(data.domain || ''),
     ws_server: String(data.ws_server || ''),
-    ativo: sipAtivo(data.ativo),
+    ativo: data.ativo === true,
   }
 }
 

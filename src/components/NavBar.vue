@@ -24,7 +24,7 @@
       <button
         v-for="item in itensVisiveis"
         :key="item.id"
-        class="relative flex w-full flex-col items-center gap-0.5 px-1 py-2.5 text-[10px] transition"
+        class="relative flex w-full flex-col items-center gap-0.5 px-1 py-[7.5px] text-[10px] transition"
         :class="secaoAtiva === item.id
           ? 'bg-surface-50 text-primary-500'
           : 'text-surface-500 hover:bg-surface-300 hover:text-surface-700'"

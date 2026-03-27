@@ -71,6 +71,7 @@
           :class="imagensCarregadas.has(conteudo.ordem) ? 'cursor-default' : ''"
           decoding="async"
           @load="onImagemCarregada(conteudo)"
+          @error="onImagemErro(conteudo)"
           @click="imagensCarregadas.has(conteudo.ordem) && emit('open-image', conteudo.conteudo, conteudo.nome || 'Imagem')"
         />
         <!-- Sombra radial no canto inferior direito para o horário (só em BolhaImagem) -->
@@ -112,6 +113,7 @@
               preload="metadata"
               :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
               class="h-[236px] w-full rounded border border-surface-200 bg-black object-contain"
+              @error="onImagemErro(conteudo)"
             />
           </div>
           <button
@@ -169,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { inject, reactive } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
@@ -179,6 +181,13 @@ import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
 
 const { conexaoLenta } = useConexao()
+const renovarAnexoUrl = inject<(id: string) => Promise<void>>('renovarAnexoUrl')
+
+function onImagemErro(conteudo: ConteudoMensagem) {
+  if (!conteudo.localUrl && conteudo.conteudo && renovarAnexoUrl) {
+    renovarAnexoUrl(conteudo.conteudo)
+  }
+}
 const liberados = reactive(new Set<number>())
 const imagensCarregadas = reactive(new Set<number>())
 
