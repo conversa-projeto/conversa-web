@@ -38,6 +38,8 @@ export const useChatStore = defineStore('chat', () => {
   let ultimoGravandoEnviado = 0
   const gravandoPorConversa = ref<Map<number, Map<number, number>>>(new Map())
 
+  const usuariosOnline = ref<Set<number>>(new Set())
+
   let _tratarEventoChamada: ((evento: EventoChamadaSocket) => void) | null = null
 
   function registrarHandlerChamada(handler: (evento: EventoChamadaSocket) => void) {
@@ -102,6 +104,7 @@ export const useChatStore = defineStore('chat', () => {
     await Promise.all([carregarContatos(), carregarConversas()])
     conectarWebSocket()
     iniciarPolling()
+    void carregarContatosOnline()
 
     // Solicita permissão para notificações na inicialização
     void requestNotificationPermission()
@@ -656,6 +659,11 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    if (evento.tipo === TipoEventoSocket.StatusUsuario && evento.usuario_id != null) {
+      tratarStatusUsuario(evento.usuario_id, !!(evento as Record<string, unknown>).online)
+      return
+    }
+
     if (evento.tipo && evento.tipo >= TipoEventoSocket.ChamadaRecebida && evento.tipo <= TipoEventoSocket.VideoAtivado && _tratarEventoChamada) {
       _tratarEventoChamada(evento as EventoChamadaSocket)
       return
@@ -1022,6 +1030,29 @@ export const useChatStore = defineStore('chat', () => {
     atualizarReacaoLocal(msg, evento.emoji, evento.usuario_id, evento.acao)
   }
 
+  function tratarStatusUsuario(usuarioId: number, online: boolean) {
+    const novoSet = new Set(usuariosOnline.value)
+    if (online) {
+      novoSet.add(usuarioId)
+    } else {
+      novoSet.delete(usuarioId)
+    }
+    usuariosOnline.value = novoSet
+  }
+
+  function estaOnline(usuarioId: number): boolean {
+    return usuariosOnline.value.has(usuarioId)
+  }
+
+  async function carregarContatosOnline() {
+    try {
+      const ids = await api.getContatosOnline()
+      usuariosOnline.value = new Set(ids)
+    } catch {
+      // Silently fail — status is non-critical
+    }
+  }
+
   function encerrarTempoReal() {
     pararPolling()
     desconectarWebSocket()
@@ -1079,7 +1110,9 @@ export const useChatStore = defineStore('chat', () => {
     adicionarMembroGrupo,
     removerMembroGrupo,
     reagirMensagem,
-    recarregarMensagensRecentes
+    recarregarMensagensRecentes,
+    usuariosOnline,
+    estaOnline
   }
 })
 

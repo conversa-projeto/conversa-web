@@ -6,7 +6,7 @@
       :key="arq.id"
       class="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-surface-300 bg-surface-100 dark:border-surface-400 dark:bg-surface-200"
     >
-      <img :src="arq.previewUrl" :alt="arq.nome" class="h-full w-full object-cover" />
+      <img :src="arq.previewUrl" :alt="arq.nome" class="h-full w-full cursor-pointer object-cover" @click="emit('abrir-imagem', arq.id)" />
       <div class="absolute inset-x-0 bottom-0 truncate bg-black/40 px-1.5 py-0.5 text-[10px] leading-4 text-white">{{ arq.nome }}</div>
       <button
         class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/75"
@@ -87,6 +87,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'alternar-preview': [id: string]
+  'abrir-imagem': [id: string]
   remover: [id: string]
 }>()
 

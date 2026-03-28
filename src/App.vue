@@ -20,7 +20,7 @@
         </svg>
         Conexao em tempo real indisponivel — usando atualizacao periodica
       </div>
-      <div class="relative flex flex-1 overflow-hidden pb-[50px] md:pb-0">
+      <div class="relative flex min-w-0 flex-1 overflow-hidden pb-[50px] md:pb-0">
       <NavBar
         v-model:secao-ativa="secaoAtiva"
         :avatar-url="auth.avatarUrl || ''"
@@ -60,7 +60,7 @@
 
       <main
         v-show="secaoAtiva === 'chat'"
-        class="chat-pattern relative flex-col overflow-hidden bg-surface-100 md:flex md:flex-1"
+        class="chat-pattern relative min-w-0 flex-col overflow-hidden bg-surface-100 md:flex md:flex-1"
         :class="sidebarAberta ? 'hidden md:flex' : 'flex flex-1'"
         @dragenter.prevent="onDragEnter"
         @dragover.prevent="onDragOver"
@@ -123,6 +123,7 @@
           class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
+          @open-fila-image="handleOpenFilaImage"
         />
       </main>
 
@@ -151,7 +152,7 @@
       :translate-y="translateY"
       :is-dragging="imagemIsDragging"
       :transicao-ativa="imagemTransicaoAtiva"
-      :galeria="galeriaImagens"
+      :galeria="imagemGaleriaOverride ?? galeriaImagens"
       :identificador-atual="imagemAtualIdentificador"
       :anexos-url="anexosUrl"
       @close="fecharImagemTelaCheia"
@@ -357,11 +358,13 @@ const {
   finalizarArrasto,
   resetarZoomComTransicao,
   transicaoAtiva: imagemTransicaoAtiva,
-  copiarImagemParaClipboard
+  copiarImagemParaClipboard,
+  abrirImagemDireta,
+  galeriaOverride: imagemGaleriaOverride
 } = useImageViewer(garantirAnexoUrl, anexosUrl, galeriaImagens)
 
 watch(imagemTelaCheiaAberta, (aberta) => {
-  if (aberta) {
+  if (aberta && !imagemGaleriaOverride.value) {
     for (const item of galeriaImagens.value) {
       void garantirAnexoUrl(item.identificador)
     }
@@ -559,6 +562,19 @@ function abrirChatPopup(conversaId?: number) {
     `chat-popup-${id}`,
     `width=${largura},height=${altura},left=${esquerda},top=${topo}`
   )
+}
+
+function handleOpenFilaImage(
+  url: string,
+  nome: string,
+  identificador: string,
+  galeria: { identificador: string; nome: string; url: string }[]
+) {
+  // Injetar blob URLs no cache para que a navegação da galeria funcione
+  for (const item of galeria) {
+    anexosUrl.value[item.identificador] = item.url
+  }
+  abrirImagemDireta(url, nome, identificador, galeria)
 }
 
 async function handleOpenImage(identificador: string, nome: string) {

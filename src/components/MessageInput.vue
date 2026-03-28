@@ -17,6 +17,16 @@
         v-if="fila.arquivosFila.value.length"
         :arquivos="fila.arquivosFila.value"
         @alternar-preview="(id) => fila.alternarPreviewAudio(id, (msg) => erro = msg)"
+        @abrir-imagem="(id) => {
+          const imagens = fila.arquivosFila.value.filter(a => a.isImagem)
+          const arq = imagens.find(a => a.id === id)
+          if (arq?.previewUrl) {
+            const galeria = imagens
+              .filter(a => a.previewUrl)
+              .map(a => ({ identificador: a.id, nome: a.nome, url: a.previewUrl! }))
+            emit('open-fila-image', arq.previewUrl, arq.nome, arq.id, galeria)
+          }
+        }"
         @remover="fila.removerArquivoFila"
       />
 
@@ -166,6 +176,7 @@ import FilaArquivosPreview from './FilaArquivosPreview.vue'
 const emit = defineEmits<{
   'message-sent': []
   'open-image-preview': [blob: Blob, nome: string, mime: string]
+  'open-fila-image': [url: string, nome: string, identificador: string, galeria: { identificador: string; nome: string; url: string }[]]
 }>()
 
 const chat = useChatStore()

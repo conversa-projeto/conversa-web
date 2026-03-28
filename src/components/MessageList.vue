@@ -1,7 +1,7 @@
 <template>
   <div v-if="chat.conversaAtiva" class="chat-pattern relative flex flex-col flex-1 min-h-0 bg-surface-100">
     <div
-      class="flex-1 overflow-auto p-4"
+      class="flex-1 overflow-y-auto px-3 py-4"
       ref="mensagensContainer"
       @scroll="aoScrollChat"
     >
@@ -27,7 +27,7 @@
         </div>
       </div>
 
-      <div class="mx-auto w-full max-w-[850px]">
+      <div class="mx-auto w-full max-w-[850px] pl-5">
 
         <template v-for="item in itensMensagens" :key="item.key">
           <div v-if="item.tipo === 'dia'" class="my-3 flex justify-center">
@@ -74,7 +74,7 @@
 
     <!-- Botão rolar para o final -->
     <div v-if="distanteDoFinal" class="pointer-events-none absolute inset-x-0 bottom-4 z-20 px-4">
-      <div class="mx-auto w-full max-w-[850px]">
+      <div class="mx-auto w-full max-w-[850px] pl-5">
         <button
           class="pointer-events-auto float-right flex h-9 w-9 items-center justify-center rounded-full border border-surface-300 bg-surface-base text-surface-500 shadow-md transition hover:bg-surface-200 hover:text-surface-700"
           title="Ir para o final"

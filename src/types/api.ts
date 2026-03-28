@@ -34,6 +34,7 @@ export const TipoEventoSocket = {
   UsuarioEntrou: 54,
   UsuarioSaiu: 55,
   VideoAtivado: 56,
+  StatusUsuario: 60,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 

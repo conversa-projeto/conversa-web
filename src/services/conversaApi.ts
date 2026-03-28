@@ -52,6 +52,10 @@ export function getContatos() {
   return requestApi<Contato[]>('/usuario/contatos')
 }
 
+export function getContatosOnline() {
+  return requestApi<number[]>('/contatos/online')
+}
+
 export function getConversas() {
   return requestApi<Conversa[]>('/conversas')
 }

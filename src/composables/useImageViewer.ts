@@ -20,6 +20,9 @@ export function useImageViewer(
   const transicaoAtiva = ref(false)
   let transicaoTimer = 0
 
+  // Galeria alternativa — quando definida, substitui galeriaRef (ex.: fila de envio)
+  const galeriaOverride = ref<{ identificador: string; nome: string }[] | null>(null)
+
   function resetarZoom() {
     zoomImagemTelaCheia.value = 1
     translateX.value = 0
@@ -98,7 +101,22 @@ export function useImageViewer(
   function fecharImagemTelaCheia() {
     imagemTelaCheiaAberta.value = false
     imagemAtualIdentificador.value = ''
+    galeriaOverride.value = null
     resetarZoom()
+  }
+
+  function abrirImagemDireta(
+    url: string,
+    nome: string,
+    identificador: string,
+    galeria: { identificador: string; nome: string }[]
+  ) {
+    galeriaOverride.value = galeria
+    imagemTelaCheiaUrl.value = url
+    imagemTelaCheiaNome.value = nome
+    imagemAtualIdentificador.value = identificador
+    resetarZoom()
+    imagemTelaCheiaAberta.value = true
   }
 
   async function copiarImagemParaClipboard() {
@@ -129,7 +147,7 @@ export function useImageViewer(
   }
 
   async function navegarGaleria(direcao: -1 | 1) {
-    const galeria = galeriaRef?.value
+    const galeria = galeriaOverride.value ?? galeriaRef?.value
     if (!galeria || galeria.length < 2) return
     const idx = galeria.findIndex(i => i.identificador === imagemAtualIdentificador.value)
     if (idx === -1) return
@@ -172,6 +190,7 @@ export function useImageViewer(
     translateY,
     isDragging,
     abrirImagemTelaCheia,
+    abrirImagemDireta,
     fecharImagemTelaCheia,
     ajustarZoomImagem,
     zoomImagemPorRoda,
@@ -181,6 +200,7 @@ export function useImageViewer(
     resetarZoom,
     resetarZoomComTransicao,
     transicaoAtiva,
-    copiarImagemParaClipboard
+    copiarImagemParaClipboard,
+    galeriaOverride
   }
 }

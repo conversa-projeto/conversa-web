@@ -36,19 +36,25 @@
             @keydown.space.prevent="abrirConversa(conversa.id)"
           >
             <div class="flex items-center gap-2">
-              <button
-                v-if="perfilConversa(conversa)"
-                type="button"
-                class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700 transition hover:ring-2 hover:ring-primary-200"
-                title="Ver perfil"
-                @click.stop="abrirUsuarioInfo(perfilConversa(conversa))"
-              >
-                <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
-                <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
-              </button>
-              <div v-else class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
-                <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
-                <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
+              <div class="relative shrink-0">
+                <button
+                  v-if="perfilConversa(conversa)"
+                  type="button"
+                  class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700 transition hover:ring-2 hover:ring-primary-200"
+                  title="Ver perfil"
+                  @click.stop="abrirUsuarioInfo(perfilConversa(conversa))"
+                >
+                  <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+                  <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
+                </button>
+                <div v-else class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
+                  <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+                  <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
+                </div>
+                <span
+                  v-if="conversa.destinatario_id && chat.estaOnline(conversa.destinatario_id)"
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-[1.5px] ring-surface-base"
+                />
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between text-sm font-medium text-surface-800">
@@ -102,9 +108,15 @@
               class="flex w-full items-center gap-2 border-b border-surface-300 px-3 py-2 text-left hover:bg-surface-300"
               @click="selecionarContatoNovaConversa(contato.id)"
             >
-              <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
-                <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
-                <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
+              <div class="relative shrink-0">
+                <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
+                  <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
+                  <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
+                </div>
+                <span
+                  v-if="chat.estaOnline(contato.id)"
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-[1.5px] ring-surface-base"
+                />
               </div>
               <span class="truncate text-sm font-medium text-surface-800">{{ contato.nome }}</span>
             </button>

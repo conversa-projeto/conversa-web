@@ -10,16 +10,22 @@
 >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           </button>
-          <button
-            type="button"
-            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-sm font-semibold text-surface-800 transition hover:ring-2 hover:ring-surface-300"
-            :disabled="!perfilConversaAtiva"
-            :class="perfilConversaAtiva ? 'cursor-pointer' : 'cursor-default'"
-            @click="abrirUsuarioInfo(perfilConversaAtiva)"
-          >
-            <img v-if="avatarConversa" :src="avatarConversa" alt="Avatar" class="h-full w-full object-cover" @error="ocultarAvatar = true" />
-            <span v-else>{{ inicialConversa }}</span>
-          </button>
+          <div class="relative shrink-0">
+            <button
+              type="button"
+              class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-sm font-semibold text-surface-800 transition hover:ring-2 hover:ring-surface-300"
+              :disabled="!perfilConversaAtiva"
+              :class="perfilConversaAtiva ? 'cursor-pointer' : 'cursor-default'"
+              @click="abrirUsuarioInfo(perfilConversaAtiva)"
+            >
+              <img v-if="avatarConversa" :src="avatarConversa" alt="Avatar" class="h-full w-full object-cover" @error="ocultarAvatar = true" />
+              <span v-else>{{ inicialConversa }}</span>
+            </button>
+            <span
+              v-if="destinatarioOnline"
+              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-[1.5px] ring-surface-50"
+            />
+          </div>
           <div class="group relative min-w-0">
             <h2 class="truncate select-none text-lg font-semibold leading-tight text-surface-800">
               {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
@@ -203,6 +209,11 @@ const perfilConversaAtiva = computed(() => {
 const inicialConversa = computed(() => {
   const nome = chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id || ''}`
   return (nome.trim().charAt(0) || 'C').toUpperCase()
+})
+
+const destinatarioOnline = computed(() => {
+  const conv = chat.conversaAtiva
+  return conv && !isGrupo.value && conv.destinatario_id ? chat.estaOnline(conv.destinatario_id) : false
 })
 
 const nomesMembrosGrupo = computed(() => {
