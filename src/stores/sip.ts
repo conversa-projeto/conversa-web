@@ -26,6 +26,7 @@ export const useSipStore = defineStore('sip', () => {
   const isRegistered = ref(false)
   const isConnecting = ref(false)
   const chamadaEmAndamento = ref(false)
+  const discando = ref(false)
   const mutado = ref(false)
   const chamadaDestinoUri = ref('')
   const chamadaRecebida = shallowRef<Invitation | null>(null)
@@ -36,6 +37,8 @@ export const useSipStore = defineStore('sip', () => {
   let registerer: Registerer | null = null
   let session: Session | null = null
   let audioElement: HTMLAudioElement | null = null
+  let tomDiscandoCtx: AudioContext | null = null
+  let tomDiscandoTimer: ReturnType<typeof setInterval> | null = null
 
   function getAudioElement(): HTMLAudioElement {
     if (!audioElement) {
@@ -74,6 +77,7 @@ export const useSipStore = defineStore('sip', () => {
 
   function limparSessao() {
     chamadaEmAndamento.value = false
+    discando.value = false
     chamadaDestinoUri.value = ''
     mutado.value = false
     chamadaRecebida.value = null
@@ -82,14 +86,110 @@ export const useSipStore = defineStore('sip', () => {
     audio.srcObject = null
   }
 
+  const bipesDiscando = [
+    { freq: 340, dur: 0.08, inicio: 0.0 },
+    { freq: 460, dur: 0.14, inicio: 0.12 },
+    { freq: 600, dur: 0.22, inicio: 0.32 },
+  ]
+  const cicloDiscandoMs = 2000
+
+  function tocarCicloDiscando(ctx: AudioContext) {
+    for (const b of bipesDiscando) {
+      const osc = ctx.createOscillator()
+      const ganho = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = b.freq
+      ganho.gain.setValueAtTime(0, ctx.currentTime + b.inicio)
+      ganho.gain.linearRampToValueAtTime(0.35, ctx.currentTime + b.inicio + 0.01)
+      ganho.gain.setValueAtTime(0.35, ctx.currentTime + b.inicio + b.dur - 0.01)
+      ganho.gain.linearRampToValueAtTime(0, ctx.currentTime + b.inicio + b.dur)
+      osc.connect(ganho)
+      ganho.connect(ctx.destination)
+      osc.start(ctx.currentTime + b.inicio)
+      osc.stop(ctx.currentTime + b.inicio + b.dur)
+    }
+  }
+
+  function iniciarTomDiscando() {
+    pararTomDiscando()
+    try {
+      tomDiscandoCtx = new AudioContext()
+      const ctx = tomDiscandoCtx
+      tomDiscandoTimer = setTimeout(() => {
+        if (!tomDiscandoCtx) return
+        tocarCicloDiscando(ctx)
+        tomDiscandoTimer = setInterval(() => {
+          if (tomDiscandoCtx) tocarCicloDiscando(tomDiscandoCtx)
+        }, cicloDiscandoMs)
+      }, 200)
+    } catch {
+      // ignora
+    }
+  }
+
+  function pararTomDiscando() {
+    if (tomDiscandoTimer !== null) {
+      clearTimeout(tomDiscandoTimer)
+      clearInterval(tomDiscandoTimer)
+      tomDiscandoTimer = null
+    }
+    if (tomDiscandoCtx) {
+      tomDiscandoCtx.close().catch(() => {})
+      tomDiscandoCtx = null
+    }
+  }
+
+  function tocarTomEncerramento() {
+    try {
+      const ctx = new AudioContext()
+      const freq = 425
+      const durBip = 0.18
+      const gap = 0.07
+      const bips = 4
+      for (let i = 0; i < bips; i++) {
+        const inicio = i * (durBip + gap)
+        const osc = ctx.createOscillator()
+        const ganho = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        ganho.gain.setValueAtTime(0, ctx.currentTime + inicio)
+        ganho.gain.linearRampToValueAtTime(0.35, ctx.currentTime + inicio + 0.01)
+        ganho.gain.setValueAtTime(0.35, ctx.currentTime + inicio + durBip - 0.01)
+        ganho.gain.linearRampToValueAtTime(0, ctx.currentTime + inicio + durBip)
+        osc.connect(ganho)
+        ganho.connect(ctx.destination)
+        osc.start(ctx.currentTime + inicio)
+        osc.stop(ctx.currentTime + inicio + durBip)
+      }
+      setTimeout(() => ctx.close(), (bips * (durBip + gap) + 0.2) * 1000)
+    } catch {
+      // ignora
+    }
+  }
+
   function atualizarEstadoChamadaSaida(sess: Session) {
+    let estabelecida = false
     sess.stateChange.addListener((state) => {
-      if (state === SessionState.Establishing || state === SessionState.Established) {
+      if (state === SessionState.Establishing) {
+        setupAudio(sess)
+      }
+      if (state === SessionState.Established) {
+        estabelecida = true
+        pararTomDiscando()
+        discando.value = false
         chamadaEmAndamento.value = true
         setupAudio(sess)
       }
       if (state === SessionState.Terminated) {
-        if (session === sess) limparSessao()
+        pararTomDiscando()
+        if (!estabelecida && session === sess) {
+          discando.value = false
+          erro.value = 'Chamada não completada — destino indisponível ou ocupado.'
+        }
+        if (session === sess) {
+          if (estabelecida) tocarTomEncerramento()
+          limparSessao()
+        }
       }
     })
   }
@@ -140,8 +240,6 @@ export const useSipStore = defineStore('sip', () => {
 
       if (!userAgent || forcarReconexao) {
         const config = sipConfig.value
-        const useIce = config.ws_server.startsWith('wss:')
-
         const uri = UserAgent.makeURI(`sip:${config.sip_user}@${config.domain}`)
         if (!uri) throw new Error('URI SIP inválida.')
 
@@ -155,9 +253,9 @@ export const useSipStore = defineStore('sip', () => {
           authorizationUsername: config.auth_user || config.sip_user,
           authorizationPassword: config.sip_password,
           displayName: config.display_name || config.sip_user,
-          sessionDescriptionHandlerFactoryOptions: useIce
-            ? { peerConnectionOptions: { rtcConfiguration } }
-            : {},
+          sessionDescriptionHandlerFactoryOptions: {
+            peerConnectionOptions: { rtcConfiguration },
+          },
           delegate: {
             onInvite(invitation: Invitation) {
               session = invitation
@@ -289,14 +387,23 @@ export const useSipStore = defineStore('sip', () => {
 
     session = inviter
     chamadaDestinoUri.value = `sip:${numero}@${sipConfig.value.domain}`
+    discando.value = true
+    iniciarTomDiscando()
 
     atualizarEstadoChamadaSaida(inviter)
 
-    await inviter.invite()
+    try {
+      await inviter.invite()
+    } catch (e) {
+      discando.value = false
+      throw e
+    }
   }
 
   async function encerrarChamada() {
     if (!session) return
+
+    pararTomDiscando()
 
     try {
       if (session.state === SessionState.Established) {
@@ -306,6 +413,7 @@ export const useSipStore = defineStore('sip', () => {
       }
     } finally {
       chamadaEmAndamento.value = false
+      discando.value = false
       chamadaDestinoUri.value = ''
       mutado.value = false
       session = null
@@ -397,6 +505,7 @@ export const useSipStore = defineStore('sip', () => {
     isConnecting,
     sipDisponivel,
     chamadaEmAndamento,
+    discando,
     chamadaDestinoUri,
     chamadaRecebida,
     mutado,

@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <div class="relative z-10 mb-4 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+    <div class="relative z-10 mb-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
       <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-out')">-</button>
       <span class="min-w-10 text-center text-xs text-white/70">{{ Math.round(zoom * 100) }}%</span>
       <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-in')">+</button>
@@ -73,11 +73,70 @@
       </button>
       <button class="rounded-full px-4 py-1.5 text-xs text-white hover:bg-white/15" @click="emit('close')">Fechar</button>
     </div>
+
+    <!-- Galeria de imagens -->
+    <div v-if="galeria.length > 0" class="relative z-10 mb-4 flex items-center gap-1">
+      <button
+        v-if="galeria.length > 10"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-30"
+        :disabled="!podeMoverEsquerda"
+        @click="scrollGaleria(-1)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd" />
+        </svg>
+      </button>
+
+      <div
+        ref="galeriaRef"
+        class="flex gap-1 overflow-x-hidden px-1 py-1"
+        style="max-width: min(680px, 90vw); scroll-behavior: smooth;"
+      >
+        <button
+          v-for="item in galeria"
+          :key="item.identificador"
+          :data-id="item.identificador"
+          class="relative h-14 w-14 shrink-0 rounded transition-all"
+          :class="item.identificador === identificadorAtual
+            ? 'ring-2 ring-white opacity-100'
+            : 'opacity-60 hover:opacity-90'"
+          @click="emit('select-image', item.identificador, item.nome)"
+        >
+          <div class="h-full w-full overflow-hidden rounded">
+            <img
+              v-if="anexosUrl[item.identificador]"
+              :src="anexosUrl[item.identificador]"
+              :alt="item.nome"
+              class="h-full w-full object-cover"
+            />
+            <div v-else class="h-full w-full bg-white/10">
+              <div class="flex h-full items-center justify-center">
+                <svg class="h-4 w-4 animate-spin text-white/40" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <button
+        v-if="galeria.length > 10"
+        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-30"
+        :disabled="!podeMoverDireita"
+        @click="scrollGaleria(1)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 
 const props = defineProps<{
   aberta: boolean
@@ -88,16 +147,37 @@ const props = defineProps<{
   translateY: number
   isDragging: boolean
   transicaoAtiva: boolean
+  galeria: { identificador: string; nome: string }[]
+  identificadorAtual: string
+  anexosUrl: Record<string, string>
 }>()
 
 const imagemCarregada = ref(false)
 const menuContexto = ref<{ x: number; y: number } | null>(null)
+const galeriaRef = ref<HTMLElement | null>(null)
+const podeMoverEsquerda = ref(false)
+const podeMoverDireita = ref(true)
 
 function fecharMenu(e: MouseEvent) {
   if (menuContexto.value) {
     menuContexto.value = null
     e.stopPropagation()
   }
+}
+
+function scrollGaleria(direcao: -1 | 1) {
+  const el = galeriaRef.value
+  if (!el) return
+  const passo = 56 * 6 + 5 * 5 // 6 thumbnails + gaps
+  el.scrollLeft += direcao * passo
+  nextTick(() => atualizarEstadoScroll())
+}
+
+function atualizarEstadoScroll() {
+  const el = galeriaRef.value
+  if (!el) return
+  podeMoverEsquerda.value = el.scrollLeft > 0
+  podeMoverDireita.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
 }
 
 watch(() => props.url, () => {
@@ -111,6 +191,23 @@ watch(() => props.aberta, (aberta) => {
   }
 })
 
+watch(() => props.identificadorAtual, () => {
+  nextTick(() => {
+    const container = galeriaRef.value
+    if (!container) return
+    const el = container.querySelector(`[data-id="${props.identificadorAtual}"]`) as HTMLElement | null
+    if (!el) return
+    const containerLeft = container.scrollLeft
+    const containerRight = containerLeft + container.clientWidth
+    const elLeft = el.offsetLeft
+    const elRight = elLeft + el.offsetWidth
+    if (elLeft < containerLeft || elRight > containerRight) {
+      el.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' })
+    }
+    nextTick(() => atualizarEstadoScroll())
+  })
+})
+
 const emit = defineEmits<{
   'close': []
   'zoom-in': []
@@ -121,5 +218,6 @@ const emit = defineEmits<{
   'drag-end': []
   'reset-zoom': []
   'copy': []
+  'select-image': [identificador: string, nome: string]
 }>()
 </script>

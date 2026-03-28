@@ -4,8 +4,8 @@
     :class="[
       menuAberto ? '!opacity-100 !pointer-events-auto' : '',
       isOwn ? 'right-full pr-0.5' : 'left-full pl-0.5',
-      'top-0'
     ]"
+    :style="{ top: topOffset + 'px' }"
     ref="containerRef"
   >
     <button
@@ -105,6 +105,8 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onBeforeUnmount, type CSSProperties } from 'vue'
+
+const BTN_ALTURA = 28 // h-6 (24px) + margem
 import type { Mensagem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import EmojiPicker from './EmojiPicker.vue'
@@ -133,6 +135,7 @@ const MARGEM = 8
 const emojisLinha1 = ['👍', '❤️', '😂', '😮']
 const emojisLinha2 = ['😢', '👏', '🔥']
 
+const topOffset = ref(0)
 const menuAberto = ref(false)
 const pickerAberto = ref(false)
 const containerRef = ref<HTMLElement>()
@@ -278,7 +281,21 @@ function abrirViaContextMenu() {
 
 let scrollContainer: HTMLElement | null = null
 
+const OFFSET_EXTRA = 28
+
+function atualizarTopOffset() {
+  const parent = containerRef.value?.parentElement
+  if (!parent) return
+  const rect = parent.getBoundingClientRect()
+  const scrolledOut = Math.max(0, -rect.top)
+  const maxOffset = Math.max(0, rect.height - BTN_ALTURA)
+  topOffset.value = scrolledOut > 0
+    ? Math.min(scrolledOut + OFFSET_EXTRA, maxOffset)
+    : 0
+}
+
 function onScrollContainer() {
+  atualizarTopOffset()
   if (menuAberto.value) {
     fecharMenu()
   }

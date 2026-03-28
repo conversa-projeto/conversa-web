@@ -47,6 +47,9 @@
       :translate-y="translateY"
       :is-dragging="imagemIsDragging"
       :transicao-ativa="imagemTransicaoAtiva"
+      :galeria="galeriaImagens"
+      :identificador-atual="imagemAtualIdentificador"
+      :anexos-url="anexosUrl"
       @close="fecharImagemTelaCheia"
       @zoom-in="ajustarZoomImagem(1)"
       @zoom-out="ajustarZoomImagem(-1)"
@@ -56,6 +59,7 @@
       @drag-end="finalizarArrasto"
       @reset-zoom="resetarZoomComTransicao"
       @copy="copiarImagemParaClipboard"
+      @select-image="handleOpenImage"
     />
 
     <ImagePreviewModal
@@ -77,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, computed, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useTheme } from '../composables/useTheme'
@@ -91,6 +95,7 @@ import UploadIndicador from './UploadIndicador.vue'
 import ImageViewerModal from './ImageViewerModal.vue'
 import ImagePreviewModal from './ImagePreviewModal.vue'
 import ForwardMessageModal from './ForwardMessageModal.vue'
+import { TipoConteudo } from '../types/api'
 import type { Contato, Mensagem } from '../types/api'
 
 const props = defineProps<{ conversaId: number }>()
@@ -110,10 +115,23 @@ const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null)
 // Anexos e imagem
 const { garantirAnexoUrl, anexosUrl } = useAttachments()
 
+const galeriaImagens = computed(() => {
+  const imagens: { identificador: string; nome: string }[] = []
+  for (const mensagem of chat.mensagensAtivas) {
+    for (const conteudo of mensagem.conteudos) {
+      if (conteudo.tipo === TipoConteudo.Imagem) {
+        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem' })
+      }
+    }
+  }
+  return imagens
+})
+
 const {
   imagemTelaCheiaAberta,
   imagemTelaCheiaUrl,
   imagemTelaCheiaNome,
+  imagemAtualIdentificador,
   zoomImagemTelaCheia,
   translateX,
   translateY,
@@ -128,7 +146,15 @@ const {
   resetarZoomComTransicao,
   transicaoAtiva: imagemTransicaoAtiva,
   copiarImagemParaClipboard
-} = useImageViewer(garantirAnexoUrl, anexosUrl)
+} = useImageViewer(garantirAnexoUrl, anexosUrl, galeriaImagens)
+
+watch(imagemTelaCheiaAberta, (aberta) => {
+  if (aberta) {
+    for (const item of galeriaImagens.value) {
+      void garantirAnexoUrl(item.identificador)
+    }
+  }
+})
 
 const {
   previewImagemAberta,

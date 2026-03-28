@@ -298,6 +298,8 @@ watch(
   },
   (ultimoId, anteriorId) => {
     if (!ultimoId || ultimoId === anteriorId) return
+    // Ignorar mudanças de ID causadas por paginação (carregar histórico ou seguintes)
+    if (carregandoHistorico.value || carregandoSeguintes.value) return
     const ultima = chat.mensagensAtivas[chat.mensagensAtivas.length - 1]
     if (!ultima || ultima.remetente_id === auth.user?.id) return
 

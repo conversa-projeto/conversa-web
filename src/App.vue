@@ -151,6 +151,9 @@
       :translate-y="translateY"
       :is-dragging="imagemIsDragging"
       :transicao-ativa="imagemTransicaoAtiva"
+      :galeria="galeriaImagens"
+      :identificador-atual="imagemAtualIdentificador"
+      :anexos-url="anexosUrl"
       @close="fecharImagemTelaCheia"
       @zoom-in="ajustarZoomImagem(1)"
       @zoom-out="ajustarZoomImagem(-1)"
@@ -160,6 +163,7 @@
       @drag-end="finalizarArrasto"
       @reset-zoom="resetarZoomComTransicao"
       @copy="copiarImagemParaClipboard"
+      @select-image="handleOpenImage"
     />
 
     <ImagePreviewModal
@@ -218,7 +222,7 @@ import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useSipStore } from './stores/sip'
 import { useCallStore } from './stores/call'
-import { TipoConversa } from './types/api'
+import { TipoConversa, TipoConteudo } from './types/api'
 import type { Contato, EventoChamadaSocket, Mensagem, TipoChamada } from './types/api'
 import { useCallPopup } from './composables/useCallPopup'
 import { useImageViewer } from './composables/useImageViewer'
@@ -323,10 +327,23 @@ const {
   cleanup: cleanupCallPopup
 } = useCallPopup(erro)
 
+const galeriaImagens = computed(() => {
+  const imagens: { identificador: string; nome: string }[] = []
+  for (const mensagem of chat.mensagensAtivas) {
+    for (const conteudo of mensagem.conteudos) {
+      if (conteudo.tipo === TipoConteudo.Imagem) {
+        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem' })
+      }
+    }
+  }
+  return imagens
+})
+
 const {
   imagemTelaCheiaAberta,
   imagemTelaCheiaUrl,
   imagemTelaCheiaNome,
+  imagemAtualIdentificador,
   zoomImagemTelaCheia,
   translateX,
   translateY,
@@ -341,7 +358,15 @@ const {
   resetarZoomComTransicao,
   transicaoAtiva: imagemTransicaoAtiva,
   copiarImagemParaClipboard
-} = useImageViewer(garantirAnexoUrl, anexosUrl)
+} = useImageViewer(garantirAnexoUrl, anexosUrl, galeriaImagens)
+
+watch(imagemTelaCheiaAberta, (aberta) => {
+  if (aberta) {
+    for (const item of galeriaImagens.value) {
+      void garantirAnexoUrl(item.identificador)
+    }
+  }
+})
 
 const {
   previewImagemAberta,

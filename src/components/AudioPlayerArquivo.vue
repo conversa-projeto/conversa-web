@@ -1,5 +1,5 @@
 <template>
-  <div class="w-56 max-w-full pt-1.5 md:w-72">
+  <div class="w-56 max-w-full pt-1.5 md:w-72" data-media-player>
     <!-- Name (only for audio files with a name) -->
     <div v-if="nome" class="truncate pl-10 pr-3 text-[11px]" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'" :title="nome">
       {{ nome }}
@@ -31,7 +31,7 @@
       <div
         ref="barraRef"
         class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full border"
-        :class="isOwn ? 'border-primary-100/40 bg-primary-100/30' : 'border-surface-300 bg-surface-200'"
+        :class="isOwn ? 'border-white/35 bg-primary-100/30' : 'border-surface-300 bg-surface-200'"
         @pointerdown="iniciarSeek"
       >
         <div

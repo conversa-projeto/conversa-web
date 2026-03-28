@@ -29,14 +29,24 @@ export function useAttachments() {
     return anexosUrl.value[identificador] || ''
   }
 
-  async function abrirAnexo(identificador: string, _nome = 'Arquivo') {
+  async function abrirAnexo(identificador: string, nome = 'Arquivo') {
     await garantirAnexoUrl(identificador)
     const url = anexosUrl.value[identificador]
     if (!url) return
 
-    // For cross-origin signed URLs, browsers can ignore download attribute.
-    // Open in a new tab to let the browser handle range/stream/download behavior.
-    window.open(url, '_blank', 'noopener,noreferrer')
+    try {
+      // Fetch via blob para contornar restrição cross-origin no atributo download
+      const resp = await fetch(url)
+      const blob = await resp.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = nome
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
   }
 
   const renovacoesTentadas = new Set<string>()

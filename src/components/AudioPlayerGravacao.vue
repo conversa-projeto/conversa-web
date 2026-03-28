@@ -1,5 +1,5 @@
 <template>
-  <div class="w-56 max-w-full pt-1.5 md:w-72">
+  <div class="w-56 max-w-full pt-1.5 md:w-72" data-media-player>
     <!-- Empty spacer to match AudioPlayerArquivo height -->
     <div class="h-[11px] pl-10 text-[11px]">&nbsp;</div>
 
@@ -29,7 +29,7 @@
       <div
         ref="barraRef"
         class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full border"
-        :class="isOwn ? 'border-primary-100/40 bg-primary-100/30' : 'border-surface-300 bg-surface-200'"
+        :class="isOwn ? 'border-white/35 bg-primary-100/30' : 'border-surface-300 bg-surface-200'"
         @pointerdown="iniciarSeek"
       >
         <div

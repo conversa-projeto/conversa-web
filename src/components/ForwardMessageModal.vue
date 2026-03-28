@@ -13,9 +13,9 @@
         </button>
       </div>
 
-      <div class="mb-4 rounded-xl border border-primary-100 bg-primary-50 px-3 py-2">
-        <span class="block select-none text-xs font-semibold text-primary-600">Mensagem selecionada</span>
-        <p class="mt-1 truncate text-sm text-surface-700">{{ resumoMensagem(mensagem) }}</p>
+      <div class="mb-4 rounded-xl border border-surface-200 bg-surface-100 px-3 py-2">
+        <span class="block select-none text-xs font-semibold text-primary-500">Mensagem selecionada</span>
+        <p class="mt-1 truncate text-sm text-surface-600">{{ resumoMensagem(mensagem) }}</p>
       </div>
 
       <label class="mb-3 block text-sm text-surface-700">
@@ -45,7 +45,7 @@
           </div>
           <span
             class="rounded-full px-2 py-1 text-[11px] font-semibold"
-            :class="destino.kind === 'conversa' ? 'bg-primary-100 text-primary-700' : 'bg-success-100 text-success-700 dark:text-success-400'"
+            :class="destino.kind === 'conversa' ? 'bg-surface-200 text-primary-500' : 'bg-surface-200 text-success-600'"
           >
             {{ destino.kind === 'conversa' ? 'Conversa' : 'Contato' }}
           </span>

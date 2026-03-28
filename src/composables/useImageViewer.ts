@@ -2,11 +2,13 @@ import { ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
 
 export function useImageViewer(
   garantirAnexoUrl: (id: string) => Promise<void>,
-  anexosUrl: Ref<Record<string, string>>
+  anexosUrl: Ref<Record<string, string>>,
+  galeriaRef?: Ref<{ identificador: string; nome: string }[]>
 ) {
   const imagemTelaCheiaAberta = ref(false)
   const imagemTelaCheiaUrl = ref('')
   const imagemTelaCheiaNome = ref('Imagem')
+  const imagemAtualIdentificador = ref('')
   const zoomImagemTelaCheia = ref(1)
 
   const translateX = ref(0)
@@ -88,12 +90,14 @@ export function useImageViewer(
 
     imagemTelaCheiaUrl.value = url
     imagemTelaCheiaNome.value = nome
+    imagemAtualIdentificador.value = identificador
     resetarZoom()
     imagemTelaCheiaAberta.value = true
   }
 
   function fecharImagemTelaCheia() {
     imagemTelaCheiaAberta.value = false
+    imagemAtualIdentificador.value = ''
     resetarZoom()
   }
 
@@ -124,9 +128,22 @@ export function useImageViewer(
     }
   }
 
+  async function navegarGaleria(direcao: -1 | 1) {
+    const galeria = galeriaRef?.value
+    if (!galeria || galeria.length < 2) return
+    const idx = galeria.findIndex(i => i.identificador === imagemAtualIdentificador.value)
+    if (idx === -1) return
+    const proximo = idx + direcao
+    if (proximo < 0 || proximo >= galeria.length) return
+    const item = galeria[proximo]
+    await abrirImagemTelaCheia(item.identificador, item.nome)
+  }
+
   function aoTeclaGlobal(event: KeyboardEvent) {
     if (!imagemTelaCheiaAberta.value) return
     if (event.key === 'Escape') { fecharImagemTelaCheia(); return }
+    if (event.key === 'ArrowLeft') { void navegarGaleria(-1); return }
+    if (event.key === 'ArrowRight') { void navegarGaleria(1); return }
     if (event.key === '+' || event.key === '=') { ajustarZoomImagem(1); return }
     if (event.key === '-') { ajustarZoomImagem(-1); return }
     if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
@@ -149,6 +166,7 @@ export function useImageViewer(
     imagemTelaCheiaAberta,
     imagemTelaCheiaUrl,
     imagemTelaCheiaNome,
+    imagemAtualIdentificador,
     zoomImagemTelaCheia,
     translateX,
     translateY,

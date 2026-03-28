@@ -110,19 +110,33 @@ export function useScrollManager() {
    */
   async function irParaMensagem(mensagemId: number) {
     let node = document.getElementById(`msg-${mensagemId}`)
+    let carregouContexto = false
 
     if (!node) {
       const conversaId = chat.conversaAtivaId
       if (!conversaId) return
       const ok = await chat.carregarContextoMensagem(conversaId, mensagemId, 30, 30)
       if (!ok) return
-      semMaisSeguintes = false
+      ativarPaginacaoBidirecional()
+      await nextTick()
       await nextTick()
       node = document.getElementById(`msg-${mensagemId}`)
       if (!node) return
+      carregouContexto = true
     }
 
-    node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Quando o contexto foi carregado remotamente, o array inteiro foi substituído —
+    // usar 'instant' para evitar erro de posição causado por layout instável (imagens carregando).
+    node.scrollIntoView({ behavior: carregouContexto ? 'instant' : 'smooth', block: 'center' })
+
+    // Re-scroll após layout estabilizar (imagens podem alterar alturas)
+    if (carregouContexto) {
+      const msgId = mensagemId
+      await new Promise(r => setTimeout(r, 150))
+      const reNode = document.getElementById(`msg-${msgId}`)
+      if (reNode) reNode.scrollIntoView({ behavior: 'instant', block: 'center' })
+    }
+
     node.classList.add('ring-2', 'ring-amber-400')
     if (highlightTimer) window.clearTimeout(highlightTimer)
     highlightTimer = window.setTimeout(() => {
@@ -365,6 +379,9 @@ export function useScrollManager() {
         // a diferença de scrollHeight corresponde à altura do conteúdo novo.
         // Somar essa diferença ao scrollTop mantém a posição visual estável.
         const alturaAntes = container.scrollHeight
+        // Atualizar ultimoIdConhecido ANTES de definir mensagens para evitar que
+        // o watch interprete mensagens paginadas como "novas"
+        ultimoIdConhecido = merged[merged.length - 1].id
         chat.definirMensagens(conversaId, merged)
         await nextTick()
         container.scrollTop = container.scrollHeight - alturaAntes
@@ -493,10 +510,10 @@ export function useScrollManager() {
       const adicionadas = merged.length - atuais.length
 
       if (adicionadas > 0) {
-        chat.definirMensagens(conversaId, merged)
-        // Atualizar ultimoIdConhecido para evitar que o watch de mensagens
-        // interprete as mensagens injetadas como "novas" e cause auto-scroll
+        // Atualizar ultimoIdConhecido ANTES de definir mensagens para evitar que
+        // o watch interprete as mensagens injetadas como "novas" e cause auto-scroll
         ultimoIdConhecido = merged[merged.length - 1].id
+        chat.definirMensagens(conversaId, merged)
         await nextTick()
       } else {
         // API retornou apenas mensagens já conhecidas — chegamos ao final

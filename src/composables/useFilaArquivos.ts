@@ -7,6 +7,7 @@ export interface ArquivoNaFila {
   tipo: string
   isAudio: boolean
   isGravacaoAudio?: boolean
+  isImagem?: boolean
   previewUrl?: string
   duracaoSegundos?: number | null
   reproduzindo?: boolean
@@ -85,6 +86,7 @@ export function useFilaArquivos() {
   }
 
   function criarArquivoFila(file: Blob, nome: string, tipo: string, isAudio: boolean, isGravacaoAudio = false): ArquivoNaFila {
+    const isImagem = tipo.startsWith('image/')
     const item: ArquivoNaFila = {
       id: gerarIdArquivo(),
       file,
@@ -92,7 +94,8 @@ export function useFilaArquivos() {
       tipo,
       isAudio,
       isGravacaoAudio,
-      previewUrl: isAudio ? URL.createObjectURL(file) : undefined,
+      isImagem,
+      previewUrl: (isAudio || isImagem) ? URL.createObjectURL(file) : undefined,
       duracaoSegundos: isAudio ? null : undefined,
       reproduzindo: false
     }

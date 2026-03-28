@@ -13,13 +13,13 @@
     <div
       v-if="referencia"
       class="border-l-4 px-2.5 py-0.5"
-      :class="[
-        isOwn ? 'border-white/40 bg-white/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]',
-        navegavel ? 'cursor-pointer hover:opacity-80' : ''
-      ]"
-      @click="abrirReferencia"
+      :class="isOwn ? 'border-white/40 bg-white/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]'"
     >
-      <span class="text-[10px] font-semibold" :class="isOwn ? 'text-white/70' : 'text-surface-500'">
+      <span
+        class="text-[10px] font-semibold"
+        :class="[isOwn ? 'text-white/70' : 'text-surface-500', navegavel ? 'cursor-pointer hover:opacity-80' : '']"
+        @click="abrirReferencia"
+      >
         {{ titulo }}
         <span v-if="referencia.inserida" class="font-normal">
           &middot; {{ formatarHora(referencia.inserida) }}
