@@ -63,8 +63,18 @@
           </button>
         </div>
 
+        <!-- Conectando chamada recebida -->
+        <div v-if="sip.conectandoChamadaRecebida" class="rounded-xl border border-surface-200 bg-surface-50 px-3 py-2.5 text-center">
+          <div class="flex items-center justify-center gap-1">
+            <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.3s]"></span>
+            <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.15s]"></span>
+            <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500"></span>
+          </div>
+          <p class="mt-1 text-xs font-semibold text-surface-800">Conectando...</p>
+        </div>
+
         <!-- Discando -->
-        <div v-if="sip.discando" class="rounded-xl border border-surface-200 bg-surface-50 px-3 py-2.5 text-center">
+        <div v-else-if="sip.discando" class="rounded-xl border border-surface-200 bg-surface-50 px-3 py-2.5 text-center">
           <div class="flex items-center justify-center gap-1">
             <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.3s]"></span>
             <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-primary-500 [animation-delay:-0.15s]"></span>

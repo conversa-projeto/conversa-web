@@ -210,6 +210,8 @@
 
     <SipDialerModal :aberta="abrirDiscador" @close="abrirDiscador = false" />
 
+    <SipIncomingCallModal />
+
     <AddUserToCallModal
       :aberta="modalAdicionarUsuario"
       @close="modalAdicionarUsuario = false"
@@ -254,6 +256,7 @@ import CallWindow from './CallWindow.vue'
 import UploadIndicador from './components/UploadIndicador.vue'
 import NavBar from './components/NavBar.vue'
 const SipDialerModal = defineAsyncComponent(() => import('./components/SipDialerModal.vue'))
+const SipIncomingCallModal = defineAsyncComponent(() => import('./components/SipIncomingCallModal.vue'))
 
 const auth = useAuthStore()
 const chat = useChatStore()
@@ -292,6 +295,10 @@ const modalAdicionarUsuario = ref(false)
 const chamadaFlutuante = ref(false)
 const mostrarAvisoDesconexao = ref(false)
 let timerDesconexao: ReturnType<typeof setTimeout> | null = null
+
+watch(() => sip.conectandoChamadaRecebida, (conectando) => {
+  if (conectando) abrirDiscador.value = true
+})
 
 watch(() => chat.conectadoTempoReal, (conectado) => {
   if (conectado) {

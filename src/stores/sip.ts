@@ -30,6 +30,7 @@ export const useSipStore = defineStore('sip', () => {
   const mutado = ref(false)
   const chamadaDestinoUri = ref('')
   const chamadaRecebida = shallowRef<Invitation | null>(null)
+  const conectandoChamadaRecebida = ref(false)
 
   const sipDisponivel = computed(() => sipConfig.value?.ativo === true)
 
@@ -39,6 +40,8 @@ export const useSipStore = defineStore('sip', () => {
   let audioElement: HTMLAudioElement | null = null
   let tomDiscandoCtx: AudioContext | null = null
   let tomDiscandoTimer: ReturnType<typeof setInterval> | null = null
+  let tomRecebidoCtx: AudioContext | null = null
+  let tomRecebidoTimer: ReturnType<typeof setInterval> | null = null
 
   function getAudioElement(): HTMLAudioElement {
     if (!audioElement) {
@@ -78,6 +81,7 @@ export const useSipStore = defineStore('sip', () => {
   function limparSessao() {
     chamadaEmAndamento.value = false
     discando.value = false
+    conectandoChamadaRecebida.value = false
     chamadaDestinoUri.value = ''
     mutado.value = false
     chamadaRecebida.value = null
@@ -139,6 +143,55 @@ export const useSipStore = defineStore('sip', () => {
     }
   }
 
+  function tocarCicloRecebido(ctx: AudioContext) {
+    const freq = 440
+    const durBip = 0.4
+    const gap = 0.2
+    const bips = 2
+    for (let i = 0; i < bips; i++) {
+      const inicio = i * (durBip + gap)
+      const osc = ctx.createOscillator()
+      const ganho = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      ganho.gain.setValueAtTime(0, ctx.currentTime + inicio)
+      ganho.gain.linearRampToValueAtTime(0.4, ctx.currentTime + inicio + 0.02)
+      ganho.gain.setValueAtTime(0.4, ctx.currentTime + inicio + durBip - 0.02)
+      ganho.gain.linearRampToValueAtTime(0, ctx.currentTime + inicio + durBip)
+      osc.connect(ganho)
+      ganho.connect(ctx.destination)
+      osc.start(ctx.currentTime + inicio)
+      osc.stop(ctx.currentTime + inicio + durBip)
+    }
+  }
+
+  const cicloRecebidoMs = 3000
+
+  function iniciarToqueRecebido() {
+    pararToqueRecebido()
+    try {
+      tomRecebidoCtx = new AudioContext()
+      const ctx = tomRecebidoCtx
+      tocarCicloRecebido(ctx)
+      tomRecebidoTimer = setInterval(() => {
+        if (tomRecebidoCtx) tocarCicloRecebido(tomRecebidoCtx)
+      }, cicloRecebidoMs)
+    } catch {
+      // ignora
+    }
+  }
+
+  function pararToqueRecebido() {
+    if (tomRecebidoTimer !== null) {
+      clearInterval(tomRecebidoTimer)
+      tomRecebidoTimer = null
+    }
+    if (tomRecebidoCtx) {
+      tomRecebidoCtx.close().catch(() => {})
+      tomRecebidoCtx = null
+    }
+  }
+
   function tocarTomEncerramento() {
     try {
       const ctx = new AudioContext()
@@ -196,6 +249,36 @@ export const useSipStore = defineStore('sip', () => {
 
   function limparErro() {
     erro.value = ''
+  }
+
+  async function aceitarChamada() {
+    const invitation = chamadaRecebida.value
+    if (!invitation) return
+    pararToqueRecebido()
+    chamadaRecebida.value = null
+    conectandoChamadaRecebida.value = true
+    await invitation.accept({
+      sessionDescriptionHandlerOptions: {
+        constraints: { audio: true, video: false },
+      },
+    })
+    conectandoChamadaRecebida.value = false
+    chamadaEmAndamento.value = true
+    // Aguardar peerConnection existir
+    const interval = setInterval(() => {
+      if (invitation.sessionDescriptionHandler) {
+        clearInterval(interval)
+        setupAudio(invitation)
+      }
+    }, 50)
+  }
+
+  async function recusarChamada() {
+    const invitation = chamadaRecebida.value
+    if (!invitation) return
+    pararToqueRecebido()
+    await invitation.reject()
+    limparSessao()
   }
 
   async function carregarConfiguracao() {
@@ -260,6 +343,7 @@ export const useSipStore = defineStore('sip', () => {
             onInvite(invitation: Invitation) {
               session = invitation
               chamadaRecebida.value = invitation
+              iniciarToqueRecebido()
 
               invitation.stateChange.addListener((state) => {
                 if (state === SessionState.Established) {
@@ -267,23 +351,10 @@ export const useSipStore = defineStore('sip', () => {
                   setupAudio(invitation)
                 }
                 if (state === SessionState.Terminated) {
+                  pararToqueRecebido()
                   if (session === invitation) limparSessao()
                 }
               })
-
-              invitation.accept({
-                sessionDescriptionHandlerOptions: {
-                  constraints: { audio: true, video: false },
-                },
-              })
-
-              // Aguardar peerConnection existir
-              const interval = setInterval(() => {
-                if (invitation.sessionDescriptionHandler) {
-                  clearInterval(interval)
-                  setupAudio(invitation)
-                }
-              }, 50)
             },
           },
         })
@@ -404,18 +475,24 @@ export const useSipStore = defineStore('sip', () => {
     if (!session) return
 
     pararTomDiscando()
+    pararToqueRecebido()
 
     try {
       if (session.state === SessionState.Established) {
         await session.bye()
       } else if (session.state === SessionState.Establishing || session.state === SessionState.Initial) {
-        await (session as Inviter).cancel()
+        if ('cancel' in session) {
+          await (session as Inviter).cancel()
+        } else {
+          await (session as Invitation).reject()
+        }
       }
     } finally {
       chamadaEmAndamento.value = false
       discando.value = false
       chamadaDestinoUri.value = ''
       mutado.value = false
+      chamadaRecebida.value = null
       session = null
     }
   }
@@ -508,12 +585,15 @@ export const useSipStore = defineStore('sip', () => {
     discando,
     chamadaDestinoUri,
     chamadaRecebida,
+    conectandoChamadaRecebida,
     mutado,
     limparErro,
     carregarConfiguracao,
     inicializarSessao,
     garantirConexao,
     discar,
+    aceitarChamada,
+    recusarChamada,
     encerrarChamada,
     enviarDtmf,
     mutar,
