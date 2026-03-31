@@ -56,6 +56,7 @@
         @open-group-modal="abrirModalGrupo = true"
         @conversation-opened="onConversationOpened"
         @popout="abrirChatPopup"
+        @open-search-message="abrirMensagemPesquisaGlobal"
       />
 
       <main
@@ -537,6 +538,19 @@ async function aceitarChamadaRecebida() {
 function recusarChamadaRecebida() {
   pararToque()
   void call.recusarChamada()
+}
+
+async function abrirMensagemPesquisaGlobal(conversaId: number, mensagemId: number) {
+  try {
+    await chat.selecionarConversa(conversaId)
+    sidebarAberta.value = false
+    await nextTick()
+    await messageListRef.value?.posicionarAberturaConversaAtiva()
+    await nextTick()
+    messageListRef.value?.irParaMensagem(mensagemId)
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao abrir resultado da pesquisa'
+  }
 }
 
 async function abrirResultadoBusca(mensagemId: number) {

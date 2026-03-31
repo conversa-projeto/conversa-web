@@ -14,6 +14,8 @@ export const useChatStore = defineStore('chat', () => {
   const mensagensPorConversa = ref<Record<number, Mensagem[]>>({})
   const conversaAtivaId = ref<number | null>(null)
   const resultadosBuscaConversa = ref<Mensagem[]>([])
+  const resultadosBuscaGlobal = ref<Mensagem[]>([])
+  const buscandoGlobal = ref(false)
   const carregando = ref(false)
   const conectadoTempoReal = ref(false)
 
@@ -460,6 +462,27 @@ export const useChatStore = defineStore('chat', () => {
     const resultado = await api.pesquisarMensagens(auth.user.id, termo, conversaAtivaId.value!)
     // Filtro no frontend como fallback caso o backend não filtre por conversa
     resultadosBuscaConversa.value = resultado.filter((mensagem) => mensagem.conversa_id === conversaAtivaId.value)
+  }
+
+  async function buscarEmTodosChats(texto: string) {
+    const auth = useAuthStore()
+    if (!auth.user) {
+      resultadosBuscaGlobal.value = []
+      return
+    }
+
+    const termo = texto.trim()
+    if (!termo) {
+      resultadosBuscaGlobal.value = []
+      return
+    }
+
+    buscandoGlobal.value = true
+    try {
+      resultadosBuscaGlobal.value = await api.pesquisarMensagens(auth.user.id, termo)
+    } finally {
+      buscandoGlobal.value = false
+    }
   }
 
   async function marcarVisualizadas(conversaId: number, mensagens: Mensagem[]): Promise<number> {
@@ -1069,6 +1092,8 @@ export const useChatStore = defineStore('chat', () => {
     conversaAtivaId,
     mensagensAtivas,
     resultadosBuscaConversa,
+    resultadosBuscaGlobal,
+    buscandoGlobal,
     carregando,
     conectadoTempoReal,
     inicializar,
@@ -1086,6 +1111,7 @@ export const useChatStore = defineStore('chat', () => {
     enviarArquivo,
     enviarMensagemComConteudos,
     buscarNaConversa,
+    buscarEmTodosChats,
     carregarContextoMensagem,
     iniciarPolling,
     pararPolling,

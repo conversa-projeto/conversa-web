@@ -3,16 +3,31 @@
     class="relative w-full flex-col border-r border-surface-300 bg-surface-200 md:max-w-[290px]"
     :class="ocultarCompleta ? 'hidden lg:flex' : sidebarAberta ? 'flex' : 'hidden md:flex'"
   >
+    <PesquisaAvancada
+      v-if="pesquisaAvancadaAberta"
+      class="absolute inset-0 z-10"
+      @close="pesquisaAvancadaAberta = false"
+      @open-message="abrirMensagemPesquisa"
+    />
+
     <div class="flex-1 overflow-hidden">
       <section class="flex h-full flex-col">
         <div class="flex items-end px-3 pb-3" style="height: 64px">
-          <div class="relative flex min-w-0 flex-1 items-center rounded-full border border-surface-300 bg-surface-50 pr-2 focus-within:border-primary-500">
+          <div class="relative flex min-w-0 flex-1 items-center rounded-full border border-surface-300 bg-surface-50 pr-1 focus-within:border-primary-500">
             <input
               v-model="filtroConversa"
               type="text"
               class="min-w-0 flex-1 bg-transparent pl-4 pr-1 py-1.5 text-sm text-surface-800 outline-none"
               placeholder="Pesquisar..."
             />
+            <button
+              type="button"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:text-surface-700"
+              title="Pesquisa avancada"
+              @click="pesquisaAvancadaAberta = true"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" /></svg>
+            </button>
             <button
               type="button"
               class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:text-surface-700"
@@ -141,6 +156,7 @@ import { criarUsuarioPopup, resolverUsuarioDaConversa } from '../utils/userProfi
 import type { UsuarioPopup } from '../utils/userProfile'
 
 import UserInfoModal from './UserInfoModal.vue'
+import PesquisaAvancada from './PesquisaAvancada.vue'
 
 defineProps<{
   sidebarAberta: boolean
@@ -152,12 +168,14 @@ const emit = defineEmits<{
   'open-group-modal': []
   'conversation-opened': []
   'popout': [conversaId: number]
+  'open-search-message': [conversaId: number, mensagemId: number]
 }>()
 
 const auth = useAuthStore()
 const chat = useChatStore()
 const sip = useSipStore()
 const filtroConversa = ref('')
+const pesquisaAvancadaAberta = ref(false)
 
 const mostrarUsuarioInfo = ref(false)
 const usuarioSelecionado = ref<UsuarioPopup | null>(null)
@@ -263,6 +281,12 @@ const conversasComDigitando = computed(() => {
   }
   return resultado
 })
+
+function abrirMensagemPesquisa(conversaId: number, mensagemId: number) {
+  pesquisaAvancadaAberta.value = false
+  emit('update:sidebarAberta', false)
+  emit('open-search-message', conversaId, mensagemId)
+}
 
 async function selecionarContatoNovaConversa(contatoId: number) {
   filtroConversa.value = ''
