@@ -6,6 +6,36 @@ export interface SegmentoTextoLink {
   conteudo: string
 }
 
+export interface SegmentoTexto {
+  tipo: 'texto' | 'link' | 'mencao'
+  conteudo: string
+  usuarioId?: number
+}
+
+const REGEX_MENCAO = /@\[([^\]]+)\]\((\d+)\)/g
+
+export function parseTextSegments(texto: string): SegmentoTexto[] {
+  REGEX_MENCAO.lastIndex = 0
+  const resultado: SegmentoTexto[] = []
+  let ultimo = 0
+  let match: RegExpExecArray | null
+  while ((match = REGEX_MENCAO.exec(texto)) !== null) {
+    if (match.index > ultimo) {
+      for (const seg of parseLinks(texto.slice(ultimo, match.index))) {
+        resultado.push(seg)
+      }
+    }
+    resultado.push({ tipo: 'mencao', conteudo: match[1], usuarioId: Number(match[2]) })
+    ultimo = match.index + match[0].length
+  }
+  if (ultimo < texto.length) {
+    for (const seg of parseLinks(texto.slice(ultimo))) {
+      resultado.push(seg)
+    }
+  }
+  return resultado
+}
+
 export function formatarHora(iso: string): string {
   if (!iso) return ''
   return new Date(iso).toLocaleTimeString('pt-BR', {

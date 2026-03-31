@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'
 
@@ -61,6 +61,13 @@ const emit = defineEmits<{
 }>()
 
 const chat = useChatStore()
+
+onMounted(() => window.addEventListener('keydown', onKeyDown))
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape') cancelar()
+}
 
 const nomeGrupo = ref('')
 const membrosGrupo = ref<number[]>([])

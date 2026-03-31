@@ -72,6 +72,8 @@ function formatarDataHoraCurta(iso: string): string {
 }
 import type { Mensagem } from '../types/api'
 
+const props = defineProps<{ termoInicial?: string }>()
+
 const emit = defineEmits<{
   close: []
   'open-message': [conversaId: number, mensagemId: number]
@@ -126,9 +128,14 @@ function abrirMensagem(conversaId: number, mensagemId: number) {
 }
 
 onMounted(() => {
-  termo.value = ''
   pesquisou.value = false
   chat.resultadosBuscaGlobal = []
+  if (props.termoInicial?.trim()) {
+    termo.value = props.termoInicial
+    pesquisar()
+  } else {
+    termo.value = ''
+  }
   nextTick(() => inputRef.value?.focus())
 })
 </script>

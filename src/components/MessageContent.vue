@@ -7,8 +7,9 @@
             v-if="seg.tipo === 'texto' && seg.conteudo.trim()"
             class="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed"
           >
-            <template v-for="(linkSeg, linkIdx) in parseLinks(seg.conteudo)" :key="linkIdx">
+            <template v-for="(linkSeg, linkIdx) in parseTextSegments(seg.conteudo)" :key="linkIdx">
               <template v-if="linkSeg.tipo === 'texto'">{{ linkSeg.conteudo }}</template>
+              <MencaoLink v-else-if="linkSeg.tipo === 'mencao'" :nome="linkSeg.conteudo" :usuario-id="linkSeg.usuarioId!" :is-own="isOwn" />
               <a
                 v-else
                 :href="formatarUrl(linkSeg.conteudo)"
@@ -35,8 +36,9 @@
         v-else
         class="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed"
       >
-        <template v-for="(linkSeg, linkIdx) in parseLinks(conteudo.conteudo)" :key="linkIdx">
+        <template v-for="(linkSeg, linkIdx) in parseTextSegments(conteudo.conteudo)" :key="linkIdx">
           <template v-if="linkSeg.tipo === 'texto'">{{ linkSeg.conteudo }}</template>
+          <MencaoLink v-else-if="linkSeg.tipo === 'mencao'" :nome="linkSeg.conteudo" :usuario-id="linkSeg.usuarioId!" :is-own="isOwn" />
           <a
             v-else
             :href="formatarUrl(linkSeg.conteudo)"
@@ -174,7 +176,8 @@
 import { inject, reactive } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
-import { classeTextoMensagem, isVideoConteudo, parseLinks, formatarUrl } from '../utils/formatters'
+import { classeTextoMensagem, isVideoConteudo, parseLinks, parseTextSegments, formatarUrl } from '../utils/formatters'
+import MencaoLink from './MencaoLink.vue'
 import { useCodeHighlight, temCodigoFormatado, parseCodeBlocks } from '../composables/useCodeHighlight'
 import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'

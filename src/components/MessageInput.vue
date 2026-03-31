@@ -102,7 +102,8 @@
               rows="1"
               class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-500"
               placeholder="Digite uma mensagem"
-              @keydown.enter.exact.prevent="enviarMensagem"
+              @keydown.enter.exact="onEnterTextarea"
+              @keydown="aoTeclarNoTextarea"
               @paste="aoColarNoChat"
               @input="aoDigitar"
             ></textarea>
@@ -133,11 +134,18 @@
             </button>
           </div>
           </div>
+          <MencaoDropdown
+            v-if="mencaoAtiva"
+            ref="dropdownRef"
+            :termo="mencaoAtiva.texto"
+            @selecionar="inserirMencao"
+            @fechar="mencaoAtiva = null"
+          />
         </div>
 
         <!-- Recording bar -->
         <BarraGravacao
-          v-else
+          v-if="gravandoAudio"
           :pausado="pausado"
           :tempo-formatado="tempoFormatado"
           :reproduzindo-preview="reproduzindoPreview"
@@ -162,7 +170,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch, type ComponentPublicInstance } from 'vue'
+import type { Contato } from '../types/api'
 import { useChatStore } from '../stores/chat'
 import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
 import { useAudioRecording } from '../composables/useAudioRecording'
@@ -170,6 +179,7 @@ import { useFilaArquivos } from '../composables/useFilaArquivos'
 import AnexoPopup from './AnexoPopup.vue'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
+import MencaoDropdown from './MencaoDropdown.vue'
 import BarraGravacao from './BarraGravacao.vue'
 import FilaArquivosPreview from './FilaArquivosPreview.vue'
 
@@ -189,6 +199,34 @@ const mostrarAnexo = ref(false)
 const mostrarCodigo = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erro = ref('')
+
+// --- @mention ---
+
+const mencaoAtiva = ref<{ inicio: number; texto: string } | null>(null)
+const dropdownRef = ref<(ComponentPublicInstance & { mover: (d: number) => void; confirmar: () => void }) | null>(null)
+
+function detectarMencao(): { inicio: number; texto: string } | null {
+  const pos = textareaMsg.value?.selectionStart ?? 0
+  const antes = textoMensagem.value.slice(0, pos)
+  const match = antes.match(/@([\w\s]*)$/)
+  if (!match || match.index === undefined) return null
+  return { inicio: match.index, texto: match[1] }
+}
+
+function inserirMencao(contato: Contato) {
+  const pos = textareaMsg.value?.selectionStart ?? textoMensagem.value.length
+  const antes = textoMensagem.value.slice(0, mencaoAtiva.value!.inicio)
+  const depois = textoMensagem.value.slice(pos)
+  textoMensagem.value = antes + `@[${contato.nome}](${contato.id})` + depois
+  mencaoAtiva.value = null
+  nextTick(() => {
+    if (!textareaMsg.value) return
+    const novaPosicao = antes.length + `@[${contato.nome}](${contato.id})`.length
+    textareaMsg.value.focus()
+    textareaMsg.value.selectionStart = novaPosicao
+    textareaMsg.value.selectionEnd = novaPosicao
+  })
+}
 
 const temConteudo = computed(() => textoMensagem.value.trim().length > 0 || fila.arquivosFila.value.length > 0 || !!chat.mensagemRespondendo)
 
@@ -457,6 +495,7 @@ async function enviarMensagem() {
 
     // Limpa input imediatamente (antes do await da API)
     textoMensagem.value = ''
+    mencaoAtiva.value = null
     if (texto) chat.limparDigitandoConversaAtiva()
     await nextTick()
     if (textareaMsg.value) textareaMsg.value.style.height = 'auto'
@@ -488,6 +527,34 @@ function aoDigitar(event: Event) {
   el.style.height = 'auto'
   el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   if (textoMensagem.value.trim()) chat.enviarDigitando()
+  mencaoAtiva.value = detectarMencao()
+}
+
+function onEnterTextarea(event: KeyboardEvent) {
+  if (mencaoAtiva.value) {
+    event.preventDefault()
+    dropdownRef.value?.confirmar()
+  } else {
+    event.preventDefault()
+    enviarMensagem()
+  }
+}
+
+function aoTeclarNoTextarea(event: KeyboardEvent) {
+  if (!mencaoAtiva.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    mencaoAtiva.value = null
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    dropdownRef.value?.mover(1)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    dropdownRef.value?.mover(-1)
+  } else if (event.key === 'Tab') {
+    event.preventDefault()
+    dropdownRef.value?.confirmar()
+  }
 }
 
 function aoColarNoChat(event: ClipboardEvent) {

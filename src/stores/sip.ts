@@ -10,7 +10,7 @@ const rtcConfiguration: RTCConfiguration = {
   iceTransportPolicy: 'all',
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'turn:voip.igerp.com:19302', username: 'webrtc', credential: '123456' },
+    { urls: "turns:voip.igerp.com:443", username: "webrtc", credential: "123456" },
   ],
   iceCandidatePoolSize: 10,
 }
