@@ -12,7 +12,7 @@
         @contextmenu.prevent="onContextMenu"
       >
         <MensagemAcoes
-          v-if="mensagem.id > 0"
+          v-if="mensagem.id > 0 && !ehChamada"
           ref="acoesRef"
           :mensagem="mensagem"
           :is-own="isOwn"
@@ -37,7 +37,7 @@
         />
 
         <!-- Indicador de status de entrega (fora da bolha) -->
-        <div v-if="isOwn && mensagem.id > 0" class="mb-1 shrink-0">
+        <div v-if="isOwn && mensagem.id > 0 && !ehChamada" class="mb-1 shrink-0">
           <svg
             v-if="mensagem.enviando"
             xmlns="http://www.w3.org/2000/svg"
@@ -146,6 +146,7 @@ import BolhaReferencia from './BolhaReferencia.vue'
 import BolhaTextoCurto from './BolhaTextoCurto.vue'
 import BolhaEmoji from './BolhaEmoji.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
+import BolhaChamada from './BolhaChamada.vue'
 
 const props = defineProps<{
   mensagem: Mensagem
@@ -226,6 +227,7 @@ function formatarHoraReacao(data: string): string {
 const tipoExibicao = computed(() => classificarMensagem(props.mensagem))
 
 const componenteMap = {
+  [TipoExibicaoMensagem.Chamada]: BolhaChamada,
   [TipoExibicaoMensagem.Imagem]: BolhaImagem,
   [TipoExibicaoMensagem.Codigo]: BolhaCodigo,
   [TipoExibicaoMensagem.ComReferencia]: BolhaReferencia,
@@ -233,4 +235,6 @@ const componenteMap = {
   [TipoExibicaoMensagem.TextoCurto]: BolhaTextoCurto,
   [TipoExibicaoMensagem.Padrao]: BolhaPadrao,
 } as const
+
+const ehChamada = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Chamada)
 </script>

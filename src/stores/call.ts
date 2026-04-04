@@ -710,7 +710,8 @@ export const useCallStore = defineStore('call', () => {
       }
 
       estado.value = 'chamando'
-      chamada.value = await api.chamadaIniciar(tipo, usuarios)
+      const chatStore = useChatStore()
+      chamada.value = await api.chamadaIniciar(tipo, usuarios, chatStore.conversaAtivaId)
 
       // Publicar stream local no MediaMTX imediatamente para que esteja disponível
       // quando o receptor aceitar e tentar assinar via WHEP.

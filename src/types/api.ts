@@ -12,6 +12,7 @@ export const TipoConteudo = {
   Arquivo: 3,
   Audio: 4,
   GravacaoAudio: 5,
+  Chamada: 6,
 } as const
 export type TipoConteudo = (typeof TipoConteudo)[keyof typeof TipoConteudo]
 
@@ -214,6 +215,40 @@ export interface ChamadaPendente {
   conversa_id: number
   criado_em: string
   criado_por: number
+}
+
+export interface ChamadaConteudo {
+  chamada_id: number
+  tipo: number
+  status: number
+  iniciada: string | null
+  finalizada: string | null
+  duracao: number | null
+  participantes: Array<{
+    usuario_id: number
+    nome: string
+    status: number
+    duracao: number | null
+  }>
+}
+
+export interface ChamadaHistoricoItem {
+  id: number
+  tipo: number
+  status: number
+  criado_em: string
+  criado_por: number
+  conversa_id: number | null
+  iniciada: string | null
+  finalizada: string | null
+  duracao: number | null
+  participantes: Array<{
+    usuario_id: number
+    nome: string
+    status: number
+    duracao: number | null
+    avatar_url: string | null
+  }>
 }
 
 export interface EventoChamadaSocket {

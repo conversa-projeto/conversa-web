@@ -1,6 +1,7 @@
 ﻿import type {
   AnexoResponse,
   Chamada,
+  ChamadaHistoricoItem,
   ChamadaPendente,
   Contato,
   Conversa,
@@ -240,9 +241,9 @@ export function mensagemStatus(conversaId: number, mensagemIds: number[]) {
 
 // === Chamada (Call) ===
 
-export function chamadaIniciar(tipo: TipoChamada, usuarios: Array<{ id: number }>) {
+export function chamadaIniciar(tipo: TipoChamada, usuarios: Array<{ id: number }>, conversaId?: number | null) {
   return requestApi<Chamada>('/chamada/iniciar', 'PUT', {
-    body: { tipo, usuarios }
+    body: { tipo, usuarios, conversa_id: conversaId || undefined }
   })
 }
 
@@ -296,6 +297,10 @@ export function chamadaVideo(chamadaId: number) {
 
 export function getChamadasPendentes() {
   return requestApi<ChamadaPendente[]>('/chamadas/pendentes')
+}
+
+export function getChamadas() {
+  return requestApi<ChamadaHistoricoItem[]>('/chamadas')
 }
 
 export function digitando(conversaId: number) {

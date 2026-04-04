@@ -4,6 +4,7 @@ import { obterReferenciaPrincipal } from './messageReferences'
 import { isMensagemSoEmoji } from './formatters'
 
 export const TipoExibicaoMensagem = {
+  Chamada: 'chamada',
   Imagem: 'imagem',
   Codigo: 'codigo',
   ComReferencia: 'com-referencia',
@@ -17,6 +18,10 @@ export function classificarMensagem(mensagem: Mensagem): TipoExibicaoMensagem {
   const conteudos = mensagem.conteudos
   const temReferencia = !!mensagem.mensagem_referencia
   const conteudoUnico = conteudos.length === 1 ? conteudos[0] : null
+
+  if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Chamada) {
+    return TipoExibicaoMensagem.Chamada
+  }
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Imagem && !temReferencia) {
     return TipoExibicaoMensagem.Imagem

@@ -41,6 +41,13 @@
         @logout="sair"
       />
 
+      <!-- Histórico de chamadas -->
+      <ChamadaHistorico
+        v-else-if="secaoAtiva === 'chamadas'"
+        class="flex-1"
+        @open-conversa="abrirConversaPorId"
+      />
+
       <!-- Tela "Em desenvolvimento" para seções não implementadas -->
       <div v-else-if="secaoAtiva !== 'chat'" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-4 bg-surface-100 text-surface-500">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" class="h-16 w-16">
@@ -256,6 +263,7 @@ import AddUserToCallModal from './components/AddUserToCallModal.vue'
 import CallWindow from './CallWindow.vue'
 import UploadIndicador from './components/UploadIndicador.vue'
 import NavBar from './components/NavBar.vue'
+import ChamadaHistorico from './components/ChamadaHistorico.vue'
 const SipDialerModal = defineAsyncComponent(() => import('./components/SipDialerModal.vue'))
 const SipIncomingCallModal = defineAsyncComponent(() => import('./components/SipIncomingCallModal.vue'))
 
@@ -460,6 +468,14 @@ function fecharModalEncaminhamento() {
 async function onConversationOpened() {
   sidebarAberta.value = false
   secaoAtiva.value = 'chat'
+  await messageListRef.value?.posicionarAberturaConversaAtiva()
+}
+
+async function abrirConversaPorId(conversaId: number) {
+  chat.conversaAtivaId = conversaId
+  secaoAtiva.value = 'chat'
+  sidebarAberta.value = false
+  await nextTick()
   await messageListRef.value?.posicionarAberturaConversaAtiva()
 }
 
