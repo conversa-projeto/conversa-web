@@ -299,8 +299,12 @@ export function getChamadasPendentes() {
   return requestApi<ChamadaPendente[]>('/chamadas/pendentes')
 }
 
-export function getChamadas() {
-  return requestApi<ChamadaHistoricoItem[]>('/chamadas')
+export function getChamadas(filtros?: { participante?: number; de?: string; ate?: string }) {
+  const query: Record<string, string | number> = {}
+  if (filtros?.participante) query.participante = filtros.participante
+  if (filtros?.de) query.de = filtros.de
+  if (filtros?.ate) query.ate = filtros.ate
+  return requestApi<ChamadaHistoricoItem[]>('/chamadas', 'GET', { query })
 }
 
 export function digitando(conversaId: number) {

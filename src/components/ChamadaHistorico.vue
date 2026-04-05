@@ -15,6 +15,18 @@
           @click="filtro = 'perdidas'"
         >Perdidas</button>
       </div>
+
+      <!-- Filtros -->
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          v-model="filtroNome"
+          type="text"
+          placeholder="Buscar contato"
+          class="rounded-lg border border-surface-300 bg-surface-100 px-2 py-1 text-xs text-surface-700 outline-none focus:border-primary-500 dark:border-surface-500 dark:bg-surface-600 dark:text-surface-200"
+        />
+        <DateInput v-model="filtroDe" placeholder="De" />
+        <DateInput v-model="filtroAte" placeholder="Até" />
+      </div>
     </div>
 
     <!-- Lista -->
@@ -82,12 +94,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import DateInput from './DateInput.vue'
 import type { ChamadaHistoricoItem } from '../types/api'
 import { TipoChamada } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
-import { useChatStore } from '../stores/chat'
 import { useCallStore } from '../stores/call'
 import { formatarDuracao } from '../utils/formatters'
 
@@ -96,24 +108,38 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
-const chat = useChatStore()
 const call = useCallStore()
 
 const chamadas = ref<ChamadaHistoricoItem[]>([])
 const carregando = ref(false)
 const filtro = ref<'todas' | 'perdidas'>('todas')
+const filtroNome = ref('')
+const filtroDe = ref('')
+const filtroAte = ref('')
 
-onMounted(async () => {
+async function carregarChamadas() {
   carregando.value = true
   try {
-    chamadas.value = await api.getChamadas()
+    const filtros: { de?: string; ate?: string } = {}
+    if (filtroDe.value) filtros.de = filtroDe.value
+    if (filtroAte.value) filtros.ate = filtroAte.value
+    chamadas.value = await api.getChamadas(Object.keys(filtros).length > 0 ? filtros : undefined)
   } catch { /* silently fail */ }
   carregando.value = false
-})
+}
+
+onMounted(carregarChamadas)
+
+watch([filtroDe, filtroAte], carregarChamadas)
 
 const chamadasFiltradas = computed(() => {
-  if (filtro.value === 'perdidas') return chamadas.value.filter(c => c.status === 5)
-  return chamadas.value
+  let lista = chamadas.value
+  if (filtro.value === 'perdidas') lista = lista.filter(c => c.status === 5)
+  if (filtroNome.value.trim()) {
+    const termo = filtroNome.value.trim().toLowerCase()
+    lista = lista.filter(c => nomeOutro(c).toLowerCase().includes(termo))
+  }
+  return lista
 })
 
 const chamadasAgrupadas = computed(() => {
