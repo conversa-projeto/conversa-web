@@ -130,6 +130,7 @@
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
           @ancora-changed="aoAncoraMudou"
+          @at-bottom-changed="(val) => chatNoFim = val"
         />
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-3 bg-surface-100 text-surface-500">
@@ -142,6 +143,7 @@
         <MessageInput
           ref="messageInputRef"
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
+          :chat-no-fim="chatNoFim"
           class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinal()"
           @open-image-preview="abrirPreviewImagem"
@@ -316,6 +318,10 @@ const abaConfigAtiva = ref<AbaConfigId>(historia.estadoAtual.value.abaConfig || 
 const anexosConversaId = ref<number | null>(
   historia.estadoAtual.value.secao === 'anexos' ? historia.estadoAtual.value.conversaId : null
 )
+
+// Reflete o estado "usuario esta no fim do chat" do MessageList, usado pelo
+// MessageInput para decidir se mostra o indicador "digitando/gravando".
+const chatNoFim = ref(true)
 
 // Aplicar conversaId inicial (deep link /chat/:id) assim que o auth estiver pronto.
 // Feito via watch abaixo para cobrir o caso de a sessão só existir depois do login.

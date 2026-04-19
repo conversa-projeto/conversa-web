@@ -116,10 +116,18 @@ export function enviarMensagem(
   conversaId: number,
   conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>,
   mensagemReferencia?: { tipo: number; origem_mensagem_id: number },
+  visivelEm?: string | null,
 ) {
   const body: Record<string, unknown> = { conversa_id: conversaId, conteudos }
   if (mensagemReferencia) body.mensagem_referencia = mensagemReferencia
+  if (visivelEm) body.visivel_em = visivelEm
   return requestApi<{ id: number; conversa_id: number; usuario_id: number }>('/mensagem', 'PUT', { body })
+}
+
+export function deletarMensagem(id: number) {
+  return requestApi<{ sucesso: boolean }>('/mensagem', 'DELETE', {
+    query: { id }
+  })
 }
 
 export async function sha256File(file: Blob): Promise<string> {
@@ -201,11 +209,11 @@ export function pesquisarMensagens(usuarioId: number, texto: string, conversaId?
   return requestApi<Mensagem[]>('/pesquisar', 'GET', { query })
 }
 
-export function getMensagensNovas(ultimaMensagemId: number) {
-  return requestApi<Array<{ conversa_id: number; mensagem_id: number }>>('/mensagens/novas', 'GET', {
-    query: {
-      ultima: ultimaMensagemId
-    }
+export function getMensagensNovas(desde: string | null) {
+  const query: Record<string, string | number> = {}
+  if (desde) query.desde = desde
+  return requestApi<Array<{ conversa_id: number; mensagem_id: number; ate: string }>>('/mensagens/novas', 'GET', {
+    query
   })
 }
 

@@ -1,7 +1,7 @@
 <template>
   <div v-if="chat.conversaAtiva" class="chat-pattern relative flex flex-col flex-1 min-h-0 bg-surface-100">
     <div
-      class="flex-1 overflow-y-auto px-3 py-4"
+      class="flex-1 overflow-y-auto px-3 pt-4 pb-6"
       ref="mensagensContainer"
       @scroll="aoScrollChatComAncora"
     >
@@ -56,6 +56,7 @@
             @forward="(msg) => emit('forward', msg)"
             @go-to-message="(id) => irParaMensagem(id)"
             @reagir="(mensagemId, emoji) => chat.reagirMensagem(mensagemId, emoji)"
+            @excluir="excluirMensagem"
           />
         </template>
       </div>
@@ -103,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, provide, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { formatarDiaSeparador } from '../utils/formatters'
@@ -117,6 +118,7 @@ const emit = defineEmits<{
   'open-image': [identificador: string, nome: string]
   'forward': [mensagem: Mensagem]
   'ancora-changed': [ancora: import('../composables/useHistoryNavigation').AncoraScroll | null]
+  'at-bottom-changed': [noFim: boolean]
 }>()
 
 const auth = useAuthStore()
@@ -138,8 +140,29 @@ const {
   indicadorNaoLidasAtivo,
   ativarPaginacaoBidirecional,
   capturarAncora,
-  restaurarAncora
+  restaurarAncora,
+  usuarioNoFimDoChat
 } = useScrollManager()
+
+// Propagar mudancas de usuarioNoFimDoChat para o pai (App.vue) — usado pelo
+// MessageInput para decidir se mostra o indicador "digitando/gravando" acima
+// do campo de mensagem.
+watch(usuarioNoFimDoChat, (val) => {
+  emit('at-bottom-changed', val)
+}, { immediate: true })
+
+async function excluirMensagem(msg: Mensagem) {
+  const agendada = !!msg.visivel_em && new Date(msg.visivel_em).getTime() > Date.now()
+  const confirmacao = agendada
+    ? 'Cancelar esta mensagem agendada?'
+    : 'Excluir esta mensagem? Esta ação não pode ser desfeita.'
+  if (!window.confirm(confirmacao)) return
+  try {
+    await chat.excluirMensagem(msg.id)
+  } catch (e) {
+    window.alert(e instanceof Error ? e.message : 'Erro ao excluir mensagem')
+  }
+}
 
 // Debounce para captura de âncora: em cada scroll, aguarda 200ms
 // de inatividade antes de emitir, evitando overhead durante scroll rápido.

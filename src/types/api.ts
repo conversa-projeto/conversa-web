@@ -153,6 +153,11 @@ export interface Mensagem {
   conversa_id: number
   inserida: string
   alterada: string
+  /**
+   * Timestamp ISO-8601 para mensagens agendadas (autor ve imediatamente;
+   * destinatarios so depois que visivel_em <= now). Null = mensagem normal.
+   */
+  visivel_em: string | null
   recebida: boolean
   visualizada: boolean
   reproduzida: boolean

@@ -4,10 +4,21 @@
     :class="[isOwn ? 'flex justify-end' : 'flex justify-start', mudouRemetente ? 'mt-[12px]' : 'mt-[3px]']"
   >
     <div class="flex max-w-[80%] flex-col" :class="isOwn ? 'items-end' : 'items-start'">
+      <!-- Badge de mensagem agendada (so para o autor, enquanto visivel_em > agora) -->
+      <div
+        v-if="ehAgendadaFutura"
+        class="mb-0.5 flex items-center gap-1 rounded-full bg-warning-100 px-2 py-0.5 text-[10px] font-medium text-warning-700 dark:bg-warning-900 dark:text-warning-300"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3 w-3">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+        <span>Agendada para {{ dataAgendadaFormatada }}</span>
+      </div>
+
       <div
         ref="wrapperRef"
         class="group/bubble relative flex w-fit items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
-        :class="isOwn ? 'before:-left-8' : 'before:-right-8'"
+        :class="[isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '']"
         @mouseleave="onMouseLeave"
         @contextmenu.prevent="onContextMenu"
       >
@@ -21,6 +32,7 @@
           @forward="(msg) => emit('forward', msg)"
           @copiar="copiarMensagem"
           @reagir="(emoji) => emit('reagir', mensagem.id, emoji)"
+          @excluir="(msg) => emit('excluir', msg)"
           @menu-toggle="(aberto) => menuAcoesAberto = aberto"
         />
 
@@ -138,6 +150,7 @@ import { computed, ref } from 'vue'
 import type { Mensagem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import { classificarMensagem, TipoExibicaoMensagem } from '../utils/classificarMensagem'
+import { useAgora } from '../composables/useAgora'
 import MensagemAcoes from './MensagemAcoes.vue'
 import { emojiNome } from '../utils/emojiNomes'
 import BolhaImagem from './BolhaImagem.vue'
@@ -164,6 +177,7 @@ const emit = defineEmits<{
   'forward': [mensagem: Mensagem]
   'go-to-message': [mensagemId: number]
   'reagir': [mensagemId: number, emoji: string]
+  'excluir': [mensagem: Mensagem]
 }>()
 
 const wrapperRef = ref<HTMLElement>()
@@ -237,4 +251,24 @@ const componenteMap = {
 } as const
 
 const ehChamada = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Chamada)
+
+const agora = useAgora()
+
+/** True quando a mensagem esta agendada para um momento ainda no futuro. */
+const ehAgendadaFutura = computed(() => {
+  if (!props.mensagem.visivel_em) return false
+  return new Date(props.mensagem.visivel_em).getTime() > agora.value
+})
+
+const dataAgendadaFormatada = computed(() => {
+  if (!props.mensagem.visivel_em) return ''
+  const d = new Date(props.mensagem.visivel_em)
+  const hoje = new Date()
+  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === hoje.toDateString()) return `hoje ${hora}`
+  const amanha = new Date(hoje)
+  amanha.setDate(amanha.getDate() + 1)
+  if (d.toDateString() === amanha.toDateString()) return `amanhã ${hora}`
+  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hora}`
+})
 </script>

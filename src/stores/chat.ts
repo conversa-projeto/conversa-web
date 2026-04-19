@@ -42,6 +42,29 @@ export const useChatStore = defineStore('chat', () => {
 
   const usuariosOnline = ref<Set<number>>(new Set())
 
+  /**
+   * Cursor de sincronizacao incremental — timestamp ISO-8601 do ultimo ponto
+   * conhecido da timeline efetiva. Usado por GET /mensagens/novas?desde=<cursor>.
+   *
+   * Inicializado com now() no mount (nao usamos localStorage — o reload refaz
+   * rehidratacao via getConversas + getMensagens e o cursor avanca via sync).
+   *
+   * Atualizado sempre com Math.max por:
+   * - campo `ate` retornado por /mensagens/novas
+   * - `coalesce(visivel_em, inserida)` de mensagens processadas via WebSocket
+   *
+   * Mensagens agendadas futuras do autor NAO avancam o cursor (filtro <= now),
+   * senao mensagens normais enviadas antes de visivel_em sumiriam da sync.
+   */
+  const cursorSync = ref<string>(new Date().toISOString())
+
+  function avancarCursorSync(timestamp: string | null | undefined) {
+    if (!timestamp) return
+    const agora = new Date().toISOString()
+    if (timestamp > agora) return
+    if (timestamp > cursorSync.value) cursorSync.value = timestamp
+  }
+
   let _tratarEventoChamada: ((evento: EventoChamadaSocket) => void) | null = null
 
   function registrarHandlerChamada(handler: (evento: EventoChamadaSocket) => void) {
@@ -278,7 +301,7 @@ export const useChatStore = defineStore('chat', () => {
     await encaminharMensagemParaConversa(origem, conversa.id)
   }
 
-  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = []) {
+  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: string | null = null) {
 
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
@@ -353,13 +376,14 @@ export const useChatStore = defineStore('chat', () => {
       conversa_id: conversaId,
       inserida: new Date().toISOString(),
       alterada: new Date().toISOString(),
+      visivel_em: visivelEm,
       recebida: false,
       visualizada: false,
       reproduzida: false,
       enviando: true,
       conteudos: conteudosOptimistas,
       ...(mensagemReferencia && respostaMsg ? {
-        mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, TipoMensagemReferencia.Resposta),
+        mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, TipoMensagemReferencia.Resposta),
       } : {})
     }
 
@@ -384,7 +408,7 @@ export const useChatStore = defineStore('chat', () => {
         })
       }
 
-      const resp = await api.enviarMensagem(conversaId, conteudosApi, mensagemReferencia)
+      const resp = await api.enviarMensagem(conversaId, conteudosApi, mensagemReferencia, visivelEm)
 
       const conteudosFinais = conteudosOptimistas.map((conteudo) => {
         if (conteudo.tipo === TipoConteudo.Texto) {
@@ -424,12 +448,24 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function enviarTexto(texto: string) {
-    await enviarMensagemComConteudos(texto, [])
+  async function enviarTexto(texto: string, visivelEm: string | null = null) {
+    await enviarMensagemComConteudos(texto, [], visivelEm)
   }
 
   async function enviarArquivo(blob: Blob, nomeArquivo: string, mimeType = '', isAudio = false) {
     await enviarMensagemComConteudos('', [{ blob, nomeArquivo, mimeType, isAudio }])
+  }
+
+  async function excluirMensagem(mensagemId: number) {
+    await api.deletarMensagem(mensagemId)
+    // Remove localmente de todas as conversas (no caso de cache em outra)
+    for (const cid of Object.keys(mensagensPorConversa.value)) {
+      const lista = mensagensPorConversa.value[Number(cid)]
+      const idx = lista?.findIndex(m => m.id === mensagemId) ?? -1
+      if (idx >= 0) {
+        mensagensPorConversa.value[Number(cid)] = lista.filter(m => m.id !== mensagemId)
+      }
+    }
   }
   async function carregarContextoMensagem(conversaId: number, mensagemId: number, previas = 30, seguintes = 30) {
     let bloco = await api.getMensagens(conversaId, mensagemId, previas, seguintes)
@@ -693,26 +729,15 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function getUltimaMensagemConhecida(): number {
-    let ultima = 0
-
-    for (const conversa of conversas.value) {
-      ultima = Math.max(ultima, conversa.mensagem_id || 0)
-    }
-
-    for (const mensagens of Object.values(mensagensPorConversa.value)) {
-      for (const mensagem of mensagens) {
-        ultima = Math.max(ultima, mensagem.id)
-      }
-    }
-
-    return ultima
-  }
-
   async function tratarNovaMensagem() {
-    const novas = await api.getMensagensNovas(getUltimaMensagemConhecida())
+    const novas = await api.getMensagensNovas(cursorSync.value)
     if (novas.length === 0) {
       return
+    }
+
+    // Avanca o cursor para o maior `ate` retornado (sempre <= now pelo servidor).
+    for (const item of novas) {
+      avancarCursorSync(item.ate)
     }
 
     const auth = useAuthStore()
@@ -728,6 +753,12 @@ export const useChatStore = defineStore('chat', () => {
       })
     )
     const todasNovasDetalhes = mensagensCompletas.flat()
+
+    // Defensivo: avanca cursor tambem pelo timestamp efetivo de cada mensagem
+    // processada (cobre caso de `ate` estar dessincronizado com o detalhe).
+    for (const m of todasNovasDetalhes) {
+      avancarCursorSync(m.visivel_em || m.inserida)
+    }
 
     // Verifica se há novas mensagens de outros usuários que devem disparar notificação
     const deOutrosParaNotificar = todasNovasDetalhes.filter((m) => {
@@ -1109,6 +1140,7 @@ export const useChatStore = defineStore('chat', () => {
     renomearGrupo,
     enviarTexto,
     enviarArquivo,
+    excluirMensagem,
     enviarMensagemComConteudos,
     buscarNaConversa,
     buscarEmTodosChats,

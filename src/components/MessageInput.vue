@@ -47,12 +47,29 @@
       <div class="relative flex items-end gap-2">
         <!-- Normal input bar -->
         <div v-if="!gravandoAudio" class="relative min-w-0 flex-1">
-          <!-- Indicador de digitação/gravação -->
+          <!-- Efeito de linha pulsante (original) -->
           <div
-            v-if="chat.gravandoNaConversaAtiva.length || chat.digitandoNaConversaAtiva.length"
+            v-if="atividadeVisivel"
             class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
             :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
           />
+
+          <!-- Chip com texto: so aparece quando o usuario esta no fim do chat.
+               Posicionado logo acima da linha de efeito (2px de gap). -->
+          <div
+            v-if="atividadeVisivel && chatNoFim"
+            class="pointer-events-none absolute inset-x-0 z-10 flex pl-3 pr-1"
+            style="bottom: calc(100% + 2px)"
+          >
+            <div class="pointer-events-auto flex items-center gap-1.5 rounded-lg bg-surface-300 px-2 py-1 text-[10px] leading-none text-surface-700 dark:bg-surface-200 dark:text-surface-600">
+              <span class="flex gap-0.5">
+                <span class="typing-dot" :style="{ animationDelay: '0ms', background: corAtividade }"></span>
+                <span class="typing-dot" :style="{ animationDelay: '200ms', background: corAtividade }"></span>
+                <span class="typing-dot" :style="{ animationDelay: '400ms', background: corAtividade }"></span>
+              </span>
+              <span class="truncate">{{ textoAtividade }}</span>
+            </div>
+          </div>
           <div class="flex items-end rounded-3xl border border-surface-500 bg-surface-base pl-3 pr-1">
           <!-- Attach button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
@@ -110,7 +127,17 @@
           </div>
 
           <!-- Action button: send or mic (inside input bar) -->
-          <div class="relative mr-2 flex shrink-0 self-end pb-[6px]">
+          <div class="relative mr-2 flex shrink-0 items-end gap-1 self-end pb-[6px]">
+            <button
+              v-if="temConteudo"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
+              title="Agendar mensagem"
+              @click="mostrarAgendarModal = true"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </button>
             <button
               v-if="temConteudo"
               class="action-btn flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-white transition hover:bg-primary-700"
@@ -166,6 +193,13 @@
       @inserir="onInserirCodigo"
       @close="mostrarCodigo = false"
     />
+
+    <!-- Agendar Modal -->
+    <AgendarMensagemModal
+      :aberta="mostrarAgendarModal"
+      @close="mostrarAgendarModal = false"
+      @confirmar="enviarAgendada"
+    />
   </div>
 </template>
 
@@ -178,10 +212,18 @@ import { useAudioRecording } from '../composables/useAudioRecording'
 import { useFilaArquivos } from '../composables/useFilaArquivos'
 import AnexoPopup from './AnexoPopup.vue'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
+const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
 import MencaoDropdown from './MencaoDropdown.vue'
 import BarraGravacao from './BarraGravacao.vue'
 import FilaArquivosPreview from './FilaArquivosPreview.vue'
+
+const props = withDefaults(defineProps<{
+  /** Usuario esta no fim do chat — controla visibilidade do indicador digitando/gravando. */
+  chatNoFim?: boolean
+}>(), {
+  chatNoFim: true
+})
 
 const emit = defineEmits<{
   'message-sent': []
@@ -192,11 +234,41 @@ const emit = defineEmits<{
 const chat = useChatStore()
 const fila = useFilaArquivos()
 
+// ============================================================================
+// Indicador de digitando/gravando acima do input (chip com texto + dots).
+// ============================================================================
+const chatNoFim = computed(() => props.chatNoFim)
+
+const atividadeVisivel = computed(() =>
+  chat.digitandoNaConversaAtiva.length > 0 || chat.gravandoNaConversaAtiva.length > 0
+)
+
+const corAtividade = computed(() =>
+  chat.gravandoNaConversaAtiva.length ? 'var(--color-danger-500)' : 'var(--color-primary-500)'
+)
+
+const textoAtividade = computed(() => {
+  const nomes = chat.gravandoNaConversaAtiva.length
+    ? chat.gravandoNaConversaAtiva
+    : chat.digitandoNaConversaAtiva
+  if (nomes.length === 0) return ''
+  const gravando = chat.gravandoNaConversaAtiva.length > 0
+  const isGrupo = chat.conversaAtiva?.tipo === 2
+  const acao = gravando ? 'gravando áudio' : 'digitando'
+  const acaoPlural = gravando ? 'estão gravando áudio' : 'estão digitando'
+  if (!isGrupo) return `${gravando ? 'Gravando áudio' : 'Digitando'}...`
+  if (nomes.length === 1) return `${nomes[0]} está ${acao}...`
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]} ${acaoPlural}...`
+  if (nomes.length === 3) return `${nomes[0]}, ${nomes[1]} e ${nomes[2]} ${acaoPlural}...`
+  return `${nomes[0]}, ${nomes[1]}, ${nomes[2]} e outras ${nomes.length - 3} pessoas ${acaoPlural}...`
+})
+
 const textoMensagem = ref('')
 const textareaMsg = ref<HTMLTextAreaElement | null>(null)
 const mostrarEmoji = ref(false)
 const mostrarAnexo = ref(false)
 const mostrarCodigo = ref(false)
+const mostrarAgendarModal = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erro = ref('')
 
@@ -482,7 +554,7 @@ function focarTextarea(posicao?: number) {
   })
 }
 
-async function enviarMensagem() {
+async function enviarMensagem(visivelEm: string | null = null) {
   const texto = textoMensagem.value.trim()
   const temArquivos = fila.arquivosFila.value.length > 0
   if (!texto && !temArquivos && !chat.mensagemRespondendo) return
@@ -509,7 +581,8 @@ async function enviarMensagem() {
         mimeType: arq.tipo,
         isAudio: arq.isAudio,
         isGravacaoAudio: arq.isGravacaoAudio === true
-      }))
+      })),
+      visivelEm
     )
 
     // Scroll para o final assim que a mensagem otimista é adicionada
@@ -520,6 +593,11 @@ async function enviarMensagem() {
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao enviar'
   }
+}
+
+function enviarAgendada(isoLocal: string) {
+  mostrarAgendarModal.value = false
+  void enviarMensagem(isoLocal)
 }
 
 function aoDigitar(event: Event) {
