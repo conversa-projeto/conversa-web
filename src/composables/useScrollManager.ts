@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import * as api from '../services/conversaApi'
 import type { Mensagem } from '../types/api'
+import type { AncoraScroll } from './useHistoryNavigation'
 
 /**
  * Distância máxima (em px) do final do chat para que o auto-scroll aconteça
@@ -17,6 +18,12 @@ export function useScrollManager() {
 
   // Ref do container de scroll (<div> com overflow-auto no MessageList.vue)
   const mensagensContainer = ref<HTMLDivElement | null>(null)
+
+  // Ref do wrapper interno que envolve as mensagens (.mx-auto no MessageList.vue).
+  // É o único elemento in-flow dentro do container (os loaders são absolute),
+  // então sua altura == scrollHeight útil do container.
+  // Usado pelo ResizeObserver de compensação na abertura.
+  const conteudoMensagens = ref<HTMLDivElement | null>(null)
 
   // true quando o usuário está no final do chat (distância ≤ 56px).
   // Usado para decidir se imagens carregadas devem scrollar para o final.
@@ -143,6 +150,147 @@ export function useScrollManager() {
       node!.classList.remove('ring-2', 'ring-amber-400')
       highlightTimer = 0
     }, 1200)
+  }
+
+  // =====================================================================
+  // OBSERVADOR DE ALTURA NA ABERTURA
+  //
+  // Ao abrir uma conversa, o scroll é posicionado no final. Porém tipos de
+  // conteúdo com altura assíncrona (áudio carregando metadata, code highlight,
+  // referências com anexo, fontes custom, imagens carregando via presigned URL)
+  // podem crescer DEPOIS do scroll inicial, deixando a posição acima do final.
+  //
+  // Este observer monitora a altura do conteúdo após a abertura. Enquanto o
+  // usuário estiver grudado no final, qualquer crescimento de altura dispara
+  // um re-scroll para o final. O observer se desarma automaticamente quando
+  // o usuário scrolla para longe (usuarioNoFimDoChat === false), quando a
+  // conversa troca, ou quando o componente é desmontado.
+  //
+  // Não usa timer fixo: carregamento de anexos após Ctrl+F5 (sem cache) pode
+  // demorar vários segundos. A detecção do scroll do usuário é o sinal de
+  // parada confiável — enquanto ele continua no final, queremos mantê-lo lá.
+  //
+  // NÃO é armado quando:
+  // - O scroll foi para a primeira não lida (não para o final)
+  // - O auto-scroll foi cancelado por causa do indicador de não lidas
+  // =====================================================================
+
+  let observadorAlturaAbertura: ResizeObserver | null = null
+  let alturaReferenciaAbertura: number | null = null
+
+  /**
+   * Inicia o monitoramento de altura pós-abertura. Se a altura do conteúdo
+   * crescer enquanto o usuário estiver no final, compensa com rolarParaFinal.
+   * Auto-desarma quando o usuário scrolla para longe.
+   */
+  function iniciarObservadorAberturaScroll() {
+    pararObservadorAberturaScroll()
+    const alvo = conteudoMensagens.value
+    if (!alvo || typeof ResizeObserver === 'undefined') return
+
+    alturaReferenciaAbertura = null
+    observadorAlturaAbertura = new ResizeObserver(entries => {
+      const altura = entries[0]?.contentRect.height ?? 0
+      // Primeira callback do observe() reporta o tamanho atual — apenas registrar
+      if (alturaReferenciaAbertura === null) {
+        alturaReferenciaAbertura = altura
+        return
+      }
+      if (altura === alturaReferenciaAbertura) return
+      const delta = altura - alturaReferenciaAbertura
+      alturaReferenciaAbertura = altura
+
+      const container = mensagensContainer.value
+      if (!container) return
+
+      // Reconstruir a distância ANTES desse crescimento: distância atual - delta.
+      // Isso evita depender de `usuarioNoFimDoChat` (que pode estar stale porque
+      // scroll events só disparam quando scrollTop muda, não quando scrollHeight
+      // cresce). Se o usuário estava no fim antes do crescimento, compensamos.
+      const distanciaAtual = container.scrollHeight - container.scrollTop - container.clientHeight
+      const distanciaAntes = distanciaAtual - delta
+      if (distanciaAntes > 56) {
+        // Usuário já estava longe do fim — desarmar, não compensar.
+        pararObservadorAberturaScroll()
+        return
+      }
+      rolarParaFinal()
+      atualizarPosicaoScroll()
+    })
+    observadorAlturaAbertura.observe(alvo)
+  }
+
+  function pararObservadorAberturaScroll() {
+    if (observadorAlturaAbertura) {
+      observadorAlturaAbertura.disconnect()
+      observadorAlturaAbertura = null
+    }
+    alturaReferenciaAbertura = null
+  }
+
+  // =====================================================================
+  // ÂNCORA DE SCROLL (para navegação histórico)
+  //
+  // capturarAncora: identifica a primeira mensagem cujo topo está dentro
+  // da viewport do container e retorna seu ID + offset em pixels do topo
+  // do container. Usado para persistir a posição visual no histórico.
+  //
+  // restaurarAncora: dado um ID + offset, posiciona o scroll de modo que
+  // o topo dessa mensagem fique a `offset` pixels do topo do container.
+  // Se a mensagem não está no DOM (estava em página antiga), carrega o
+  // contexto via API e reposiciona após renderizar.
+  // =====================================================================
+
+  function capturarAncora(): AncoraScroll | null {
+    const container = mensagensContainer.value
+    if (!container) return null
+    const containerTop = container.getBoundingClientRect().top
+    for (const mensagem of chat.mensagensAtivas) {
+      const node = document.getElementById(`msg-${mensagem.id}`)
+      if (!node) continue
+      const mTop = node.getBoundingClientRect().top
+      if (mTop >= containerTop) {
+        return { mensagemId: mensagem.id, offset: Math.round(mTop - containerTop) }
+      }
+    }
+    return null
+  }
+
+  async function restaurarAncora(ancora: AncoraScroll): Promise<boolean> {
+    const container = mensagensContainer.value
+    if (!container) return false
+
+    // Desarmar o observer de abertura: ele gruda o scroll no final enquanto
+    // conteúdo cresce, o que conflitaria com a restauração da âncora.
+    pararObservadorAberturaScroll()
+
+    let node = document.getElementById(`msg-${ancora.mensagemId}`)
+    if (!node) {
+      const conversaId = chat.conversaAtivaId
+      if (!conversaId) return false
+      const ok = await chat.carregarContextoMensagem(conversaId, ancora.mensagemId, 30, 30)
+      if (!ok) return false
+      ativarPaginacaoBidirecional()
+      await nextTick()
+      await nextTick()
+      node = document.getElementById(`msg-${ancora.mensagemId}`)
+      if (!node) return false
+    }
+
+    const containerTop = container.getBoundingClientRect().top
+    const nodeTop = node.getBoundingClientRect().top
+    container.scrollTop += nodeTop - containerTop - ancora.offset
+    atualizarPosicaoScroll()
+    // Segunda passada após estabilizar layout (imagens podem alterar alturas)
+    await nextTick()
+    const node2 = document.getElementById(`msg-${ancora.mensagemId}`)
+    if (node2) {
+      const nt = node2.getBoundingClientRect().top
+      const ct = container.getBoundingClientRect().top
+      container.scrollTop += nt - ct - ancora.offset
+      atualizarPosicaoScroll()
+    }
+    return true
   }
 
   // =====================================================================
@@ -570,9 +718,16 @@ export function useScrollManager() {
 
     const container = mensagensContainer.value
     const usuarioId = auth.user?.id
-    const primeiraNaoLida = chat.mensagensAtivas.find((mensagem: Mensagem) => {
-      return mensagem.remetente_id !== usuarioId && !mensagem.visualizada
-    })
+    // Só posicionar na primeira não lida quando o contador do servidor
+    // confirma que há mensagens pendentes. Mensagens individuais podem ter
+    // visualizada=false por inconsistência (ex: nunca foram marcadas) mesmo
+    // com mensagens_sem_visualizar=0 — nesse caso o esperado é ir ao final.
+    const qtdNaoLidas = chat.conversaAtiva?.mensagens_sem_visualizar || 0
+    const primeiraNaoLida = qtdNaoLidas > 0
+      ? chat.mensagensAtivas.find((mensagem: Mensagem) => {
+          return mensagem.remetente_id !== usuarioId && !mensagem.visualizada
+        })
+      : undefined
 
     if (primeiraNaoLida) {
       // Posicionar a primeira não lida no topo da viewport com margem para o indicador
@@ -589,6 +744,10 @@ export function useScrollManager() {
       // - O scroll nunca foi posicionado nesta conversa (primeira abertura sem cache), ou
       // - O usuário ainda está perto do final (não scrollou para cima intencionalmente)
       await rolarParaFinalGarantido()
+      // Armar observer de compensação: conteúdo assíncrono (áudio, code,
+      // referências, fontes) pode crescer após o scroll inicial. O observer
+      // mantém o usuário grudado no final enquanto a altura cresce.
+      iniciarObservadorAberturaScroll()
     }
 
     jaPositionouConversa = true
@@ -658,6 +817,7 @@ export function useScrollManager() {
     prefetchSeguintesConversaId = null
     prefetchSeguintesBuscando = false
     semMaisSeguintes = true
+    pararObservadorAberturaScroll()
 
     // Scroll imediato para o final (cobre mensagens do cache).
     // Executa via nextTick para que o DOM já reflita a nova conversa.
@@ -705,6 +865,9 @@ export function useScrollManager() {
           }
           rolarParaFinal()
           jaPositionouConversa = true
+          // Mesma motivação do branch em posicionarAberturaConversaAtiva —
+          // compensar crescimento de altura pós-render (áudio, code, etc.)
+          iniciarObservadorAberturaScroll()
         }
       })
     }
@@ -818,6 +981,7 @@ export function useScrollManager() {
       window.clearTimeout(highlightTimer)
       highlightTimer = 0
     }
+    pararObservadorAberturaScroll()
   })
 
   // =====================================================================
@@ -826,6 +990,7 @@ export function useScrollManager() {
 
   return {
     mensagensContainer,
+    conteudoMensagens,
     usuarioNoFimDoChat,
     distanteDoFinal,
     carregandoHistorico,
@@ -839,6 +1004,8 @@ export function useScrollManager() {
     aoCarregarImagemNoChat,
     posicionarAberturaConversaAtiva,
     solicitarValidacaoVisualizacao,
-    ativarPaginacaoBidirecional
+    ativarPaginacaoBidirecional,
+    capturarAncora,
+    restaurarAncora
   }
 }

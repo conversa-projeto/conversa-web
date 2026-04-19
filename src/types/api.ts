@@ -276,3 +276,23 @@ export interface EventoSocket {
   emoji?: string
   acao?: string
 }
+
+/**
+ * Item da resposta de GET /api/anexos.
+ * O campo `url` e um presigned URL do MinIO com TTL de 600s.
+ */
+export interface AnexoItem {
+  anexo_id: number
+  identificador: string
+  nome: string
+  extensao: string
+  tamanho: number
+  criado_em: string
+  tipo: number
+  mensagem_id: number
+  conversa_id: number
+  conversa_descricao: string
+  autor_id: number
+  autor_nome: string
+  url: string
+}

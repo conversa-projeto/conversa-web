@@ -58,7 +58,7 @@
                   type="button"
                   class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700 transition hover:ring-2 hover:ring-primary-200"
                   title="Ver perfil"
-                  @click.stop="abrirUsuarioInfo(perfilConversa(conversa))"
+                  @click.stop="abrirUsuarioInfo(perfilConversa(conversa), conversa.id)"
                 >
                   <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                   <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
@@ -142,7 +142,13 @@
       </section>
     </div>
 
-    <UserInfoModal :aberta="mostrarUsuarioInfo" :usuario="usuarioSelecionado" @close="fecharUsuarioInfo" />
+    <UserInfoModal
+      :aberta="mostrarUsuarioInfo"
+      :usuario="usuarioSelecionado"
+      :conversa-id="conversaIdInfo"
+      @close="fecharUsuarioInfo"
+      @open-anexos="(id) => { fecharUsuarioInfo(); emit('open-anexos', id) }"
+    />
   </aside>
 </template>
 
@@ -170,6 +176,7 @@ const emit = defineEmits<{
   'conversation-opened': []
   'popout': [conversaId: number]
   'open-search-message': [conversaId: number, mensagemId: number]
+  'open-anexos': [conversaId: number]
 }>()
 
 const auth = useAuthStore()
@@ -180,6 +187,7 @@ const pesquisaAvancadaAberta = ref(false)
 
 const mostrarUsuarioInfo = ref(false)
 const usuarioSelecionado = ref<UsuarioPopup | null>(null)
+const conversaIdInfo = ref<number | null>(null)
 
 const perfilUsuarioLogado = computed(() => {
   if (!auth.user) return null
@@ -244,15 +252,17 @@ function perfilConversa(conversa: Conversa) {
   return resolverUsuarioDaConversa(conversa, chat.contatos)
 }
 
-function abrirUsuarioInfo(usuario: UsuarioPopup | null) {
+function abrirUsuarioInfo(usuario: UsuarioPopup | null, conversaId: number | null = null) {
   if (!usuario) return
   usuarioSelecionado.value = usuario
+  conversaIdInfo.value = conversaId
   mostrarUsuarioInfo.value = true
 }
 
 function fecharUsuarioInfo() {
   mostrarUsuarioInfo.value = false
   usuarioSelecionado.value = null
+  conversaIdInfo.value = null
 }
 
 function avatarContato(contato: Contato) {

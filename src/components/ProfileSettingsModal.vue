@@ -25,7 +25,7 @@
             :key="aba.id"
             type="button"
             class="mb-2 w-full rounded-xl px-4 py-3 text-left transition"
-            :class="abaAtiva === aba.id ? 'bg-primary-600 text-white shadow-lg' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-900'"
+            :class="props.abaAtiva === aba.id ? 'bg-primary-600 text-white shadow-lg' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-900'"
             @click="selecionarAba(aba.id)"
           >
             <span class="block text-sm font-semibold">{{ aba.titulo }}</span>
@@ -54,7 +54,7 @@
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          <div v-if="abaAtiva === 'usuario'" class="space-y-6">
+          <div v-if="props.abaAtiva === 'usuario'" class="space-y-6">
             <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
               <div class="flex flex-col gap-4 md:flex-row md:items-center">
                 <div class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold text-primary-700">
@@ -184,7 +184,7 @@
             </form>
           </div>
 
-          <div v-else-if="abaAtiva === 'dispositivos'" class="space-y-4">
+          <div v-else-if="props.abaAtiva === 'dispositivos'" class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-4">
                 <div>
@@ -259,7 +259,7 @@
             </section>
           </div>
 
-          <div v-else-if="abaAtiva === 'permissoes'" class="space-y-4">
+          <div v-else-if="props.abaAtiva === 'permissoes'" class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="mb-4">
                 <h4 class="text-sm font-semibold text-surface-800">Permissoes do navegador</h4>
@@ -387,13 +387,16 @@ type VoipForm = {
 const props = withDefaults(defineProps<{
   aberta: boolean
   inline?: boolean
+  abaAtiva?: AbaId
 }>(), {
-  inline: false
+  inline: false,
+  abaAtiva: 'usuario'
 })
 
 const emit = defineEmits<{
   close: []
   logout: []
+  'update:abaAtiva': [aba: AbaId]
 }>()
 
 const { isDark, toggle: toggleTheme } = useTheme()
@@ -407,11 +410,10 @@ const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario' },
 ]
 
-const abaAtiva = ref<AbaId>('usuario')
 const subnivelMobile = ref<AbaId | null>(null)
 
 function selecionarAba(id: AbaId) {
-  abaAtiva.value = id
+  emit('update:abaAtiva', id)
   subnivelMobile.value = id
 }
 
@@ -463,7 +465,7 @@ const inicialUsuario = computed(() => {
   const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
   return nome.charAt(0).toUpperCase()
 })
-const abaAtual = computed(() => abas.find((aba) => aba.id === abaAtiva.value) || abas[0])
+const abaAtual = computed(() => abas.find((aba) => aba.id === props.abaAtiva) || abas[0])
 const dispositivoAtual = computed(() => detectarNavegador())
 
 watch(() => props.aberta, (aberta) => {
@@ -634,7 +636,8 @@ function detectarNavegador() {
 }
 
 function resetarEstado() {
-  abaAtiva.value = 'usuario'
+  // Nao resetar abaAtiva aqui: ela e controlada pelo pai via v-model e
+  // pode vir pre-definida via URL (/config/:aba).
   subnivelMobile.value = null
   senhaNova.value = ''
   confirmacaoSenha.value = ''

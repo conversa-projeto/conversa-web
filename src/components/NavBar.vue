@@ -151,11 +151,16 @@ const IconeRamal = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill: '
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M13.5 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z' })
 ])
 
+const IconeAnexos = () => h('svg', { xmlns: 'http://www.w3.org/2000/svg', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13' })
+])
+
 const itensPrincipais = [
   { id: 'chat', label: 'Chat', icone: IconeChat },
   { id: 'atividades', label: 'Atividades', icone: IconeAtividades },
   { id: 'equipes', label: 'Equipes', icone: IconeEquipes },
   { id: 'chamadas', label: 'Chamadas', icone: IconeChamadas },
+  { id: 'anexos', label: 'Anexos', icone: IconeAnexos },
   { id: 'ramal', label: 'Ramal', icone: IconeRamal },
 ]
 </script>

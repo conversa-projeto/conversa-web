@@ -36,6 +36,7 @@
         v-if="secaoAtiva === 'config'"
         :aberta="true"
         inline
+        v-model:aba-ativa="abaConfigAtiva"
         class="flex-1 bg-surface-base"
         @close="fecharConfiguracoes"
         @logout="sair"
@@ -46,6 +47,16 @@
         v-else-if="secaoAtiva === 'chamadas'"
         class="flex-1"
         @open-conversa="abrirConversaPorId"
+      />
+
+      <!-- Anexos -->
+      <AnexosPage
+        v-else-if="secaoAtiva === 'anexos'"
+        :conversa-id-inicial="anexosConversaId"
+        class="flex-1"
+        @update:conversa-id="aoMudarConversaAnexos"
+        @open-image-gallery="handleOpenAnexoImagem"
+        @open-message="abrirMensagemDoAnexo"
       />
 
       <!-- Tela "Em desenvolvimento" para seções não implementadas -->
@@ -64,6 +75,7 @@
         @conversation-opened="onConversationOpened"
         @popout="abrirChatPopup"
         @open-search-message="abrirMensagemPesquisaGlobal"
+        @open-anexos="abrirAnexosDaConversa"
       />
 
       <main
@@ -107,6 +119,7 @@
           @start-call="solicitarChamada"
           @go-to-message="abrirResultadoBusca"
           @open-group-members="modalMembrosGrupo = true"
+          @open-anexos="abrirAnexosDaConversa"
         />
 
         <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal" />
@@ -116,6 +129,7 @@
           ref="messageListRef"
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
+          @ancora-changed="aoAncoraMudou"
         />
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-3 bg-surface-100 text-surface-500">
@@ -241,6 +255,8 @@ import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
 import { useDragAndDrop } from './composables/useDragAndDrop'
 import { useUploadProgress } from './composables/useUploadProgress'
+import { useHistoryNavigation } from './composables/useHistoryNavigation'
+import type { AbaConfigId, AncoraScroll, SecaoId } from './composables/useHistoryNavigation'
 import { ErroNaoAutenticado } from './services/http'
 
 import LoginForm from './components/LoginForm.vue'
@@ -264,6 +280,7 @@ import CallWindow from './CallWindow.vue'
 import UploadIndicador from './components/UploadIndicador.vue'
 import NavBar from './components/NavBar.vue'
 import ChamadaHistorico from './components/ChamadaHistorico.vue'
+import AnexosPage from './components/AnexosPage.vue'
 const SipDialerModal = defineAsyncComponent(() => import('./components/SipDialerModal.vue'))
 const SipIncomingCallModal = defineAsyncComponent(() => import('./components/SipIncomingCallModal.vue'))
 
@@ -282,7 +299,26 @@ function bloquearContextMenu(e: MouseEvent) {
 
 const erro = ref('')
 const telaCadastro = ref(false)
-const secaoAtiva = ref('chat')
+
+// =============================================================================
+// NAVEGAÇÃO POR URL (back/forward do navegador)
+//
+// Cada mudança de seção, conversa ou aba de config faz pushState, gerando
+// uma entrada no histórico. O scroll atual do chat é persistido como âncora
+// (ID da mensagem + offset em pixels) via replaceState em cada scroll.
+// popstate restaura tudo: seção, conversa, aba de config e posição do scroll.
+// =============================================================================
+const historia = useHistoryNavigation()
+historia.inicializar()
+
+const secaoAtiva = ref<SecaoId>(historia.estadoAtual.value.secao)
+const abaConfigAtiva = ref<AbaConfigId>(historia.estadoAtual.value.abaConfig || 'usuario')
+const anexosConversaId = ref<number | null>(
+  historia.estadoAtual.value.secao === 'anexos' ? historia.estadoAtual.value.conversaId : null
+)
+
+// Aplicar conversaId inicial (deep link /chat/:id) assim que o auth estiver pronto.
+// Feito via watch abaixo para cobrir o caso de a sessão só existir depois do login.
 const inicialUsuarioNav = computed(() => {
   const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
   return nome.charAt(0).toUpperCase()
@@ -294,7 +330,9 @@ const sipStatusNav = computed<'conectado' | 'conectando' | 'erro' | 'desconectad
   return 'desconectado'
 })
 const abrirDiscador = ref(false)
-const sidebarAberta = ref(!chat.conversaAtivaId)
+const sidebarAberta = ref(
+  !(historia.estadoAtual.value.secao === 'chat' && historia.estadoAtual.value.conversaId)
+)
 const abrirModalGrupo = ref(false)
 const modalMembrosGrupo = ref(false)
 const modalParticipantesChamada = ref(false)
@@ -422,6 +460,9 @@ onMounted(async () => {
         void call.tratarEventoChamada(evento)
       })
       void call.verificarChamadasPendentes()
+      // Deep link: se a URL inicial tem /chat/:id, abrir a conversa
+      // agora que o chat foi inicializado (conversas disponíveis).
+      await aplicarEstadoInicialUrl()
     } catch (e) {
       auth.logout()
       if (!(e instanceof ErroNaoAutenticado)) {
@@ -431,8 +472,135 @@ onMounted(async () => {
   }
 })
 
+/**
+ * Aplica o estado de navegação lido da URL ao montar a app.
+ * Cobre deep links: /chat/42, /config/voip, /chamadas, etc.
+ */
+async function aplicarEstadoInicialUrl() {
+  const estado = historia.estadoAtual.value
+  if (estado.secao === 'chat' && estado.conversaId && estado.conversaId !== chat.conversaAtivaId) {
+    try {
+      await chat.selecionarConversa(estado.conversaId)
+      sidebarAberta.value = false
+      await nextTick()
+      if (estado.ancora) {
+        await nextTick()
+        await messageListRef.value?.restaurarAncora(estado.ancora)
+      } else {
+        await messageListRef.value?.posicionarAberturaConversaAtiva()
+      }
+    } catch {
+      // Conversa inválida na URL — ignorar silenciosamente
+    }
+  }
+}
+
+// =============================================================================
+// Sincronização estado reativo -> histórico
+//
+// Watchers em secaoAtiva, chat.conversaAtivaId e abaConfigAtiva disparam
+// pushEstado sempre que o usuário muda de seção/conversa/aba. A flag interna
+// `estaNavegandoPorHistorico` impede que mudanças vindas do popstate gerem
+// novos pushes (loop).
+// =============================================================================
+watch(secaoAtiva, (nova) => {
+  if (historia.estaNavegandoPorHistorico()) return
+  historia.pushEstado({
+    secao: nova,
+    conversaId: nova === 'chat'
+      ? chat.conversaAtivaId
+      : nova === 'anexos'
+        ? anexosConversaId.value
+        : null,
+    abaConfig: nova === 'config' ? abaConfigAtiva.value : null
+  })
+})
+
+watch(() => chat.conversaAtivaId, (conversaId) => {
+  if (historia.estaNavegandoPorHistorico()) return
+  if (secaoAtiva.value !== 'chat') return
+  historia.pushEstado({ secao: 'chat', conversaId })
+})
+
+watch(abaConfigAtiva, (aba) => {
+  if (historia.estaNavegandoPorHistorico()) return
+  if (secaoAtiva.value !== 'config') return
+  historia.pushEstado({ secao: 'config', abaConfig: aba })
+})
+
+watch(anexosConversaId, (conversaId) => {
+  if (historia.estaNavegandoPorHistorico()) return
+  if (secaoAtiva.value !== 'anexos') return
+  historia.pushEstado({ secao: 'anexos', conversaId })
+})
+
+// popstate: aplica o estado do navegador aos refs, sem disparar pushEstado de volta.
+const desregistrarPopstate = historia.aoVoltarAvancar(async (estado) => {
+  secaoAtiva.value = estado.secao
+  if (estado.secao === 'config' && estado.abaConfig) {
+    abaConfigAtiva.value = estado.abaConfig
+  }
+  if (estado.secao === 'anexos') {
+    anexosConversaId.value = estado.conversaId
+  }
+  if (estado.secao === 'chat') {
+    const trocouConversa = estado.conversaId && estado.conversaId !== chat.conversaAtivaId
+    if (trocouConversa) {
+      try {
+        await chat.selecionarConversa(estado.conversaId!)
+        sidebarAberta.value = false
+      } catch {
+        // ignorar
+      }
+    } else if (!estado.conversaId) {
+      chat.conversaAtivaId = null
+      sidebarAberta.value = true
+    }
+    await nextTick()
+    if (estado.ancora) {
+      await nextTick()
+      await messageListRef.value?.restaurarAncora(estado.ancora)
+    } else if (trocouConversa) {
+      // Voltou para uma conversa sem âncora (ex: ida a outra seção e back,
+      // mas foi uma outra conversa). Passar pela abertura normal.
+      await messageListRef.value?.posicionarAberturaConversaAtiva()
+    }
+  }
+})
+
+/** Handler de scroll do MessageList: persiste a âncora na entrada atual do histórico. */
+function aoAncoraMudou(ancora: AncoraScroll | null) {
+  if (secaoAtiva.value !== 'chat' || !chat.conversaAtivaId) return
+  historia.replaceEstado({ ancora })
+}
+
+/** Navega para /anexos/:conversaId vindo do botao "Ver anexos" do UserInfoModal. */
+function abrirAnexosDaConversa(conversaId: number) {
+  anexosConversaId.value = conversaId
+  secaoAtiva.value = 'anexos'
+}
+
+/** Sincroniza o ref quando o usuario muda a conversa selecionada dentro do AnexosPage. */
+function aoMudarConversaAnexos(conversaId: number | null) {
+  anexosConversaId.value = conversaId
+}
+
+/** Abre o visualizador de imagens usando o mesmo fluxo do chat (galeria + blob cache). */
+function handleOpenAnexoImagem(item: import('./types/api').AnexoItem, galeria: import('./types/api').AnexoItem[]) {
+  const galeriaViewer = galeria.map(g => ({ identificador: g.identificador, nome: g.nome, url: g.url }))
+  handleOpenFilaImage(item.url, item.nome, item.identificador, galeriaViewer)
+}
+
+/** Abre a mensagem referente ao anexo: navega para o chat e scrolla ate a mensagem. */
+async function abrirMensagemDoAnexo(conversaId: number, mensagemId: number) {
+  secaoAtiva.value = 'chat'
+  await nextTick()
+  await abrirMensagemPesquisaGlobal(conversaId, mensagemId)
+}
+
 onUnmounted(() => {
   window.removeEventListener('beforeunload', onBeforeUnload)
+  desregistrarPopstate()
   cleanupCallPopup()
   chat.removerHandlerChamada()
   call.encerrarChamada()

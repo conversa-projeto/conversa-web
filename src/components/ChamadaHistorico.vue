@@ -22,7 +22,7 @@
           v-model="filtroNome"
           type="text"
           placeholder="Buscar contato"
-          class="rounded-lg border border-surface-300 bg-surface-100 px-2 py-1 text-xs text-surface-700 outline-none focus:border-primary-500 dark:border-surface-500 dark:bg-surface-600 dark:text-surface-200"
+          class="rounded-lg border border-surface-300 bg-surface-100 px-2 py-1 text-xs text-surface-700 outline-none focus:border-primary-500"
         />
         <DateInput v-model="filtroDe" placeholder="De" />
         <DateInput v-model="filtroAte" placeholder="Até" />

@@ -161,7 +161,13 @@
       </div>
     </div>
 
-    <UserInfoModal :aberta="mostrarUsuarioInfo" :usuario="usuarioSelecionado" @close="fecharUsuarioInfo" />
+    <UserInfoModal
+      :aberta="mostrarUsuarioInfo"
+      :usuario="usuarioSelecionado"
+      :conversa-id="chat.conversaAtivaId"
+      @close="fecharUsuarioInfo"
+      @open-anexos="(id) => { fecharUsuarioInfo(); emit('open-anexos', id) }"
+    />
   </div>
 </template>
 
@@ -186,6 +192,7 @@ const emit = defineEmits<{
   'go-to-message': [id: number]
   'open-group-members': []
   'open-chat-with': [usuarioId: number]
+  'open-anexos': [conversaId: number]
 }>()
 
 const chat = useChatStore()

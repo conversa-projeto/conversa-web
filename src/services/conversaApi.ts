@@ -1,4 +1,5 @@
 ﻿import type {
+  AnexoItem,
   AnexoResponse,
   Chamada,
   ChamadaHistoricoItem,
@@ -305,6 +306,24 @@ export function getChamadas(filtros?: { participante?: number; de?: string; ate?
   if (filtros?.de) query.de = filtros.de
   if (filtros?.ate) query.ate = filtros.ate
   return requestApi<ChamadaHistoricoItem[]>('/chamadas', 'GET', { query })
+}
+
+export function getAnexos(filtros?: {
+  conversa?: number
+  autor?: number
+  direcao?: 'enviados' | 'recebidos'
+  tipos?: number[]
+  antes?: number
+  limite?: number
+}) {
+  const query: Record<string, string | number> = {}
+  if (filtros?.conversa) query.conversa = filtros.conversa
+  if (filtros?.autor) query.autor = filtros.autor
+  if (filtros?.direcao) query.direcao = filtros.direcao
+  if (filtros?.tipos && filtros.tipos.length > 0) query.tipos = filtros.tipos.join(',')
+  if (filtros?.antes) query.antes = filtros.antes
+  if (filtros?.limite) query.limite = filtros.limite
+  return requestApi<AnexoItem[]>('/anexos', 'GET', { query })
 }
 
 export function digitando(conversaId: number) {

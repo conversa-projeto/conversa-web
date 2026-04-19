@@ -3,7 +3,7 @@
     <div
       class="flex-1 overflow-y-auto px-3 py-4"
       ref="mensagensContainer"
-      @scroll="aoScrollChat"
+      @scroll="aoScrollChatComAncora"
     >
       <div v-if="chat.carregando && chat.mensagensAtivas.length === 0" class="absolute inset-0 flex items-center justify-center">
         <div class="flex flex-col items-center gap-4">
@@ -27,7 +27,7 @@
         </div>
       </div>
 
-      <div class="mx-auto w-full max-w-[850px] pl-5">
+      <div ref="conteudoMensagens" class="mx-auto w-full max-w-[850px] pl-5">
 
         <template v-for="item in itensMensagens" :key="item.key">
           <div v-if="item.tipo === 'dia'" class="my-3 flex justify-center">
@@ -116,6 +116,7 @@ import type { Mensagem } from '../types/api'
 const emit = defineEmits<{
   'open-image': [identificador: string, nome: string]
   'forward': [mensagem: Mensagem]
+  'ancora-changed': [ancora: import('../composables/useHistoryNavigation').AncoraScroll | null]
 }>()
 
 const auth = useAuthStore()
@@ -123,6 +124,7 @@ const chat = useChatStore()
 
 const {
   mensagensContainer,
+  conteudoMensagens,
   aoScrollChat,
   aoCarregarImagemNoChat,
   posicionarAberturaConversaAtiva,
@@ -134,8 +136,25 @@ const {
   carregandoSeguintes,
   haNovasMensagens,
   indicadorNaoLidasAtivo,
-  ativarPaginacaoBidirecional
+  ativarPaginacaoBidirecional,
+  capturarAncora,
+  restaurarAncora
 } = useScrollManager()
+
+// Debounce para captura de âncora: em cada scroll, aguarda 200ms
+// de inatividade antes de emitir, evitando overhead durante scroll rápido.
+let timerAncora = 0
+function aoScrollChatComAncora() {
+  aoScrollChat()
+  if (timerAncora) window.clearTimeout(timerAncora)
+  timerAncora = window.setTimeout(() => {
+    timerAncora = 0
+    emit('ancora-changed', capturarAncora())
+  }, 200)
+}
+onBeforeUnmount(() => {
+  if (timerAncora) window.clearTimeout(timerAncora)
+})
 
 const { anexoUrl, renovarAnexoUrl, abrirAnexo, limparAnexos } = useAttachments()
 
@@ -476,7 +495,8 @@ defineExpose({
   rolarParaFinal,
   irParaMensagem,
   limparAnexos,
-  ativarPaginacaoBidirecional
+  ativarPaginacaoBidirecional,
+  restaurarAncora
 })
 </script>
 
