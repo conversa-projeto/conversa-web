@@ -6,6 +6,7 @@
   ChamadaPendente,
   Contato,
   Conversa,
+  IceConfig,
   LoginResponse,
   SipConfig,
   Mensagem,
@@ -360,4 +361,8 @@ export function atualizarSip(dados: Partial<SipConfig> & { id: number }) {
   return requestApi<{ sucesso: boolean }>('/sip', 'PATCH', {
     body: dados
   })
+}
+
+export function getIceServers() {
+  return requestApi<IceConfig>('/ice')
 }

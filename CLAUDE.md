@@ -190,7 +190,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 ## 9. COMANDOS ÚTEIS
 
 ```bash
-npm run dev       # Inicia dev server (Vite, porta 5173)
+npm run dev       # Inicia dev server (Vite, HTTPS na porta 4430)
 npm run build     # Type-check + build de produção
 npm run preview   # Preview do build de produção
 ```

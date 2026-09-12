@@ -186,6 +186,12 @@ export interface SipConfig {
   criado_por?: number | null
 }
 
+/** Resposta de GET /ice: servidores ICE com credencial TURN temporaria. */
+export interface IceConfig {
+  iceServers: RTCIceServer[]
+  iceTransportPolicy: RTCIceTransportPolicy
+}
+
 // === Chamada (Call) ===
 
 export interface ChamadaUsuario {

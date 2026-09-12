@@ -16,11 +16,28 @@ export interface PeerConexao {
   stream: MediaStream | null
 }
 
-const ICE_SERVERS: RTCIceServer[] = (() => {
+const STUN_FALLBACK: RTCIceServer[] = (() => {
   const stunUrl = import.meta.env.VITE_STUN_URL
   if (!stunUrl) return []
   return [{ urls: stunUrl }]
 })()
+
+/**
+ * Configuracao ICE emitida pelo backend em GET /ice. Traz credenciais TURN
+ * temporarias e a politica de transporte (relay-only ou todas). Buscada a
+ * cada conexao porque as credenciais expiram.
+ */
+async function obterConfigRTC(): Promise<RTCConfiguration> {
+  try {
+    const cfg = await api.getIceServers()
+    if (cfg.iceServers.length) {
+      return { iceServers: cfg.iceServers, iceTransportPolicy: cfg.iceTransportPolicy }
+    }
+  } catch (e) {
+    console.warn('[CALL] Falha ao obter servidores ICE, usando caminho direto', e)
+  }
+  return { iceServers: STUN_FALLBACK }
+}
 
 export const useCallStore = defineStore('call', () => {
   const estado = ref<EstadoChamada>('inativo')
@@ -164,10 +181,12 @@ export const useCallStore = defineStore('call', () => {
         resolve()
         return
       }
+      // 5s: a alocacao TURN sobre TLS na primeira conexao passa de 3s, e sem
+      // trickle ICE o candidato relay que nao chegar a tempo fica fora do SDP.
       const timer = setTimeout(() => {
         pc.onicegatheringstatechange = null
         resolve()
-      }, 3000)
+      }, 5000)
       pc.onicegatheringstatechange = () => {
         if (pc.iceGatheringState === 'complete') {
           clearTimeout(timer)
@@ -234,7 +253,7 @@ export const useCallStore = defineStore('call', () => {
     }
     const chamadaId = getChamadaIdAtual()
 
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+    const pc = new RTCPeerConnection(await obterConfigRTC())
     streamLocal.value.getTracks().forEach(t => pc.addTrack(t, streamLocal.value!))
 
     const offer = await pc.createOffer()
@@ -317,7 +336,7 @@ export const useCallStore = defineStore('call', () => {
     }
     const chamadaId = getChamadaIdAtual()
 
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+    const pc = new RTCPeerConnection(await obterConfigRTC())
     const remoteStream = new MediaStream()
 
     pc.addTransceiver('audio', { direction: 'recvonly' })
