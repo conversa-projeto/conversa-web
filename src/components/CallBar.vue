@@ -1,24 +1,24 @@
 <template>
-  <div class="relative flex items-center gap-2 border-b border-slate-700 bg-slate-800 px-3 py-1.5 text-white text-xs">
+  <div class="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-slate-700 bg-slate-800 px-3 py-1.5 text-white text-xs">
     <div
       class="h-2 w-2 rounded-full"
       :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-warning-400 animate-pulse'"
     ></div>
-    <span class="font-medium">
+    <span class="whitespace-nowrap font-medium">
       {{ call.estado === 'chamando' ? 'Chamando...' : call.estado === 'encerrando' ? 'Encerrando...' : 'Em chamada' }}
     </span>
     <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-success-400">
       {{ call.duracaoChamadaFormatada }}
     </span>
-    <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
+    <span class="whitespace-nowrap rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
       {{ call.tipoChamada === 2 ? 'Vídeo' : 'Áudio' }}
     </span>
-    <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-success-400">
+    <span class="whitespace-nowrap rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-success-400">
       {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
     </span>
 
     <!-- Avatares -->
-    <div class="flex -space-x-1.5">
+    <div class="hidden -space-x-1.5 sm:flex">
       <div class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-600 text-[9px] font-bold text-slate-300 ring-1 ring-surface-800">
         {{ iniciaisUsuario(auth.user?.nome || '') }}
       </div>

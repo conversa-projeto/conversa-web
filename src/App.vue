@@ -151,15 +151,15 @@
         />
       </main>
 
-      <CallWindow
-        v-if="mostrarChamadaNoPrincipal"
-        :fechar-ao-encerrar="false"
-        class="fixed inset-0 z-20"
-        @toggle-float="chamadaFlutuante = true"
-      />
+      <div v-if="mostrarChamadaNoPrincipal" class="fixed inset-0 z-40">
+        <CallWindow
+          :fechar-ao-encerrar="false"
+          @toggle-float="chamadaFlutuante = true"
+        />
+      </div>
 
       <CallWindow
-        v-if="chamadaFlutuante && call.emChamada && call.tipoChamada === 2"
+        v-if="chamadaFlutuante && call.emChamada && call.tipoChamada === 2 && !telaPequena"
         :fechar-ao-encerrar="false"
         :flutuante="true"
         @toggle-float="chamadaFlutuante = false"
@@ -346,6 +346,11 @@ const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)
 const modalAdicionarUsuario = ref(false)
 const chamadaFlutuante = ref(false)
+// Celular (abaixo do breakpoint md): a chamada minimizada nao vira janela
+// flutuante, fica so na barra superior, e o app pode ser usado normalmente.
+const consultaTelaPequena = window.matchMedia('(max-width: 767px)')
+const telaPequena = ref(consultaTelaPequena.matches)
+consultaTelaPequena.addEventListener('change', (e) => { telaPequena.value = e.matches })
 const mostrarAvisoDesconexao = ref(false)
 let timerDesconexao: ReturnType<typeof setTimeout> | null = null
 

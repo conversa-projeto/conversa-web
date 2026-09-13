@@ -97,6 +97,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
+        <!-- Chamada nao tem status de entrega, mas ocupa o mesmo espaco para alinhar com as demais -->
+        <div v-else-if="isOwn && mensagem.id > 0 && ehChamada" class="w-3.5 shrink-0" />
       </div>
 
       <!-- Reações existentes abaixo da bolha -->
