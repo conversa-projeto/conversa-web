@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-1 text-xs">
+  <div class="mt-1 w-0 min-w-full text-xs">
     <p v-if="status === StatusTranscricao.Concluida" class="whitespace-pre-wrap break-words opacity-90">
       {{ texto || '(nenhuma fala reconhecida)' }}
     </p>
