@@ -134,7 +134,7 @@
               >
                 <div class="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-[9px] font-semibold text-primary-700">
                   <img v-if="u.avatar_url" :src="u.avatar_url" alt="" class="h-full w-full object-cover" />
-                  <span v-else>{{ u.nome.charAt(0).toUpperCase() }}</span>
+                  <span v-else>{{ inicialNome(u.nome) }}</span>
                 </div>
                 <span class="text-xs text-surface-700 dark:text-surface-600">{{ u.nome }}</span>
                 <span class="text-[10px] text-surface-500">{{ formatarHoraReacao(u.reagido_em) }}</span>
@@ -155,6 +155,7 @@ import { classificarMensagem, TipoExibicaoMensagem } from '../utils/classificarM
 import { useAgora } from '../composables/useAgora'
 import MensagemAcoes from './MensagemAcoes.vue'
 import { emojiNome } from '../utils/emojiNomes'
+import { inicialNome } from '../utils/formatters'
 import BolhaImagem from './BolhaImagem.vue'
 import BolhaCodigo from './BolhaCodigo.vue'
 import BolhaReferencia from './BolhaReferencia.vue'

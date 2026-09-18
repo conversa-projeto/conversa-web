@@ -54,11 +54,20 @@ export function formatarDiaSeparador(iso: string): string {
   })
 }
 
+/**
+ * Primeira letra do nome para o avatar. Usa Array.from porque charAt(0) corta
+ * emoji ao meio (eles ocupam duas posicoes) e o avatar sai com simbolo de erro.
+ */
+export function inicialNome(nome: string, padrao = ''): string {
+  const primeiro = Array.from((nome || '').trim())[0]
+  return primeiro ? primeiro.toUpperCase() : padrao
+}
+
 export function iniciaisUsuario(nome: string): string {
   if (!nome) return ''
   return nome
     .split(' ')
-    .map(p => p[0])
+    .map(p => Array.from(p)[0])
     .filter(Boolean)
     .slice(0, 2)
     .join('')

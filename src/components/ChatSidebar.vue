@@ -127,7 +127,7 @@
               <div class="relative shrink-0">
                 <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
                   <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
-                  <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
+                  <span v-else>{{ inicialNome(contato.nome || '', 'C') }}</span>
                 </div>
                 <span
                   v-if="chat.estaOnline(contato.id)"
@@ -153,6 +153,7 @@
 </template>
 
 <script setup lang="ts">
+import { inicialNome } from '../utils/formatters'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
@@ -241,7 +242,7 @@ function tituloConversa(conversa: Conversa) {
 
 function inicialConversa(conversa: Conversa) {
   const nome = tituloConversa(conversa).trim()
-  return (nome.charAt(0) || 'C').toUpperCase()
+  return inicialNome(nome, 'C')
 }
 
 function avatarConversa(conversa: Conversa) {

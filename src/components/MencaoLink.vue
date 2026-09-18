@@ -13,7 +13,7 @@
     >
       <div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-lg font-semibold text-surface-700">
         <img v-if="avatarUrl" :src="avatarUrl" alt="Avatar" class="h-full w-full object-cover" />
-        <span v-else>{{ contato.nome.charAt(0).toUpperCase() }}</span>
+        <span v-else>{{ inicialNome(contato.nome) }}</span>
       </div>
       <span class="w-full truncate text-center text-xs font-medium text-surface-800">{{ contato.nome }}</span>
       <div class="absolute top-full left-1/2 -mt-px h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-surface-200 bg-surface-base" />
@@ -22,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { inicialNome } from '../utils/formatters'
 import { computed, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'

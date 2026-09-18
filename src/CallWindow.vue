@@ -36,6 +36,35 @@
       <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-success-400">
         {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
       </span>
+
+      <!-- Modo de exibicao dos participantes -->
+      <div v-if="!flutuante && call.tipoChamada === 2" class="ml-auto flex items-center gap-0.5 rounded-lg bg-slate-700 p-0.5">
+        <button
+          v-for="opcao in modosExibicao"
+          :key="opcao.modo"
+          type="button"
+          class="flex h-6 items-center gap-1 rounded-md px-2 text-[10px] transition"
+          :class="modoExibicao === opcao.modo ? 'bg-slate-500 text-white' : 'text-slate-300 hover:text-white'"
+          :title="opcao.titulo"
+          @click="definirModoExibicao(opcao.modo)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5">
+            <template v-if="opcao.modo === 'grade'">
+              <rect x="3.5" y="4.5" width="7.5" height="6.5" rx="1" />
+              <rect x="13" y="4.5" width="7.5" height="6.5" rx="1" />
+              <rect x="3.5" y="13" width="7.5" height="6.5" rx="1" />
+              <rect x="13" y="13" width="7.5" height="6.5" rx="1" />
+            </template>
+            <template v-else-if="opcao.modo === 'destaque'">
+              <rect x="3" y="4.5" width="12.5" height="15" rx="1.5" />
+              <rect x="17.5" y="4.5" width="3.5" height="6.5" rx="1" />
+              <rect x="17.5" y="13" width="3.5" height="6.5" rx="1" />
+            </template>
+            <rect v-else x="3" y="4.5" width="18" height="15" rx="1.5" />
+          </svg>
+          <span class="hidden sm:inline">{{ opcao.rotulo }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Video area -->
@@ -67,18 +96,38 @@
                     >
                       <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
                     </div>
-                    <video v-else v-src-object="peer.stream" autoplay playsinline :muted="call.saidaAudioMutada" class="h-full w-full object-contain"></video>
+                    <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-1.5">
                       <span class="text-xs text-white">{{ peer.usuarioNome }}</span>
                     </div>
                   </template>
                 </template>
               </template>
+
+              <!-- Tela unica: setas para trocar o participante exibido -->
+              <template v-if="telaUnica && participantesExibicao.length > 1">
+                <button
+                  type="button"
+                  class="absolute left-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                  title="Participante anterior"
+                  @click.stop="alternarDestaque(-1)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                </button>
+                <button
+                  type="button"
+                  class="absolute right-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                  title="Proximo participante"
+                  @click.stop="alternarDestaque(1)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                </button>
+              </template>
             </div>
           </div>
 
           <!-- Sidebar: small tiles -->
-          <div class="flex w-1/4 min-w-[100px] flex-col gap-2 overflow-auto">
+          <div v-if="!telaUnica" class="flex w-1/4 min-w-[100px] flex-col gap-2 overflow-auto">
             <!-- Local tile (if not highlighted) -->
             <div
               v-if="videoDestaque !== 'local'"
@@ -111,7 +160,7 @@
               >
                 <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
               </div>
-              <video v-else v-src-object="peer.stream" autoplay playsinline :muted="call.saidaAudioMutada" class="h-full w-full object-cover"></video>
+              <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-cover"></video>
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
                 <span class="text-[9px] text-white">{{ peer.usuarioNome }}</span>
               </div>
@@ -179,7 +228,7 @@
             >
               <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
-            <video v-else v-src-object="peer.stream" autoplay playsinline :muted="call.saidaAudioMutada" class="h-full w-full object-cover"></video>
+            <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-cover"></video>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
               <span class="text-[10px] text-white">{{ peer.usuarioNome }}</span>
             </div>
@@ -349,6 +398,39 @@ const videoLocalSidebar = ref<HTMLVideoElement | null>(null)
 const modalAdicionarUsuario = ref(false)
 const usuariosParaAdicionar = ref<number[]>([])
 const videoDestaque = ref<number | 'local' | null>(null)
+
+// Modo de exibicao: grade (todos iguais), destaque (um grande com a lateral)
+// ou tela unica (so o escolhido ocupando toda a area, trocado pelas setas).
+type ModoExibicao = 'grade' | 'destaque' | 'unica'
+const telaUnica = ref(false)
+const modosExibicao: { modo: ModoExibicao; rotulo: string; titulo: string }[] = [
+  { modo: 'grade', rotulo: 'Grade', titulo: 'Todos os participantes lado a lado' },
+  { modo: 'destaque', rotulo: 'Destaque', titulo: 'Um participante grande e os demais na lateral' },
+  { modo: 'unica', rotulo: 'Tela única', titulo: 'Só um participante, ocupando toda a área' },
+]
+const modoExibicao = computed<ModoExibicao>(() =>
+  videoDestaque.value === null ? 'grade' : telaUnica.value ? 'unica' : 'destaque'
+)
+const participantesExibicao = computed<(number | 'local')[]>(() => ['local', ...call.peers.keys()])
+
+function definirModoExibicao(modo: ModoExibicao) {
+  if (modo === 'grade') {
+    telaUnica.value = false
+    videoDestaque.value = null
+    return
+  }
+  telaUnica.value = modo === 'unica'
+  if (videoDestaque.value === null) {
+    // Comeca pelo primeiro outro participante; sozinho, pelo proprio video.
+    videoDestaque.value = call.peers.keys().next().value ?? 'local'
+  }
+}
+
+function alternarDestaque(passo: number) {
+  const lista = participantesExibicao.value
+  const atual = Math.max(0, lista.indexOf(videoDestaque.value ?? 'local'))
+  videoDestaque.value = lista[(atual + passo + lista.length) % lista.length]
+}
 
 const gridClass = computed(() => {
   const total = call.peers.size + 1

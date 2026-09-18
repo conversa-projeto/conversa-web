@@ -84,6 +84,7 @@
 </template>
 
 <script setup lang="ts">
+import { inicialNome } from '../utils/formatters'
 import { computed, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
 import type { AnexoItem, Conversa } from '../types/api'
@@ -139,7 +140,7 @@ function tituloConversa(conversa: Conversa): string {
 
 function inicialConversa(conversa: Conversa): string {
   const nome = tituloConversa(conversa).trim()
-  return (nome.charAt(0) || 'C').toUpperCase()
+  return inicialNome(nome, 'C')
 }
 
 function avatarConversa(conversa: Conversa): string {

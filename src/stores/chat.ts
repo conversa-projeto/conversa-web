@@ -688,6 +688,12 @@ export const useChatStore = defineStore('chat', () => {
 
       if (conversaId && mensagens.length > 0) {
         await atualizarStatusMensagens(conversaId, mensagens)
+
+        const carregadas = mensagensPorConversa.value[conversaId] || []
+        const desconhecida = mensagens.some((id) => !carregadas.some((m) => m.id === id))
+        if (desconhecida && conversaAtivaId.value === conversaId) {
+          await carregarMensagens(conversaId)
+        }
       }
 
       await carregarConversas()

@@ -356,6 +356,7 @@
 </template>
 
 <script setup lang="ts">
+import { inicialNome } from '../utils/formatters'
 import { computed, ref, watch } from 'vue'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
@@ -463,7 +464,7 @@ const sucessoVoip = ref('')
 const avatarAtual = computed(() => auth.avatarUrl || '')
 const inicialUsuario = computed(() => {
   const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
-  return nome.charAt(0).toUpperCase()
+  return inicialNome(nome)
 })
 const abaAtual = computed(() => abas.find((aba) => aba.id === props.abaAtiva) || abas[0])
 const dispositivoAtual = computed(() => detectarNavegador())

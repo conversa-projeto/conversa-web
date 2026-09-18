@@ -29,7 +29,7 @@
           <input v-model="membrosGrupo" type="checkbox" :value="contato.id" class="accent-primary-600" />
           <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
             <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
-            <span v-else>{{ (contato.nome?.charAt(0) || 'C').toUpperCase() }}</span>
+            <span v-else>{{ inicialNome(contato.nome || '', 'C') }}</span>
           </div>
           <span>{{ contato.nome }}</span>
         </label>
@@ -47,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+import { inicialNome } from '../utils/formatters'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'

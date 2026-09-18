@@ -116,6 +116,24 @@ export interface ConteudoMensagem {
   nome?: string | null
   extensao?: string | null
   localUrl?: string
+  /** Audio: situacao da transcricao (StatusTranscricao) e o texto, quando pronto. */
+  transcricao_status?: number
+  transcricao?: string
+}
+
+export const StatusTranscricao = {
+  Nenhuma: 0,
+  Processando: 1,
+  Concluida: 2,
+  Erro: 3
+} as const
+export type StatusTranscricao = (typeof StatusTranscricao)[keyof typeof StatusTranscricao]
+
+/** Resposta de GET e PUT /anexo/transcricao. */
+export interface TranscricaoAudio {
+  status: StatusTranscricao
+  texto: string
+  erro: string
 }
 
 export interface MensagemReferencia {

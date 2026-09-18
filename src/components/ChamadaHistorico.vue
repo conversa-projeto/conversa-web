@@ -101,7 +101,7 @@ import { TipoChamada } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/call'
-import { formatarDuracao } from '../utils/formatters'
+import { formatarDuracao, inicialNome } from '../utils/formatters'
 
 const emit = defineEmits<{
   'open-conversa': [conversaId: number]
@@ -176,7 +176,7 @@ function nomeOutro(chamada: ChamadaHistoricoItem): string {
 
 function inicialOutro(chamada: ChamadaHistoricoItem): string {
   const nome = outroParticipante(chamada)?.nome || 'D'
-  return nome.charAt(0).toUpperCase()
+  return inicialNome(nome)
 }
 
 function avatarOutro(chamada: ChamadaHistoricoItem): string | null {

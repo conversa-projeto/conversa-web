@@ -31,11 +31,6 @@
       </div>
     </div>
 
-    <!-- Hidden audio elements for peer playback -->
-    <template v-for="[userId, peer] in call.peers" :key="`audio-bar-${userId}`">
-      <audio v-if="peer.stream" v-src-object="peer.stream" autoplay :muted="call.saidaAudioMutada"></audio>
-    </template>
-
     <!-- Inline controls for audio call -->
     <template v-if="call.tipoChamada === 1">
       <div class="ml-auto flex items-center gap-1.5">
@@ -119,7 +114,6 @@
 import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/call'
 import { iniciaisUsuario } from '../utils/formatters'
-import { vSrcObject } from '../directives/vSrcObject'
 import CallControlButton from './CallControlButton.vue'
 
 const emit = defineEmits<{

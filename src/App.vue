@@ -255,6 +255,7 @@ import { useCallPopup } from './composables/useCallPopup'
 import { useImageViewer } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
+import { inicialNome } from './utils/formatters'
 import { useDragAndDrop } from './composables/useDragAndDrop'
 import { useUploadProgress } from './composables/useUploadProgress'
 import { useHistoryNavigation } from './composables/useHistoryNavigation'
@@ -327,7 +328,7 @@ const chatNoFim = ref(true)
 // Feito via watch abaixo para cobrir o caso de a sessão só existir depois do login.
 const inicialUsuarioNav = computed(() => {
   const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
-  return nome.charAt(0).toUpperCase()
+  return inicialNome(nome)
 })
 const sipStatusNav = computed<'conectado' | 'conectando' | 'erro' | 'desconectado'>(() => {
   if (sip.isRegistered) return 'conectado'

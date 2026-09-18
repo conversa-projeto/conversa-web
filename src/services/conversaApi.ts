@@ -1,20 +1,4 @@
-﻿import type {
-  AnexoItem,
-  AnexoResponse,
-  Chamada,
-  ChamadaHistoricoItem,
-  ChamadaPendente,
-  Contato,
-  Conversa,
-  IceConfig,
-  LoginResponse,
-  SipConfig,
-  Mensagem,
-  MensagemStatusItem,
-  TipoChamada,
-  TipoConteudo,
-  TipoConversa,
-} from '../types/api'
+﻿import type { AnexoItem, AnexoResponse, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
 import { requestApi } from './http'
 
 export function login(loginValue: string, senha: string, dispositivoId?: number) {
@@ -196,6 +180,18 @@ export function getAnexoUrl(identificador: string) {
   return requestApi<{ url: string }>('/anexo', 'GET', {
     query: { identificador }
   }).then(res => res.url)
+}
+
+export function getTranscricao(identificador: string) {
+  return requestApi<TranscricaoAudio>('/anexo/transcricao', 'GET', {
+    query: { identificador }
+  })
+}
+
+export function transcreverAudio(identificador: string) {
+  return requestApi<TranscricaoAudio>('/anexo/transcricao', 'PUT', {
+    body: { identificador }
+  })
 }
 
 export function reagirMensagem(mensagemId: number, emoji: string) {

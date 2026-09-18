@@ -59,7 +59,7 @@
               >
                 <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-xs font-semibold text-surface-600">
                   <img v-if="avatarMembro(u)" :src="avatarMembro(u)!" alt="" class="h-full w-full object-cover" />
-                  <span v-else>{{ u.nome.charAt(0).toUpperCase() }}</span>
+                  <span v-else>{{ inicialNome(u.nome) }}</span>
                 </div>
                 <span class="truncate">{{ u.nome }}</span>
               </button>
@@ -175,7 +175,7 @@
 import { computed, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useCallStore } from '../stores/call'
-import { resumoMensagem } from '../utils/formatters'
+import { inicialNome, resumoMensagem } from '../utils/formatters'
 import { TipoConversa } from '../types/api'
 import type { TipoChamada } from '../types/api'
 import { resolverUsuarioDaConversa } from '../utils/userProfile'
@@ -215,7 +215,7 @@ const perfilConversaAtiva = computed(() => {
 
 const inicialConversa = computed(() => {
   const nome = chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id || ''}`
-  return (nome.trim().charAt(0) || 'C').toUpperCase()
+  return inicialNome(nome, 'C')
 })
 
 const destinatarioOnline = computed(() => {

@@ -68,6 +68,45 @@ export const useCallStore = defineStore('call', () => {
     peers.value = new Map(peers.value)
   }
 
+  // --- Audio dos participantes ---
+  //
+  // O audio remoto e tocado por elementos criados aqui, que vivem enquanto a
+  // chamada durar. Antes quem tocava eram as tags de video da janela e as de
+  // audio da barra: ao alternar entre tela cheia e janela flutuante os
+  // elementos antigos eram destruidos e os novos nem sempre conseguiam comecar
+  // a tocar (politica de reproducao automatica), e o audio sumia. As janelas
+  // agora exibem apenas video, sempre mudas.
+  const audiosRemotos = new Map<number, HTMLAudioElement>()
+
+  function tocarAudioRemoto(usuarioId: number, stream: MediaStream) {
+    let elemento = audiosRemotos.get(usuarioId)
+    if (!elemento) {
+      elemento = new Audio()
+      elemento.autoplay = true
+      elemento.setAttribute('playsinline', '')
+      audiosRemotos.set(usuarioId, elemento)
+    }
+    if (elemento.srcObject !== stream) {
+      elemento.srcObject = stream
+    }
+    elemento.muted = saidaAudioMutada.value
+    void elemento.play().catch((e) => console.warn('[CALL] audio remoto nao iniciou', { usuarioId, e }))
+  }
+
+  function pararAudioRemoto(usuarioId: number) {
+    const elemento = audiosRemotos.get(usuarioId)
+    if (!elemento) return
+    elemento.pause()
+    elemento.srcObject = null
+    audiosRemotos.delete(usuarioId)
+  }
+
+  function pararAudiosRemotos() {
+    for (const usuarioId of Array.from(audiosRemotos.keys())) {
+      pararAudioRemoto(usuarioId)
+    }
+  }
+
   // Timer de duração
   const duracaoChamadaSegundos = ref(0)
   let intervaloDuracao: number | null = null
@@ -358,6 +397,8 @@ export const useCallStore = defineStore('call', () => {
 
       e.track.onended = () => {
         console.warn('[CALL][WHEP] track ended', { fromUserId, kind: e.track.kind })
+        try { remoteStream.removeTrack(e.track) } catch { /* ignore */ }
+        notificarPeers()
       }
       e.track.onmute = () => {
         console.warn('[CALL][WHEP] track muted', { fromUserId, kind: e.track.kind })
@@ -457,6 +498,7 @@ export const useCallStore = defineStore('call', () => {
         const { pc, stream } = await assinarDePeer(alvoId)
         entrada.rxPc = pc
         entrada.stream = stream
+        tocarAudioRemoto(alvoId, stream)
 
         // Monitorar conexão WHEP e reconectar se falhar
         pc.onconnectionstatechange = () => {
@@ -468,6 +510,7 @@ export const useCallStore = defineStore('call', () => {
             try { pc.close() } catch { /* ignore */ }
             entrada.rxPc = null
             entrada.stream = null
+            pararAudioRemoto(alvoId)
             notificarPeers()
 
             if (estado.value === 'ativa') {
@@ -488,6 +531,7 @@ export const useCallStore = defineStore('call', () => {
               try { entrada.rxPc.close() } catch { /* ignore */ }
               entrada.rxPc = null
               entrada.stream = null
+              pararAudioRemoto(alvoId)
               notificarPeers()
               if (estado.value === 'ativa') {
                 void conectarPeer(alvoId, usuarioNome)
@@ -552,9 +596,25 @@ export const useCallStore = defineStore('call', () => {
     if (!peer) return
 
     try { peer.rxPc?.close() } catch { /* ignore */ }
+    pararAudioRemoto(usuarioId)
 
     peers.value.delete(usuarioId)
     notificarPeers()
+  }
+
+  // Refaz a assinatura de um participante: usado quando ele republica a
+  // transmissao (ao ativar o video, por exemplo) e o fluxo antigo morre.
+  async function reassinarPeer(usuarioId: number) {
+    const peer = peers.value.get(usuarioId)
+    if (!peer || estado.value !== 'ativa') return
+
+    try { peer.rxPc?.close() } catch { /* ignore */ }
+    pararAudioRemoto(usuarioId)
+    peer.rxPc = null
+    peer.stream = null
+    notificarPeers()
+
+    await conectarPeer(usuarioId, peer.usuarioNome)
   }
 
   function desconectarTodosPeers() {
@@ -613,9 +673,10 @@ export const useCallStore = defineStore('call', () => {
         // Reconectar se o peer existe mas a conexão falhou ou não tem tracks
         if (peerExistente?.rxPc) {
           const estadoConexao = peerExistente.rxPc.connectionState
-          const semAudio = !peerExistente.stream || peerExistente.stream.getAudioTracks().length === 0
+          const vivas = (faixas: MediaStreamTrack[]) => faixas.filter(t => t.readyState === 'live').length
+          const semAudio = !peerExistente.stream || vivas(peerExistente.stream.getAudioTracks()) === 0
           const semVideoEmChamadaVideo = tipoChamada.value === TipoChamada.Video &&
-            (!peerExistente.stream || peerExistente.stream.getVideoTracks().length === 0)
+            (!peerExistente.stream || vivas(peerExistente.stream.getVideoTracks()) === 0)
 
           if (estadoConexao === 'failed' || estadoConexao === 'disconnected' || estadoConexao === 'closed' || semAudio || semVideoEmChamadaVideo) {
             console.warn('[CALL] reconectando peer com problema', {
@@ -674,6 +735,7 @@ export const useCallStore = defineStore('call', () => {
 
   function resetarEstado() {
     console.debug('[CALL] resetarEstado, estado anterior:', estado.value)
+    pararAudiosRemotos()
     pararTimerDuracao()
     duracaoChamadaSegundos.value = 0
     estado.value = 'inativo'
@@ -871,6 +933,9 @@ export const useCallStore = defineStore('call', () => {
 
   function alternarSaidaAudio() {
     saidaAudioMutada.value = !saidaAudioMutada.value
+    for (const [, elemento] of audiosRemotos) {
+      elemento.muted = saidaAudioMutada.value
+    }
   }
 
   // --- Compartilhamento de tela ---
@@ -1149,6 +1214,12 @@ export const useCallStore = defineStore('call', () => {
 
       case TipoEventoSocket.VideoAtivado: {
         if (chamada.value?.id === evento.chamada_id && eventoUsuarioId !== meuUsuarioId) {
+          // Ja estou em video: nao ha o que perguntar, so reassinar a
+          // transmissao do outro, que acabou de ser republicada.
+          if (tipoChamada.value === TipoChamada.Video) {
+            void reassinarPeer(eventoUsuarioId!)
+            break
+          }
           // Busca nome do usuario que ativou video
           const peer = peers.value.get(eventoUsuarioId!)
           const nome = peer?.usuarioNome

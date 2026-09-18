@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { inicialNome } from '../utils/formatters'
 import { computed, ref, watch } from 'vue'
 import type { UsuarioPopup } from '../utils/userProfile'
 
@@ -75,7 +76,7 @@ const avatarUrl = computed(() => {
 
 const inicialUsuario = computed(() => {
   const nome = props.usuario?.nome?.trim() || 'U'
-  return (nome.charAt(0) || 'U').toUpperCase()
+  return inicialNome(nome, 'U')
 })
 
 watch(() => props.usuario?.avatar_url, () => {

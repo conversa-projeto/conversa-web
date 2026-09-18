@@ -169,6 +169,12 @@
     >
       <template #status><slot name="audio-status" /></template>
     </AudioPlayerGravacao>
+    <TranscricaoAudio
+      v-if="(ehTipo(conteudo.tipo, TipoConteudo.Audio) || ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)) && !conteudo.localUrl && conteudo.conteudo"
+      :identificador="conteudo.conteudo"
+      :status-inicial="conteudo.transcricao_status"
+      :texto-inicial="conteudo.transcricao"
+    />
   </div>
 </template>
 
@@ -182,6 +188,7 @@ import { useCodeHighlight, temCodigoFormatado, parseCodeBlocks } from '../compos
 import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
+import TranscricaoAudio from './TranscricaoAudio.vue'
 
 const { conexaoLenta } = useConexao()
 const renovarAnexoUrl = inject<(id: string) => Promise<void>>('renovarAnexoUrl')
