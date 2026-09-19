@@ -168,6 +168,14 @@ pre code.hljs {
   --color-warning-700: #b45309;
   --color-warning-800: #92400e;
   --color-warning-900: #78350f;
+
+  /* Chamada (Slate): janela e barra de chamada, escuras nos dois temas */
+  --color-chamada-300: #cbd5e1;
+  --color-chamada-500: #64748b;
+  --color-chamada-600: #475569;
+  --color-chamada-700: #334155;
+  --color-chamada-800: #1e293b;
+  --color-chamada-900: #0f172a;
 }
 
 .dark {

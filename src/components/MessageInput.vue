@@ -1,5 +1,5 @@
 <template>
-  <div v-if="chat.conversaAtiva" class="relative px-3 pb-2">
+  <div v-if="chat.conversaAtiva" ref="raiz" class="relative px-3 pb-2">
     <input
       ref="inputArquivo"
       type="file"
@@ -227,6 +227,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'message-sent': []
+  'altura-mudou': [altura: number]
   'open-image-preview': [blob: Blob, nome: string, mime: string]
   'open-fila-image': [url: string, nome: string, identificador: string, galeria: { identificador: string; nome: string; url: string }[]]
 }>()
@@ -271,6 +272,18 @@ const mostrarCodigo = ref(false)
 const mostrarAgendarModal = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erro = ref('')
+const raiz = ref<HTMLElement | null>(null)
+
+// A lista de mensagens usa a altura deste componente para nada sumir do
+// final dela quando ele cresce (resposta, anexos, varias linhas).
+let observadorAltura: ResizeObserver | null = null
+watch(raiz, (el) => {
+  observadorAltura?.disconnect()
+  observadorAltura = null
+  if (!el) return
+  observadorAltura = new ResizeObserver(() => emit('altura-mudou', el.offsetHeight))
+  observadorAltura.observe(el)
+})
 
 // --- @mention ---
 
@@ -618,8 +631,25 @@ function onEnterTextarea(event: KeyboardEvent) {
   }
 }
 
+const ESPACOS_TAB = '    '
+
+function inserirTexto(texto: string) {
+  const el = textareaMsg.value
+  if (!el) return
+  const inicio = el.selectionStart
+  textoMensagem.value = textoMensagem.value.slice(0, inicio) + texto + textoMensagem.value.slice(el.selectionEnd)
+  focarTextarea(inicio + texto.length)
+}
+
 function aoTeclarNoTextarea(event: KeyboardEvent) {
-  if (!mencaoAtiva.value) return
+  if (!mencaoAtiva.value) {
+    // Tab insere espacos em vez de ir para o proximo botao. Shift+Tab ainda sai do campo.
+    if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault()
+      inserirTexto(ESPACOS_TAB)
+    }
+    return
+  }
   if (event.key === 'Escape') {
     event.preventDefault()
     mencaoAtiva.value = null
@@ -654,9 +684,33 @@ function aoColarNoChat(event: ClipboardEvent) {
   }
 }
 
+// Uma letra digitada fora de qualquer campo vai para a mensagem, sem precisar
+// clicar nela antes.
+function aoTeclarForaDoCampo(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing || event.metaKey) return
+  if ((event.ctrlKey || event.altKey) && !event.getModifierState('AltGraph')) return
+  if (event.key.length !== 1) return
+  const el = textareaMsg.value
+  if (!el) return
+  const ativo = document.activeElement as HTMLElement | null
+  if (ativo && ativo !== document.body) {
+    if (ativo.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(ativo.tagName)) return
+    if (event.key === ' ' && ['BUTTON', 'A'].includes(ativo.tagName)) return
+  }
+  // Com um modal aberto por cima, o campo fica coberto e nao recebe a tecla.
+  const r = el.getBoundingClientRect()
+  if (!el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))) return
+  el.focus()
+  el.selectionStart = el.selectionEnd = el.value.length
+}
+
+document.addEventListener('keydown', aoTeclarForaDoCampo)
+
 // --- Cleanup ---
 
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', aoTeclarForaDoCampo)
+  observadorAltura?.disconnect()
   document.removeEventListener('pointerup', onGlobalPointerUp)
   document.removeEventListener('pointermove', onMicPointerMove)
   if (holdTimer) { clearTimeout(holdTimer); holdTimer = null }
@@ -700,11 +754,11 @@ onBeforeUnmount(() => {
 }
 
 .indicador-gravando::after {
-  background: rgba(239, 68, 68, 0.6);
+  background: color-mix(in srgb, var(--color-danger-500) 60%, transparent);
   box-shadow:
-    0 0 6px 2px rgba(239, 68, 68, 0.4),
-    0 0 16px 4px rgba(239, 68, 68, 0.2),
-    0 0 30px 8px rgba(239, 68, 68, 0.08);
+    0 0 6px 2px color-mix(in srgb, var(--color-danger-500) 40%, transparent),
+    0 0 16px 4px color-mix(in srgb, var(--color-danger-500) 20%, transparent),
+    0 0 30px 8px color-mix(in srgb, var(--color-danger-500) 8%, transparent);
 }
 
 :root.dark .indicador-digitando::after {
@@ -716,11 +770,11 @@ onBeforeUnmount(() => {
 }
 
 :root.dark .indicador-gravando::after {
-  background: rgba(239, 68, 68, 0.5);
+  background: color-mix(in srgb, var(--color-danger-500) 50%, transparent);
   box-shadow:
-    0 0 6px 2px rgba(239, 68, 68, 0.35),
-    0 0 16px 4px rgba(239, 68, 68, 0.15),
-    0 0 30px 8px rgba(239, 68, 68, 0.06);
+    0 0 6px 2px color-mix(in srgb, var(--color-danger-500) 35%, transparent),
+    0 0 16px 4px color-mix(in srgb, var(--color-danger-500) 15%, transparent),
+    0 0 30px 8px color-mix(in srgb, var(--color-danger-500) 6%, transparent);
 }
 
 @keyframes glow-pulse {

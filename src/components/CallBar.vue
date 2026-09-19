@@ -1,5 +1,5 @@
 <template>
-  <div class="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-slate-700 bg-slate-800 px-3 py-1.5 text-white text-xs">
+  <div class="relative flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-chamada-700 bg-chamada-800 px-3 py-1.5 text-white text-xs">
     <div
       class="h-2 w-2 rounded-full"
       :class="call.estado === 'ativa' ? 'bg-success-400' : 'bg-warning-400 animate-pulse'"
@@ -10,24 +10,27 @@
     <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-success-400">
       {{ call.duracaoChamadaFormatada }}
     </span>
-    <span class="whitespace-nowrap rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
+    <span class="whitespace-nowrap rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-chamada-300">
       {{ call.tipoChamada === 2 ? 'Vídeo' : 'Áudio' }}
     </span>
-    <span class="whitespace-nowrap rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-success-400">
+    <span class="whitespace-nowrap rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-success-400">
       {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
     </span>
 
     <!-- Avatares -->
     <div class="hidden -space-x-1.5 sm:flex">
-      <div class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-600 text-[9px] font-bold text-slate-300 ring-1 ring-surface-800">
+      <div class="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-600 text-[9px] font-bold text-chamada-300 ring-1 ring-surface-800">
         {{ iniciaisUsuario(auth.user?.nome || '') }}
+        <img v-if="avatarUsuario(auth.user?.id)" :src="avatarUsuario(auth.user?.id)" alt="" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
       </div>
       <div
         v-for="[userId, peer] in call.peers"
         :key="`bar-${userId}`"
-        class="flex h-6 w-6 items-center justify-center rounded-full bg-surface-600 text-[9px] font-bold text-slate-300 ring-1 ring-surface-800"
+        class="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-600 text-[9px] font-bold text-chamada-300 ring-1 ring-surface-800"
+        :title="peer.usuarioNome"
       >
         {{ iniciaisUsuario(peer.usuarioNome) }}
+        <img v-if="avatarUsuario(userId)" :src="avatarUsuario(userId)" alt="" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
       </div>
     </div>
 
@@ -88,7 +91,7 @@
     <template v-if="call.tipoChamada === 2">
       <div class="ml-auto flex items-center gap-1.5">
         <button
-          class="flex items-center gap-1 rounded-full bg-slate-700 px-2 py-1 text-[10px] font-medium text-white hover:bg-slate-600"
+          class="flex items-center gap-1 rounded-full bg-chamada-700 px-2 py-1 text-[10px] font-medium text-white hover:bg-chamada-600"
           @click="emit('show-call-window')"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
@@ -113,6 +116,8 @@
 <script setup lang="ts">
 import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/call'
+import { useChatStore } from '../stores/chat'
+import { TipoConversa } from '../types/api'
 import { iniciaisUsuario } from '../utils/formatters'
 import CallControlButton from './CallControlButton.vue'
 
@@ -125,4 +130,15 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 const call = useCallStore()
+const chat = useChatStore()
+
+// Foto do participante: a propria vem do perfil; a dos outros, do contato ou
+// da conversa direta com ele, como na lista de conversas. Sem foto, fica a inicial.
+function avatarUsuario(usuarioId?: number) {
+  if (!usuarioId) return ''
+  if (usuarioId === auth.user?.id) return auth.avatarUrl || auth.user.avatar_url || ''
+  const contato = chat.contatos.find((c) => c.id === usuarioId)
+  const conversaDireta = chat.conversas.find((c) => c.tipo === TipoConversa.Direta && c.destinatario_id === usuarioId)
+  return contato?.avatar_url || conversaDireta?.avatar_url || ''
+}
 </script>

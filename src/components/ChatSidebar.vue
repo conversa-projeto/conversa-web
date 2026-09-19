@@ -69,7 +69,7 @@
                 </div>
                 <span
                   v-if="conversa.destinatario_id && chat.estaOnline(conversa.destinatario_id)"
-                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-[1.5px] ring-surface-base"
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success-500 ring-[1.5px] ring-surface-base"
                 />
               </div>
               <div class="min-w-0 flex-1">
@@ -131,7 +131,7 @@
                 </div>
                 <span
                   v-if="chat.estaOnline(contato.id)"
-                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-[1.5px] ring-surface-base"
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success-500 ring-[1.5px] ring-surface-base"
                 />
               </div>
               <span class="truncate text-sm font-medium text-surface-800">{{ contato.nome }}</span>

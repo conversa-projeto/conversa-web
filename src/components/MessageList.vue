@@ -114,6 +114,10 @@ import MessageBubble from './MessageBubble.vue'
 import { TipoConversa } from '../types/api'
 import type { Mensagem } from '../types/api'
 
+const { alturaCampoMensagem = 0 } = defineProps<{
+  alturaCampoMensagem?: number
+}>()
+
 const emit = defineEmits<{
   'open-image': [identificador: string, nome: string]
   'forward': [mensagem: Mensagem]
@@ -311,6 +315,14 @@ function agendarTimerIndicador() {
     }
   }, 3000)
 }
+
+// O campo de mensagem fica abaixo da lista. Quando ele cresce (resposta,
+// anexos, varias linhas), a lista encolhe; ela rola junto para as ultimas
+// mensagens que estavam visiveis continuarem visiveis.
+watch(() => alturaCampoMensagem, async (nova, antiga) => {
+  await nextTick()
+  if (mensagensContainer.value) mensagensContainer.value.scrollTop += nova - antiga
+})
 
 /** Ao trocar de conversa, limpar todo o estado do indicador */
 watch(() => chat.conversaAtivaId, () => limparIndicador())

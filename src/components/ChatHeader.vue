@@ -23,7 +23,7 @@
             </button>
             <span
               v-if="destinatarioOnline"
-              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-[1.5px] ring-surface-50"
+              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success-500 ring-[1.5px] ring-surface-50"
             />
           </div>
           <div class="group relative min-w-0">

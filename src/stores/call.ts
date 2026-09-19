@@ -940,20 +940,23 @@ export const useCallStore = defineStore('call', () => {
 
   // --- Compartilhamento de tela ---
 
+  // Transceiver de video da publicacao WHIP. Pelo receiver, porque o sender
+  // pode estar sem track depois de um replaceTrack(null).
+  function transceiverVideoPublicado() {
+    return pcPublicacaoLocal?.getTransceivers().find(t => t.receiver.track.kind === 'video') || null
+  }
+
   async function compartilharTela() {
-    if (compartilhandoTela.value || tipoChamada.value !== TipoChamada.Video || !streamLocal.value) return
+    if (compartilhandoTela.value || tipoChamada.value !== TipoChamada.Video || !chamada.value) return
 
     const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
     const screenTrack = telaStream.getVideoTracks()[0]
 
+    // Quem entrou sem microfone nem camera ainda nao tem stream local
+    if (!streamLocal.value) streamLocal.value = new MediaStream()
+
     // Salva track da câmera para restaurar depois
     trackCamera = streamLocal.value.getVideoTracks()[0] || null
-
-    // Troca a track de vídeo em todas as conexões WHIP
-    for (const [, peer] of peers.value) {
-      const sender = peer.txPc?.getSenders().find(s => s.track?.kind === 'video')
-      if (sender) await sender.replaceTrack(screenTrack)
-    }
 
     // Atualiza streamLocal para o tile local mostrar a tela
     if (trackCamera) streamLocal.value.removeTrack(trackCamera)
@@ -963,6 +966,21 @@ export const useCallStore = defineStore('call', () => {
     compartilhandoTela.value = true
 
     screenTrack.onended = () => { void pararCompartilhamento() }
+
+    const transceiver = transceiverVideoPublicado()
+    if (transceiver) {
+      await transceiver.sender.replaceTrack(screenTrack)
+    } else {
+      // Sem camera a publicacao so tem audio e nao ha onde trocar o video:
+      // publica de novo ja com a tela e avisa os outros para assinarem de novo.
+      encerrarPublicacaoLocal()
+      pcPublicacaoLocal = await publicarLocalNaSala()
+      for (const [, peer] of peers.value) {
+        peer.txPc = pcPublicacaoLocal
+      }
+      notificarPeers()
+      if (chamada.value) api.chamadaVideo(chamada.value.id).catch(() => { /* ignore */ })
+    }
   }
 
   async function pararCompartilhamento() {
@@ -980,11 +998,8 @@ export const useCallStore = defineStore('call', () => {
       }
     }
 
-    // Troca de volta em todas as conexões WHIP
-    for (const [, peer] of peers.value) {
-      const sender = peer.txPc?.getSenders().find(s => s.track?.kind === 'video')
-      if (sender) await sender.replaceTrack(trackCamera)
-    }
+    // Troca de volta na publicação WHIP
+    await transceiverVideoPublicado()?.sender.replaceTrack(trackCamera)
 
     // Atualiza streamLocal
     if (screenTrack) streamLocal.value.removeTrack(screenTrack)

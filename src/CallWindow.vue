@@ -1,7 +1,7 @@
 <template>
   <div
     ref="containerRef"
-    class="flex flex-col bg-slate-900 text-white"
+    class="flex flex-col bg-chamada-900 text-white"
     :class="flutuante
       ? 'fixed z-[60] rounded-xl shadow-2xl ring-1 ring-surface-700 overflow-hidden'
       : 'h-full'"
@@ -16,7 +16,7 @@
   >
     <!-- Header (drag handle when floating) -->
     <div
-      class="flex items-center gap-2 border-b border-slate-700 bg-slate-800 px-3 py-2 shrink-0"
+      class="flex items-center gap-2 border-b border-chamada-700 bg-chamada-800 px-3 py-2 shrink-0"
       :class="{ 'cursor-grab active:cursor-grabbing select-none': flutuante }"
       @pointerdown="flutuante ? drag.onPointerDown($event) : undefined"
     >
@@ -30,21 +30,21 @@
       <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-success-400">
         {{ call.duracaoChamadaFormatada }}
       </span>
-      <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
+      <span class="rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-chamada-300">
         {{ call.tipoChamada === 2 ? 'V&iacute;deo' : '&Aacute;udio' }}
       </span>
-      <span class="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] text-success-400">
+      <span class="rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-success-400">
         {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
       </span>
 
       <!-- Modo de exibicao dos participantes -->
-      <div v-if="!flutuante && call.tipoChamada === 2" class="ml-auto flex items-center gap-0.5 rounded-lg bg-slate-700 p-0.5">
+      <div v-if="!flutuante && call.tipoChamada === 2" class="ml-auto flex items-center gap-0.5 rounded-lg bg-chamada-700 p-0.5">
         <button
           v-for="opcao in modosExibicao"
           :key="opcao.modo"
           type="button"
           class="flex h-6 items-center gap-1 rounded-md px-2 text-[10px] transition"
-          :class="modoExibicao === opcao.modo ? 'bg-slate-500 text-white' : 'text-slate-300 hover:text-white'"
+          :class="modoExibicao === opcao.modo ? 'bg-chamada-500 text-white' : 'text-chamada-300 hover:text-white'"
           :title="opcao.titulo"
           @click="definirModoExibicao(opcao.modo)"
         >
@@ -74,11 +74,11 @@
         <div class="flex h-full gap-2">
           <!-- Main (highlighted) tile -->
           <div class="flex-1 min-w-0" @click="videoDestaque = null">
-            <div class="relative h-full w-full overflow-hidden rounded-lg bg-slate-800 cursor-pointer">
+            <div class="relative h-full w-full overflow-hidden rounded-lg bg-chamada-800 cursor-pointer">
               <template v-if="videoDestaque === 'local'">
                 <div
                   v-if="call.cameraMutada && !call.compartilhandoTela"
-                  class="flex h-full w-full items-center justify-center bg-slate-700"
+                  class="flex h-full w-full items-center justify-center bg-chamada-700"
                 >
                   <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
                 </div>
@@ -92,7 +92,7 @@
                   <template v-if="userId === videoDestaque">
                     <div
                       v-if="!peer.stream?.getVideoTracks().length"
-                      class="flex h-full w-full items-center justify-center bg-slate-700"
+                      class="flex h-full w-full items-center justify-center bg-chamada-700"
                     >
                       <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
                     </div>
@@ -131,12 +131,12 @@
             <!-- Local tile (if not highlighted) -->
             <div
               v-if="videoDestaque !== 'local'"
-              class="relative cursor-pointer overflow-hidden rounded-lg bg-slate-800 aspect-video"
+              class="relative cursor-pointer overflow-hidden rounded-lg bg-chamada-800 aspect-video"
               @click.stop="videoDestaque = 'local'"
             >
               <div
                 v-if="call.somenteRecepcao || (call.cameraMutada && !call.compartilhandoTela)"
-                class="flex h-full w-full items-center justify-center bg-slate-700"
+                class="flex h-full w-full items-center justify-center bg-chamada-700"
               >
                 <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
@@ -151,12 +151,12 @@
               v-for="[userId, peer] in call.peers"
               :key="'side-' + userId"
               v-show="userId !== videoDestaque"
-              class="relative cursor-pointer overflow-hidden rounded-lg bg-slate-800 aspect-video"
+              class="relative cursor-pointer overflow-hidden rounded-lg bg-chamada-800 aspect-video"
               @click.stop="videoDestaque = userId"
             >
               <div
                 v-if="!peer.stream?.getVideoTracks().length"
-                class="flex h-full w-full items-center justify-center bg-slate-700"
+                class="flex h-full w-full items-center justify-center bg-chamada-700"
               >
                 <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
               </div>
@@ -174,12 +174,12 @@
         <div class="grid h-full gap-2" :class="gridClass">
           <!-- Tile local -->
           <div
-            class="relative cursor-pointer overflow-hidden rounded-lg bg-slate-800"
+            class="relative cursor-pointer overflow-hidden rounded-lg bg-chamada-800"
             :class="tileAspect"
             @click="videoDestaque = 'local'"
           >
             <template v-if="call.somenteRecepcao">
-              <div class="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-700">
+              <div class="flex h-full w-full flex-col items-center justify-center gap-3 bg-chamada-700">
                 <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
                 <p class="text-xs text-surface-400">Somente recep&ccedil;&atilde;o</p>
                 <div class="flex gap-2">
@@ -203,7 +203,7 @@
             <template v-else>
               <div
                 v-if="call.cameraMutada && !call.compartilhandoTela"
-                class="flex h-full w-full items-center justify-center bg-slate-700"
+                class="flex h-full w-full items-center justify-center bg-chamada-700"
               >
                 <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
@@ -218,13 +218,13 @@
           <div
             v-for="[userId, peer] in call.peers"
             :key="userId"
-            class="relative cursor-pointer overflow-hidden rounded-lg bg-slate-800"
+            class="relative cursor-pointer overflow-hidden rounded-lg bg-chamada-800"
             :class="tileAspect"
             @click="videoDestaque = userId"
           >
             <div
               v-if="!peer.stream?.getVideoTracks().length"
-              class="flex h-full w-full items-center justify-center bg-slate-700"
+              class="flex h-full w-full items-center justify-center bg-chamada-700"
             >
               <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
@@ -243,7 +243,7 @@
     </div>
 
     <!-- Controls -->
-    <div class="flex items-center justify-center gap-2 border-t border-slate-700 bg-slate-800 px-4 py-3 shrink-0">
+    <div class="flex items-center justify-center gap-2 border-t border-chamada-700 bg-chamada-800 px-4 py-3 shrink-0">
       <CallControlButton
         :active="!call.micMutado"
         title="Microfone"

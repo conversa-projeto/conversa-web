@@ -22,6 +22,7 @@
 
       <MessageList
         ref="messageListRef"
+        :altura-campo-mensagem="alturaInput"
         @open-image="handleOpenImage"
         @forward="abrirEncaminhamento"
       />
@@ -30,6 +31,7 @@
         ref="messageInputRef"
         class="absolute inset-x-0 bottom-0 z-10"
         @message-sent="messageListRef?.rolarParaFinal()"
+        @altura-mudou="(val) => alturaInput = val"
         @open-image-preview="abrirPreviewImagem"
       />
     </template>
@@ -111,6 +113,7 @@ const carregando = ref(true)
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
 const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null)
+const alturaInput = ref(0)
 
 // Anexos e imagem
 const { garantirAnexoUrl, anexosUrl } = useAttachments()

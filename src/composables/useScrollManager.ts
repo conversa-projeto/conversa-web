@@ -144,10 +144,10 @@ export function useScrollManager() {
       if (reNode) reNode.scrollIntoView({ behavior: 'instant', block: 'center' })
     }
 
-    node.classList.add('ring-2', 'ring-amber-400')
+    node.classList.add('ring-2', 'ring-warning-400')
     if (highlightTimer) window.clearTimeout(highlightTimer)
     highlightTimer = window.setTimeout(() => {
-      node!.classList.remove('ring-2', 'ring-amber-400')
+      node!.classList.remove('ring-2', 'ring-warning-400')
       highlightTimer = 0
     }, 1200)
   }

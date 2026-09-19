@@ -296,6 +296,8 @@
             </section>
           </div>
 
+          <ConfiguracaoCores v-else-if="props.abaAtiva === 'cores'" />
+
           <div v-else class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-3">
@@ -364,8 +366,9 @@ import type { SipConfig } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import { useTheme } from '../composables/useTheme'
+import ConfiguracaoCores from './ConfiguracaoCores.vue'
 
-type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip'
+type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores'
 
 type DispositivoMidiaItem = {
   id: string
@@ -409,6 +412,7 @@ const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'dispositivos', titulo: 'Dispositivos', descricao: 'Sessao atual e perifericos locais' },
   { id: 'permissoes', titulo: 'Permissoes', descricao: 'Notificacoes, microfone e camera' },
   { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario' },
+  { id: 'cores', titulo: 'Cores', descricao: 'Cores do sistema, salvas neste navegador' },
 ]
 
 const subnivelMobile = ref<AbaId | null>(null)

@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import ChatPopup from './components/ChatPopup.vue'
 import './style.css'
+import './composables/useCoresPersonalizadas'
 
 const params = new URLSearchParams(window.location.search)
 const conversaId = Number(params.get('conversa'))

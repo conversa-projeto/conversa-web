@@ -117,13 +117,15 @@ const conteudosRef = computed(() => {
 
 const conteudosProprios = computed(() => {
   if (!isEncaminhamento.value) return props.mensagem.conteudos
-  // Para encaminhamentos, oculta conteúdos próprios se já estão exibidos na referência
-  const refConteudos = conteudosRef.value
-  const proprios = props.mensagem.conteudos
-  if (refConteudos.length === proprios.length && proprios.every((c, i) => c.conteudo === refConteudos[i]?.conteudo)) {
-    return []
-  }
-  return proprios
+  // Para encaminhamentos, oculta cada conteúdo próprio que já está exibido na
+  // referência e mostra só o que foi acrescentado
+  const jaExibidos = conteudosRef.value.map((c) => `${Number(c.tipo)}:${c.conteudo}`)
+  return props.mensagem.conteudos.filter((c) => {
+    const indice = jaExibidos.indexOf(`${Number(c.tipo)}:${c.conteudo}`)
+    if (indice < 0) return true
+    jaExibidos.splice(indice, 1)
+    return false
+  })
 })
 
 const referenciaAninhada = computed((): MensagemReferencia | null => {

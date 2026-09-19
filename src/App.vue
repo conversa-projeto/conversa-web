@@ -130,6 +130,7 @@
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
           @ancora-changed="aoAncoraMudou"
+          :altura-campo-mensagem="alturaInput"
           @at-bottom-changed="(val) => chatNoFim = val"
         />
 
@@ -146,6 +147,7 @@
           :chat-no-fim="chatNoFim"
           class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinal()"
+          @altura-mudou="(val) => alturaInput = val"
           @open-image-preview="abrirPreviewImagem"
           @open-fila-image="handleOpenFilaImage"
         />
@@ -323,6 +325,7 @@ const anexosConversaId = ref<number | null>(
 // Reflete o estado "usuario esta no fim do chat" do MessageList, usado pelo
 // MessageInput para decidir se mostra o indicador "digitando/gravando".
 const chatNoFim = ref(true)
+const alturaInput = ref(0)
 
 // Aplicar conversaId inicial (deep link /chat/:id) assim que o auth estiver pronto.
 // Feito via watch abaixo para cobrir o caso de a sessão só existir depois do login.

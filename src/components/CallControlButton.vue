@@ -80,11 +80,11 @@ const variantClasses = computed(() => {
     return 'bg-success-500 text-white hover:bg-success-600'
   }
   if (props.variant === 'ghost') {
-    return 'bg-transparent text-white hover:bg-slate-700/50'
+    return 'bg-transparent text-white hover:bg-chamada-700/50'
   }
   // Secondary / Gray (Active state toggles)
   if (props.active) {
-    return 'bg-slate-700 text-white hover:bg-slate-600'
+    return 'bg-chamada-700 text-white hover:bg-chamada-600'
   }
   return 'bg-surface-600 text-surface-400 hover:bg-surface-500 hover:text-white'
 })
