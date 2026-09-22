@@ -1,5 +1,6 @@
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem, Mensagem } from '../types/api'
+import { resumirCodigo } from './codeBlocks'
 
 export interface SegmentoTextoLink {
   tipo: 'texto' | 'link'
@@ -34,6 +35,12 @@ export function parseTextSegments(texto: string): SegmentoTexto[] {
     }
   }
   return resultado
+}
+
+// Texto de uma linha para previas (lista de conversas, resposta, notificacao):
+// mencao vira @Nome e cada bloco de codigo vira "Código (linguagem)".
+export function resumirTexto(texto: string): string {
+  return resumirCodigo(texto.replace(REGEX_MENCAO, '@$1'))
 }
 
 export function formatarHora(iso: string): string {
@@ -76,7 +83,7 @@ export function iniciaisUsuario(nome: string): string {
 
 export function resumoMensagem(item: Mensagem): string {
   const texto = item.conteudos.find((c) => c.tipo === TipoConteudo.Texto)?.conteudo
-  if (texto) return texto
+  if (texto) return resumirTexto(texto)
   if (item.conteudos.some((c) => c.tipo === TipoConteudo.Imagem)) return 'Imagem'
   if (item.conteudos.some((c) => c.tipo === TipoConteudo.Audio)) return '\u00C1udio'
   return 'Arquivo'
@@ -131,7 +138,25 @@ export function extensaoPorMime(mime: string): string {
   return 'png'
 }
 
-const REGEX_LINKS = /(https?:\/\/[^\s<>)"',;]+|www\.[^\s<>)"',;]+)/g
+// Virgula, ponto e virgula, aspas simples e parenteses fazem parte do link;
+// so saem quando ficam no fim dele (veja parseLinks).
+const REGEX_LINKS = /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/g
+
+// Pontuacao do texto logo depois do link. O ")" so sai se nao fechar um "("
+// do proprio link, como em https://pt.wikipedia.org/wiki/Java_(linguagem).
+function removerPontuacaoFinal(url: string) {
+  while (url.length > 1) {
+    const ultimo = url[url.length - 1]
+    if (/[.,;:!?']/.test(ultimo)) {
+      url = url.slice(0, -1)
+    } else if (ultimo === ')' && (url.match(/\)/g) || []).length > (url.match(/\(/g) || []).length) {
+      url = url.slice(0, -1)
+    } else {
+      break
+    }
+  }
+  return url
+}
 
 export function parseLinks(texto: string): SegmentoTextoLink[] {
   REGEX_LINKS.lastIndex = 0
@@ -142,11 +167,7 @@ export function parseLinks(texto: string): SegmentoTextoLink[] {
     if (match.index > ultimo) {
       segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo, match.index) })
     }
-    // Remove pontuação final
-    let url = match[0]
-    while (url.length > 1 && /[.,;:!?)]+$/.test(url)) {
-      url = url.slice(0, -1)
-    }
+    const url = removerPontuacaoFinal(match[0])
     segmentos.push({ tipo: 'link', conteudo: url })
     ultimo = match.index + url.length
     REGEX_LINKS.lastIndex = ultimo

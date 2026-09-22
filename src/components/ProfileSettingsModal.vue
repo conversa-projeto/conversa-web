@@ -1,5 +1,5 @@
 <template>
-  <div v-if="aberta" :class="inline ? 'flex flex-1 items-start justify-start' : 'fixed inset-0 z-50 flex items-center justify-center bg-surface-900/50 p-3'">
+  <div v-if="aberta" :class="inline ? 'flex flex-1 items-start justify-start' : 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3'">
     <div :class="inline ? 'flex h-full w-full max-w-5xl flex-col overflow-hidden bg-surface-base md:flex-row' : 'settings-modal relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface-base shadow-2xl md:h-[760px] md:flex-row'">
     <button
       v-if="!inline"

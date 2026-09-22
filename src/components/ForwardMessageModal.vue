@@ -1,5 +1,5 @@
 <template>
-  <div v-if="aberta && mensagem" class="fixed inset-0 z-30 flex items-center justify-center bg-surface-900/50 p-4">
+  <div v-if="aberta && mensagem" class="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4">
     <div class="w-full max-w-lg rounded-2xl bg-surface-base p-4 shadow-2xl">
       <div class="mb-4 flex items-start justify-between gap-3">
         <div>

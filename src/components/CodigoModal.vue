@@ -71,7 +71,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const linguagens = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal']
+const linguagens = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal', 'markdown', 'mermaid']
 const linguagem = ref('texto')
 const editorContainer = ref<HTMLElement>()
 const codigo = ref('')
@@ -94,6 +94,10 @@ function getLangExtension(lang: string) {
     case 'bash': return StreamLanguage.define(shell)
     case 'csharp': return StreamLanguage.define(csharp)
     case 'pascal': return StreamLanguage.define(pascal)
+    // Sem modo de Markdown e Mermaid no editor: fica texto simples. Na mensagem
+    // eles aparecem formatado e como diagrama.
+    case 'markdown': return []
+    case 'mermaid': return []
     default: return []
   }
 }

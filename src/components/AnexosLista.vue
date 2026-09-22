@@ -60,7 +60,7 @@
           <div class="absolute left-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100">
             <button
               type="button"
-              class="flex h-7 w-7 items-center justify-center rounded-full bg-surface-900/60 text-white transition hover:bg-surface-900/80"
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
               title="Abrir mensagem"
               @click.stop="emit('open-message', item.conversa_id, item.mensagem_id)"
             >
@@ -69,7 +69,7 @@
             <a
               :href="item.url"
               :download="item.nome"
-              class="flex h-7 w-7 items-center justify-center rounded-full bg-surface-900/60 text-white transition hover:bg-surface-900/80"
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
               title="Baixar"
               target="_blank"
               rel="noopener noreferrer"

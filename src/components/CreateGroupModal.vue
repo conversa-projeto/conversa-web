@@ -1,5 +1,5 @@
 <template>
-  <div v-if="aberta" class="fixed inset-0 z-20 flex items-center justify-center bg-surface-900/50 p-4">
+  <div v-if="aberta" class="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-4">
     <div class="w-full max-w-md rounded-xl border border-surface-300 bg-surface-base p-4 shadow-xl">
       <h3 class="mb-3 text-lg font-semibold text-surface-800">Criar grupo</h3>
 
@@ -27,9 +27,9 @@
           class="flex cursor-pointer items-center gap-2 border-b border-surface-100 px-3 py-2 text-sm hover:bg-surface-50"
         >
           <input v-model="membrosGrupo" type="checkbox" :value="contato.id" class="accent-primary-600" />
-          <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
-            <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
-            <span v-else>{{ inicialNome(contato.nome || '', 'C') }}</span>
+          <div class="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
+            {{ inicialNome(contato.nome || '', 'C') }}
+            <img v-if="avatarContato(contato)" :src="avatarContato(contato)" alt="Avatar" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
           </div>
           <span>{{ contato.nome }}</span>
         </label>
@@ -50,6 +50,7 @@
 import { inicialNome } from '../utils/formatters'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
+import { useAuthStore } from '../stores/auth'
 import { TipoConversa } from '../types/api'
 
 defineProps<{
@@ -62,6 +63,7 @@ const emit = defineEmits<{
 }>()
 
 const chat = useChatStore()
+const auth = useAuthStore()
 
 onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
@@ -87,7 +89,10 @@ const contatosFiltrados = computed(() => {
   })
 })
 
+// A lista de contatos nao traz foto: a sua vem do perfil e a dos outros, da
+// conversa direta com eles. Sem foto (ou se ela falhar) fica a inicial.
 function avatarContato(contato: { id: number; avatar_url?: string | null }) {
+  if (contato.id === auth.user?.id) return auth.avatarUrl || auth.user.avatar_url || ''
   const conversaDireta = chat.conversas.find((conversa) =>
     conversa.tipo === TipoConversa.Direta && conversa.destinatario_id === contato.id
   )

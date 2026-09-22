@@ -70,7 +70,7 @@
               <span class="truncate">{{ textoAtividade }}</span>
             </div>
           </div>
-          <div class="flex items-end rounded-3xl border border-surface-500 bg-surface-base pl-3 pr-1">
+          <div class="flex items-end rounded-3xl border border-surface-500 bg-surface-base pl-3 pr-1 transition-colors focus-within:border-primary-500">
           <!-- Attach button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">
             <button
@@ -208,6 +208,8 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch, 
 import type { Contato } from '../types/api'
 import { useChatStore } from '../stores/chat'
 import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
+import { substituirAtalhoAntesDoCursor, substituirAtalhoNoFim } from '../utils/emojiAtalhos'
+import { cercaCodigo } from '../utils/codeBlocks'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { useFilaArquivos } from '../composables/useFilaArquivos'
 import AnexoPopup from './AnexoPopup.vue'
@@ -339,7 +341,10 @@ function selecionarArquivo(event: Event) {
 // --- Code insertion ---
 
 function onInserirCodigo(payload: { linguagem: string; codigo: string }) {
-  const bloco = '```' + payload.linguagem + '\n' + payload.codigo + '\n```'
+  // Cerca maior que qualquer sequencia de crases do codigo, para um Markdown
+  // com exemplos de codigo dentro nao fechar o bloco antes da hora.
+  const cerca = cercaCodigo(payload.codigo)
+  const bloco = cerca + payload.linguagem + '\n' + payload.codigo + '\n' + cerca
   mostrarCodigo.value = false
   textoMensagem.value = bloco
   nextTick(() => enviarMensagem())
@@ -568,7 +573,7 @@ function focarTextarea(posicao?: number) {
 }
 
 async function enviarMensagem(visivelEm: string | null = null) {
-  const texto = textoMensagem.value.trim()
+  const texto = substituirAtalhoNoFim(textoMensagem.value.trim())
   const temArquivos = fila.arquivosFila.value.length > 0
   if (!texto && !temArquivos && !chat.mensagemRespondendo) return
 
@@ -615,6 +620,15 @@ function enviarAgendada(isoLocal: string) {
 
 function aoDigitar(event: Event) {
   const el = event.target as HTMLTextAreaElement
+  const tipo = (event as InputEvent).inputType
+  if (tipo === 'insertText' || tipo === 'insertLineBreak') {
+    const troca = substituirAtalhoAntesDoCursor(el.value, el.selectionStart)
+    if (troca) {
+      el.value = troca.texto
+      textoMensagem.value = troca.texto
+      el.selectionStart = el.selectionEnd = troca.cursor
+    }
+  }
   el.style.height = 'auto'
   el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   if (textoMensagem.value.trim()) chat.enviarDigitando()

@@ -6,6 +6,7 @@ import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
+import { resumirTexto } from '../utils/formatters'
 import { useUploadProgress } from '../composables/useUploadProgress'
 
 export const useChatStore = defineStore('chat', () => {
@@ -805,7 +806,7 @@ export const useChatStore = defineStore('chat', () => {
           let texto = ''
           if (ultima.conteudos && ultima.conteudos.length > 0) {
             const c = ultima.conteudos[0]
-            if (c.tipo === TipoConteudo.Texto) texto = c.conteudo
+            if (c.tipo === TipoConteudo.Texto) texto = resumirTexto(c.conteudo)
             else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
             else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
             else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'

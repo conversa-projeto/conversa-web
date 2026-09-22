@@ -30,7 +30,7 @@ async function carregarHljs() {
   if (hljsPromise) { await hljsPromise; return }
   hljsPromise = (async () => {
     const [
-      mod, js, ts, py, sqlLang, jsonLang, xml, cssLang, bash, cs, delphi
+      mod, js, ts, py, sqlLang, jsonLang, xml, cssLang, bash, cs, delphi, markdown
     ] = await Promise.all([
       import('highlight.js/lib/core'),
       import('highlight.js/lib/languages/javascript'),
@@ -43,6 +43,7 @@ async function carregarHljs() {
       import('highlight.js/lib/languages/bash'),
       import('highlight.js/lib/languages/csharp'),
       import('highlight.js/lib/languages/delphi'),
+      import('highlight.js/lib/languages/markdown'),
     ])
 
     const hljs = mod.default
@@ -51,6 +52,7 @@ async function carregarHljs() {
     hljs.registerLanguage('text', () => ({ name: 'Plain Text', contains: [] }))
     hljs.registerLanguage('texto', () => ({ name: 'Plain Text', contains: [] }))
     hljs.registerLanguage('plain', () => ({ name: 'Plain Text', contains: [] }))
+    hljs.registerLanguage('mermaid', () => ({ name: 'Plain Text', contains: [] }))
 
     hljs.registerLanguage('javascript', js.default)
     hljs.registerLanguage('js', js.default)
@@ -69,6 +71,8 @@ async function carregarHljs() {
     hljs.registerLanguage('cs', cs.default)
     hljs.registerLanguage('pascal', delphi.default)
     hljs.registerLanguage('delphi', delphi.default)
+    hljs.registerLanguage('markdown', markdown.default)
+    hljs.registerLanguage('md', markdown.default)
 
     hljsInstance = hljs
     hljsReady.value = true

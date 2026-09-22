@@ -464,8 +464,16 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
   }
 }
 
+// Clique numa notificacao de push: o service worker foca esta janela e pede a conversa.
+function aoReceberMensagemServiceWorker(evento: MessageEvent) {
+  if (evento.data?.tipo === 'conversa-abrir' && auth.isAuthenticated) {
+    void abrirConversaPorId(Number(evento.data.conversaId))
+  }
+}
+
 onMounted(async () => {
   window.addEventListener('beforeunload', onBeforeUnload)
+  navigator.serviceWorker?.addEventListener('message', aoReceberMensagemServiceWorker)
   if (auth.isAuthenticated) {
     try {
       await chat.inicializar()
@@ -615,6 +623,7 @@ async function abrirMensagemDoAnexo(conversaId: number, mensagemId: number) {
 
 onUnmounted(() => {
   window.removeEventListener('beforeunload', onBeforeUnload)
+  navigator.serviceWorker?.removeEventListener('message', aoReceberMensagemServiceWorker)
   desregistrarPopstate()
   cleanupCallPopup()
   chat.removerHandlerChamada()

@@ -39,6 +39,10 @@ export default defineConfig(({ command }) => ({
             return 'highlightjs'
           }
 
+          if (id.includes('node_modules/marked') || id.includes('node_modules/dompurify')) {
+            return 'markdown'
+          }
+
           if (id.includes('node_modules/hash-wasm')) {
             return 'vendor-utils'
           }

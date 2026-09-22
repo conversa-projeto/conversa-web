@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="aberta"
-    class="fixed inset-0 z-[120] flex items-center justify-center bg-surface-950/50 px-4 py-6"
+    class="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4 py-6"
     @click.self="emit('close')"
   >
     <div class="w-full max-w-sm rounded-2xl bg-surface-base p-5 shadow-2xl">

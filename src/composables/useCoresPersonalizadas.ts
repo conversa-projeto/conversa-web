@@ -60,9 +60,8 @@ export const GRUPOS_CORES: GrupoCores[] = [
         '600': 'Ícones dos botões (cabeçalho, anexar, emoji) e rótulos dos formulários',
         '700': 'Textos de menus e de botões secundários',
         '800': 'Texto principal das mensagens e das telas',
-        '900': 'Títulos das janelas; véu atrás das janelas abertas',
+        '900': 'Títulos das janelas e texto ao passar o mouse nos menus',
       }),
-      { tom: '950', uso: 'Véu atrás da janela de agendar mensagem e da lista de anexos' },
     ],
   },
   {

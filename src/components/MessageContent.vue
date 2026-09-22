@@ -20,15 +20,62 @@
             </template>
           </p>
           <div v-else-if="seg.tipo === 'codigo'" class="group relative mb-1 last:mb-0 min-w-0 max-w-full overflow-hidden">
-            <div class="flex items-center justify-between bg-surface-200 px-3 py-1" :class="codigoSemBorda ? 'rounded-t-[10px]' : 'rounded-t'">
+            <div class="flex items-center justify-between gap-2 bg-surface-200 px-3 py-1" :class="codigoSemBorda ? 'rounded-t-[10px]' : 'rounded-t'">
               <span class="text-[10px] text-surface-500">{{ seg.linguagem || 'code' }}</span>
-              <button
-                class="text-[10px] transition-opacity"
-                :class="codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'text-success-600' : 'text-surface-500 opacity-0 group-hover:opacity-100 hover:text-surface-800'"
-                @click="copiarCodigo(seg.conteudo, `${mensagemId}-${segIdx}`)"
-              >{{ codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
+              <div class="flex items-center gap-2">
+                <div v-if="visualHtml.has(segIdx)" class="flex rounded bg-surface-300 p-0.5 text-[10px]">
+                  <button
+                    type="button"
+                    class="rounded px-1.5"
+                    :class="verCodigo.has(segIdx) ? 'text-surface-500 hover:text-surface-800' : 'bg-surface-50 text-surface-800'"
+                    @click="verCodigo.delete(segIdx)"
+                  >Visualizar</button>
+                  <button
+                    type="button"
+                    class="rounded px-1.5"
+                    :class="verCodigo.has(segIdx) ? 'bg-surface-50 text-surface-800' : 'text-surface-500 hover:text-surface-800'"
+                    @click="verCodigo.add(segIdx)"
+                  >Código</button>
+                </div>
+                <button
+                  class="text-[10px] transition-opacity"
+                  :class="codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'text-success-600' : 'text-surface-500 opacity-0 group-hover:opacity-100 hover:text-surface-800'"
+                  @click="copiarCodigo(seg.conteudo, `${mensagemId}-${segIdx}`)"
+                >{{ codigosCopiados.has(`${mensagemId}-${segIdx}`) ? 'Copiado!' : 'Copiar' }}</button>
+              </div>
             </div>
-            <pre class="whitespace-pre-wrap break-words bg-surface-50 p-3 text-xs leading-relaxed text-surface-800" :class="codigoSemBorda ? '' : 'rounded-b border border-surface-200'"><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+            <div class="relative">
+              <div
+                v-if="mostrarVisual(seg, segIdx)"
+                :ref="(el) => medirCodigo(el as Element | null, chaveBloco(seg, segIdx))"
+                :class="[
+                  CLASSES_MARKDOWN,
+                  codigoSemBorda ? '' : (codigosLongos.has(chaveBloco(seg, segIdx)) ? 'border border-b-0 border-surface-200' : 'rounded-b border border-surface-200'),
+                  codigosExpandidos.has(chaveBloco(seg, segIdx)) ? '' : 'max-h-60 overflow-hidden'
+                ]"
+                v-html="visualHtml.get(segIdx)"
+              ></div>
+              <pre
+                v-else
+                :ref="(el) => medirCodigo(el as Element | null, chaveBloco(seg, segIdx))"
+                class="whitespace-pre-wrap break-words bg-surface-50 p-3 text-xs leading-relaxed text-surface-800"
+                :class="[
+                  codigoSemBorda ? '' : (codigosLongos.has(chaveBloco(seg, segIdx)) ? 'border border-b-0 border-surface-200' : 'rounded-b border border-surface-200'),
+                  codigosExpandidos.has(chaveBloco(seg, segIdx)) ? '' : 'max-h-60 overflow-hidden'
+                ]"
+              ><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+              <div
+                v-if="codigosLongos.has(chaveBloco(seg, segIdx)) && !codigosExpandidos.has(chaveBloco(seg, segIdx))"
+                class="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface-50 to-transparent"
+              ></div>
+            </div>
+            <button
+              v-if="codigosLongos.has(chaveBloco(seg, segIdx))"
+              type="button"
+              class="block w-full bg-surface-200 py-1 text-center text-[11px] font-medium text-primary-500 transition hover:bg-surface-300"
+              :class="codigoSemBorda ? '' : 'rounded-b'"
+              @click="alternarCodigo(chaveBloco(seg, segIdx))"
+            >{{ codigosExpandidos.has(chaveBloco(seg, segIdx)) ? 'Recolher código' : 'Expandir código' }}</button>
           </div>
         </template>
       </template>
@@ -136,9 +183,25 @@
           </div>
         </div>
         <button
-          v-if="!conteudo.localUrl"
+          v-if="!conteudo.localUrl && ehPdf(conteudo)"
           class="ml-auto flex items-center gap-1 rounded px-2 py-1 text-xs text-white"
           :class="isOwn ? 'bg-primary-100/20 hover:bg-primary-100/30 text-primary-100' : 'bg-primary-600 hover:bg-primary-700'"
+          @click.prevent="pdfAberto = true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+          Abrir
+        </button>
+        <VisualizadorPdf
+          v-if="pdfAberto"
+          :identificador="conteudo.conteudo"
+          :nome="conteudo.nome || 'Arquivo.pdf'"
+          @fechar="pdfAberto = false"
+          @baixar="emit('download', conteudo.conteudo, conteudo.nome || 'Arquivo')"
+        />
+        <button
+          v-if="!conteudo.localUrl"
+          class="flex items-center gap-1 rounded px-2 py-1 text-xs text-white"
+          :class="[isOwn ? 'bg-primary-100/20 hover:bg-primary-100/30 text-primary-100' : 'bg-primary-600 hover:bg-primary-700', ehPdf(conteudo) ? '' : 'ml-auto']"
           @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'Arquivo')"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
@@ -179,16 +242,23 @@
 </template>
 
 <script setup lang="ts">
-import { inject, reactive } from 'vue'
+import { defineAsyncComponent, inject, reactive, ref, watch } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
-import { classeTextoMensagem, isVideoConteudo, parseLinks, parseTextSegments, formatarUrl } from '../utils/formatters'
+import { classeTextoMensagem, isVideoConteudo, normalizarExtensaoArquivo, parseLinks, parseTextSegments, formatarUrl } from '../utils/formatters'
 import MencaoLink from './MencaoLink.vue'
 import { useCodeHighlight, temCodigoFormatado, parseCodeBlocks } from '../composables/useCodeHighlight'
+import { carregarMarkdown, ehLinguagemMarkdown } from '../composables/useMarkdown'
+import { ehLinguagemMermaid, renderizarMermaid, substituirMermaidNoHtml } from '../composables/useMermaid'
+import { useTheme } from '../composables/useTheme'
+import type { SegmentoTexto } from '../utils/codeBlocks'
 import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
 import TranscricaoAudio from './TranscricaoAudio.vue'
+
+// Carregado só ao abrir um PDF: é ele que traz o pdf.js
+const VisualizadorPdf = defineAsyncComponent(() => import('./VisualizadorPdf.vue'))
 
 const { conexaoLenta } = useConexao()
 const renovarAnexoUrl = inject<(id: string) => Promise<void>>('renovarAnexoUrl')
@@ -216,7 +286,7 @@ function onImagemCarregada(conteudo: ConteudoMensagem) {
   emit('image-loaded')
 }
 
-defineProps<{
+const props = defineProps<{
   conteudo: ConteudoMensagem
   mensagemId: number
   conversaId?: number
@@ -234,6 +304,74 @@ const emit = defineEmits<{
 }>()
 
 const { codigosCopiados, copiarCodigo, highlightCodigo } = useCodeHighlight()
+
+// Codigo longo vem recolhido, com altura maxima, e um botao para expandir.
+// So ganha o botao o bloco que passa dessa altura. A chave separa as duas
+// visoes de um bloco Markdown, que tem alturas diferentes.
+const codigosLongos = reactive(new Set<string>())
+const codigosExpandidos = reactive(new Set<string>())
+
+function medirCodigo(el: Element | null, chave: string) {
+  if (!el || codigosLongos.has(chave) || codigosExpandidos.has(chave)) return
+  if (el.scrollHeight > el.clientHeight + 1) codigosLongos.add(chave)
+}
+
+function alternarCodigo(chave: string) {
+  if (codigosExpandidos.has(chave)) codigosExpandidos.delete(chave)
+  else codigosExpandidos.add(chave)
+}
+
+// Blocos ```md aparecem formatados e ```mermaid como diagrama (também os
+// diagramas dentro do Markdown); "Código" mostra o texto cru.
+const visualHtml = reactive(new Map<number, string>())
+const verCodigo = reactive(new Set<number>())
+const { isDark } = useTheme()
+
+function ehVisualizavel(linguagem?: string) {
+  return ehLinguagemMarkdown(linguagem) || ehLinguagemMermaid(linguagem)
+}
+
+function mostrarVisual(seg: SegmentoTexto, indice: number) {
+  return ehVisualizavel(seg.linguagem) && !verCodigo.has(indice) && visualHtml.has(indice)
+}
+
+function chaveBloco(seg: SegmentoTexto, indice: number) {
+  return mostrarVisual(seg, indice) ? `${indice}-visual` : String(indice)
+}
+
+// O tema entra porque o diagrama é desenhado com as cores do tema atual.
+watch([() => props.conteudo.conteudo, isDark], async ([texto, escuro]) => {
+  if (!ehTipo(props.conteudo.tipo, TipoConteudo.Texto) || !temCodigoFormatado(texto)) return
+  const blocos = parseCodeBlocks(texto)
+  for (const [indice, seg] of blocos.entries()) {
+    if (seg.tipo !== 'codigo' || !ehVisualizavel(seg.linguagem)) continue
+    const html = ehLinguagemMarkdown(seg.linguagem)
+      ? await substituirMermaidNoHtml((await carregarMarkdown())(seg.conteudo), escuro)
+      : await renderizarMermaid(seg.conteudo, escuro)
+    if (html) visualHtml.set(indice, html)
+    else visualHtml.delete(indice)
+  }
+}, { immediate: true })
+
+// PDF abre num visualizador dentro da conversa
+const pdfAberto = ref(false)
+
+function ehPdf(conteudo: ConteudoMensagem) {
+  return normalizarExtensaoArquivo(conteudo) === 'pdf'
+}
+
+// Estilo do Markdown formatado (o reset do Tailwind tira o de titulos, listas e tabelas).
+const CLASSES_MARKDOWN = 'overflow-x-auto break-words bg-surface-50 p-3 text-sm leading-relaxed text-surface-800 '
+  + '[&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold '
+  + '[&_h3]:mb-1 [&_h3]:font-semibold [&_h4]:mb-1 [&_h4]:font-semibold [&_p]:mb-2 '
+  + '[&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-0.5 '
+  + '[&_a]:text-primary-500 [&_a]:underline [&_strong]:font-semibold [&_em]:italic [&_del]:line-through '
+  + '[&_code]:rounded [&_code]:bg-surface-200 [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs '
+  + '[&_pre]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-200 [&_pre]:p-2 [&_pre_code]:px-0 '
+  + '[&_blockquote]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-surface-300 [&_blockquote]:pl-3 [&_blockquote]:text-surface-600 '
+  + '[&_table]:mb-2 [&_table]:border-collapse [&_th]:border [&_th]:border-surface-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold '
+  + '[&_td]:border [&_td]:border-surface-300 [&_td]:px-2 [&_td]:py-1 [&_hr]:my-3 [&_hr]:border-surface-300 [&_img]:max-w-full '
+  + '[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full [&>*:last-child]:mb-0'
 
 function ehTipo(valor: number | string, tipo: number) {
   return Number(valor) === tipo

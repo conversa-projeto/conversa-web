@@ -36,10 +36,10 @@
             </span>
           </div>
 
-          <div v-else-if="item.tipo === 'nao-lidas'" id="indicador-nao-lidas" class="my-3 flex justify-center">
-            <span class="rounded-full bg-primary-600 px-3 py-1 text-xs text-white">
-              {{ item.label }}
-            </span>
+          <div v-else-if="item.tipo === 'nao-lidas'" id="indicador-nao-lidas" class="my-2 flex items-center gap-2 text-[11px] font-medium text-primary-500">
+            <span class="h-px flex-1 bg-primary-500/60"></span>
+            {{ item.label }}
+            <span class="h-px flex-1 bg-primary-500/60"></span>
           </div>
 
           <MessageBubble
@@ -190,7 +190,7 @@ provide('renovarAnexoUrl', renovarAnexoUrl)
 // =====================================================================
 // INDICADOR DE MENSAGENS NÃO LIDAS
 //
-// O indicador é a barra "X mensagens não lidas" que aparece DENTRO do
+// O indicador é a linha "---- Últimas ----" que aparece DENTRO do
 // chat, posicionada entre as mensagens, logo acima da primeira não lida.
 //
 // === REGRAS FUNDAMENTAIS (NÃO QUEBRAR) ===
@@ -199,22 +199,22 @@ provide('renovarAnexoUrl', renovarAnexoUrl)
 //    O primeiroIdNaoLidoSnapshot é definido UMA ÚNICA VEZ quando o
 //    indicador aparece pela primeira vez. Novas mensagens que chegam
 //    NÃO movem a posição do indicador — ele permanece fixo acima da
-//    mensagem onde apareceu originalmente. Apenas o contador (qtd) é
-//    atualizado para refletir o número total de não lidas.
+//    mensagem onde apareceu originalmente. A exceção é a regra 2.
 //
-// 2. PERSISTÊNCIA ATÉ VISUALIZAÇÃO COMPLETA:
-//    O indicador NÃO desaparece por timeout enquanto houver mensagens
-//    sem visualizar (chat.conversaAtiva.mensagens_sem_visualizar > 0).
-//    O timer de 3s apenas verifica se ainda há pendentes. Se houver,
-//    reagenda. Se não houver mais, aí sim esconde o indicador.
+// 2. PERMANECE ENQUANTO A CONVERSA ESTIVER ABERTA:
+//    O indicador não some sozinho, nem depois de tudo visualizado:
+//    sumir no meio da leitura faz o texto pular. Ele só sai ao trocar
+//    de conversa. Se a janela perder o foco e chegar mensagem nova,
+//    ele passa para cima dessa mensagem (o lote anterior já foi lido).
 //
 // 3. AUTO-SCROLL NÃO DEVE ESCONDER O INDICADOR:
 //    Quando uma nova mensagem chega e o scroll deveria ir para o final,
 //    o useScrollManager verifica se isso empurraria o indicador para
 //    fora da viewport. Se sim, o scroll NÃO acontece. Essa verificação
 //    está no watch de mensagens e no watch de carregamento do
-//    useScrollManager.ts, usando o ref indicadorNaoLidasAtivo que é
-//    sincronizado com indicadorNaoLidasVisivel via watch.
+//    useScrollManager.ts, usando o ref indicadorNaoLidasAtivo. Ele só
+//    fica ativo enquanto ainda há mensagens sem visualizar: depois
+//    disso o indicador continua na tela, mas não segura mais o scroll.
 //
 // 4. ABERTURA DE CONVERSA COM NÃO LIDAS:
 //    Ao abrir um chat que já tem mensagens não lidas, o indicador é
@@ -224,37 +224,30 @@ provide('renovarAnexoUrl', renovarAnexoUrl)
 //
 // 5. TROCA DE CONVERSA LIMPA TUDO:
 //    Ao trocar de conversa (watch conversaAtivaId), todos os estados
-//    do indicador são resetados (visibilidade, contagem, posição, timer).
+//    do indicador são resetados (visibilidade e posição).
 //
 // === FLUXO DO INDICADOR ===
 //
 // Cenário A — Nova mensagem em tempo real (navegador sem foco ou longe do final):
 //   1. Watch detecta novo ultimoId do outro remetente
 //   2. Se navegador focado e perto do final (≤500px) → ignora (usuário já vê)
-//   3. Se indicador ainda não visível → trava primeiroIdNaoLidoSnapshot no ID
-//   4. Atualiza qtdNaoLidasSnapshot com o contador do servidor
-//   5. Ativa indicadorNaoLidasVisivel = true
-//   6. Agenda timer de 3s que verifica se ainda há não lidas
+//   3. Se indicador ainda não visível, ou se a janela perdeu o foco
+//      desde a última vez → trava primeiroIdNaoLidoSnapshot no ID
+//   4. Ativa indicadorNaoLidasVisivel = true
 //
 // Cenário B — Abertura de chat com não lidas:
 //   1. posicionarEIndicar() encontra a primeira mensagem não lida
-//   2. Ativa o indicador com posição e contagem
+//   2. Ativa o indicador nessa posição
 //   3. Chama posicionarAberturaConversaAtiva() que posiciona o scroll
 //
-// Cenário C — Timer expira:
-//   1. Verifica mensagens_sem_visualizar no store
-//   2. Se > 0 → reagenda timer (indicador continua visível)
-//   3. Se = 0 → esconde indicador (todas foram visualizadas)
-//
-// Cenário D — Janela recebe foco:
-//   1. Se indicador está visível e timer não está rodando
-//   2. Verifica se ainda há não lidas
-//   3. Se sim → reagenda timer. Se não → esconde indicador
+// Cenário C — Janela perde o foco:
+//   1. Marca reposicionarIndicador = true
+//   2. A próxima mensagem recebida move o indicador para cima dela
 //
 // === COMUNICAÇÃO COM useScrollManager ===
 //
-// O ref indicadorNaoLidasAtivo (do useScrollManager) é mantido em
-// sincronia com indicadorNaoLidasVisivel (local) via watch. Isso
+// O ref indicadorNaoLidasAtivo (do useScrollManager) fica ligado
+// enquanto o indicador está visível E ainda há não lidas. Isso
 // permite que o useScrollManager verifique, antes de fazer auto-scroll,
 // se o elemento DOM #indicador-nao-lidas seria empurrado para fora da
 // viewport. Se seria, o auto-scroll é cancelado.
@@ -263,15 +256,10 @@ provide('renovarAnexoUrl', renovarAnexoUrl)
 //
 // O computed itensMensagens insere o item { tipo: 'nao-lidas' } no
 // array de renderização ANTES da mensagem cujo ID === primeiroIdNaoLidoSnapshot.
-// O contador exibido é lido de chat.conversaAtiva.mensagens_sem_visualizar
-// (valor mais atualizado do servidor) com fallback para qtdNaoLidasSnapshot.
 // =====================================================================
 
-/** Controla se o indicador "X mensagens não lidas" está visível no chat */
+/** Controla se o indicador "Últimas" está visível no chat */
 const indicadorNaoLidasVisivel = ref(false)
-
-/** Contagem de mensagens não lidas no momento da primeira ativação */
-const qtdNaoLidasSnapshot = ref(0)
 
 /**
  * ID da mensagem onde o indicador está posicionado.
@@ -280,8 +268,11 @@ const qtdNaoLidasSnapshot = ref(0)
  */
 const primeiroIdNaoLidoSnapshot = ref<number | null>(null)
 
-/** Timer que verifica periodicamente se ainda há mensagens sem visualizar */
-let timerIndicador: ReturnType<typeof setTimeout> | null = null
+/**
+ * A janela perdeu o foco depois que o indicador apareceu: a próxima mensagem
+ * recebida é o começo de um novo lote não lido, e o indicador vai para ela.
+ */
+let reposicionarIndicador = false
 
 /**
  * Reseta todos os estados do indicador.
@@ -289,31 +280,8 @@ let timerIndicador: ReturnType<typeof setTimeout> | null = null
  */
 function limparIndicador() {
   indicadorNaoLidasVisivel.value = false
-  qtdNaoLidasSnapshot.value = 0
   primeiroIdNaoLidoSnapshot.value = null
-  if (timerIndicador) { clearTimeout(timerIndicador); timerIndicador = null }
-}
-
-/**
- * Agenda verificação periódica (3s) para decidir se o indicador deve persistir.
- *
- * REGRA CRÍTICA: O indicador só desaparece quando mensagens_sem_visualizar === 0.
- * Se ainda houver mensagens sem visualizar, o timer é reagendado indefinidamente.
- * Isso garante que o indicador persista até o usuário scrollar e visualizar todas.
- */
-function agendarTimerIndicador() {
-  if (timerIndicador) clearTimeout(timerIndicador)
-  timerIndicador = setTimeout(() => {
-    timerIndicador = null
-    const semVisualizar = chat.conversaAtiva?.mensagens_sem_visualizar || 0
-    if (semVisualizar > 0) {
-      // Ainda há não lidas — manter indicador e verificar novamente em 3s
-      agendarTimerIndicador()
-    } else {
-      // Todas visualizadas — esconder indicador
-      indicadorNaoLidasVisivel.value = false
-    }
-  }, 3000)
+  reposicionarIndicador = false
 }
 
 // O campo de mensagem fica abaixo da lista. Quando ele cresce (resposta,
@@ -332,7 +300,11 @@ watch(() => chat.conversaAtivaId, () => limparIndicador())
  * O useScrollManager usa indicadorNaoLidasAtivo para decidir se deve
  * cancelar auto-scroll que empurraria o indicador para fora da viewport.
  */
-watch(indicadorNaoLidasVisivel, (v) => { indicadorNaoLidasAtivo.value = v })
+watch(
+  () => indicadorNaoLidasVisivel.value && (chat.conversaAtiva?.mensagens_sem_visualizar || 0) > 0,
+  (v) => { indicadorNaoLidasAtivo.value = v },
+  { immediate: true }
+)
 
 /**
  * Watch que detecta novas mensagens do outro remetente em tempo real.
@@ -365,20 +337,14 @@ watch(
       if (distancia <= 500) return
     }
 
-    // Atualizar contagem com o valor mais recente do servidor
-    const qtd = chat.conversaAtiva?.mensagens_sem_visualizar || 1
-    qtdNaoLidasSnapshot.value = qtd
-
-    // POSIÇÃO FIXA: só definir na primeira vez que o indicador aparece.
-    // Novas mensagens não movem o indicador — ele fica travado acima
-    // da mensagem onde apareceu originalmente.
-    if (!indicadorNaoLidasVisivel.value) {
+    // POSIÇÃO FIXA: só definir na primeira vez que o indicador aparece,
+    // ou no primeiro recebimento depois que a janela perdeu o foco.
+    if (!indicadorNaoLidasVisivel.value || reposicionarIndicador) {
       primeiroIdNaoLidoSnapshot.value = ultima.id
+      reposicionarIndicador = false
     }
 
     indicadorNaoLidasVisivel.value = true
-    if (timerIndicador) clearTimeout(timerIndicador)
-    agendarTimerIndicador()
   }
 )
 
@@ -412,8 +378,7 @@ type ItemMensagemView =
  * inserindo separadores de dia e o indicador de não lidas na posição correta.
  *
  * O indicador "nao-lidas" é inserido ANTES da mensagem cujo ID ===
- * primeiroIdNaoLidoSnapshot. O contador é lido de mensagens_sem_visualizar
- * (servidor, mais preciso) com fallback para qtdNaoLidasSnapshot (local).
+ * primeiroIdNaoLidoSnapshot.
  *
  * O elemento recebe id="indicador-nao-lidas" no template para que o
  * useScrollManager possa localizar sua posição no DOM via getElementById
@@ -443,11 +408,10 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
     // Inserir indicador de não lidas antes da primeira mensagem não lida
     if (indicadorNaoLidasVisivel.value && !indicadorInserido && mensagem.id === primeiroIdNaoLidoSnapshot.value) {
       indicadorInserido = true
-      const qtd = chat.conversaAtiva?.mensagens_sem_visualizar || qtdNaoLidasSnapshot.value
       itens.push({
         tipo: 'nao-lidas',
         key: 'nao-lidas',
-        label: qtd === 1 ? '1 mensagem não lida' : `${qtd} mensagens não lidas`
+        label: 'Últimas'
       })
     }
 
@@ -465,32 +429,15 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
   return itens
 })
 
-/**
- * Handler executado quando a janela do navegador recebe foco.
- *
- * Quando o navegador perde foco, o timer não é cancelado mas pode ter
- * expirado enquanto a janela estava em background. Ao receber foco novamente:
- * - Se o indicador está visível e o timer não está rodando (expirou em background),
- *   verifica se ainda há não lidas e reagenda ou esconde conforme necessário.
- * - Isso evita que o indicador fique "preso" visível se as mensagens foram
- *   visualizadas por outro dispositivo enquanto a janela estava em background.
- */
-function aoFocarJanelaIndicador() {
-  if (indicadorNaoLidasVisivel.value && !timerIndicador) {
-    const semVisualizar = chat.conversaAtiva?.mensagens_sem_visualizar || 0
-    if (semVisualizar > 0) {
-      agendarTimerIndicador()
-    } else {
-      indicadorNaoLidasVisivel.value = false
-    }
-  }
+/** Janela perdeu o foco: a próxima mensagem recebida recebe o indicador. */
+function aoDesfocarJanelaIndicador() {
+  if (indicadorNaoLidasVisivel.value) reposicionarIndicador = true
 }
 
-window.addEventListener('focus', aoFocarJanelaIndicador)
+window.addEventListener('blur', aoDesfocarJanelaIndicador)
 
 onBeforeUnmount(() => {
-  window.removeEventListener('focus', aoFocarJanelaIndicador)
-  if (timerIndicador) { clearTimeout(timerIndicador); timerIndicador = null }
+  window.removeEventListener('blur', aoDesfocarJanelaIndicador)
 })
 
 /**
@@ -518,9 +465,7 @@ async function posicionarEIndicar() {
   const qtd = chat.conversaAtiva?.mensagens_sem_visualizar || 0
   if (primeiraNaoLida && qtd > 0) {
     primeiroIdNaoLidoSnapshot.value = primeiraNaoLida.id
-    qtdNaoLidasSnapshot.value = qtd
     indicadorNaoLidasVisivel.value = true
-    agendarTimerIndicador()
   }
   await posicionarAberturaConversaAtiva()
 }

@@ -1,13 +1,17 @@
 import { watch, onUnmounted, type Ref } from 'vue'
 import { useCallStore } from '../stores/call'
 
+// Sons da chamada, em public/: quem recebe ouve o toque; quem liga ouve o
+// som de chamando ate alguem atender. Os dois tocam em loop.
+const SOM_RECEBENDO = '/toque.mp3'
+const SOM_CHAMANDO = '/chamando.mp3'
+
 export function useCallPopup(erro: Ref<string>) {
   const call = useCallStore()
 
-  // Ringtone (Web Audio API)
-  let toqueAudioCtx: AudioContext | null = null
-  let toqueInterval: number | null = null
-  let toqueTimeout: number | null = null
+  // Som da chamada tocando agora
+  let somAtual: HTMLAudioElement | null = null
+  let liberarAudio: (() => void) | null = null
 
   // Browser notification
   let notificacaoChamada: Notification | null = null
@@ -28,36 +32,41 @@ export function useCallPopup(erro: Ref<string>) {
     }
   }
 
-  // Ringtone
-  function iniciarToque() {
-    if (toqueAudioCtx) return
-    toqueAudioCtx = new AudioContext()
+  function tocarTom(arquivo: string) {
+    if (somAtual && somAtual.dataset.arquivo === arquivo) return
+    pararToque()
+    const som = new Audio(arquivo)
+    som.dataset.arquivo = arquivo
+    som.loop = true
+    somAtual = som
 
-    function tocar() {
-      if (!toqueAudioCtx) return
-      const osc = toqueAudioCtx.createOscillator()
-      const gain = toqueAudioCtx.createGain()
-      osc.connect(gain)
-      gain.connect(toqueAudioCtx.destination)
-      osc.frequency.value = 440
-      gain.gain.value = 0.3
-      osc.start()
-      toqueTimeout = window.setTimeout(() => {
-        toqueTimeout = null
-        try { osc.stop(); osc.disconnect(); gain.disconnect() } catch { /* ignore */ }
-      }, 1000)
-    }
+    // Sem nenhum clique antes na pagina, o navegador bloqueia o play().
+    // Nesse caso o som comeca no primeiro clique ou tecla.
+    som.play().catch(() => {
+      if (somAtual !== som) return
+      liberarAudio = () => {
+        if (somAtual === som) void som.play().catch(() => {})
+        removerLiberacao()
+      }
+      document.addEventListener('pointerdown', liberarAudio)
+      document.addEventListener('keydown', liberarAudio)
+    })
+  }
 
-    tocar()
-    toqueInterval = window.setInterval(tocar, 3000)
+  function removerLiberacao() {
+    if (!liberarAudio) return
+    document.removeEventListener('pointerdown', liberarAudio)
+    document.removeEventListener('keydown', liberarAudio)
+    liberarAudio = null
   }
 
   function pararToque() {
-    if (toqueTimeout) { clearTimeout(toqueTimeout); toqueTimeout = null }
-    if (toqueInterval) { clearInterval(toqueInterval); toqueInterval = null }
-    if (toqueAudioCtx) {
-      void toqueAudioCtx.close().catch(() => {})
-      toqueAudioCtx = null
+    removerLiberacao()
+    if (somAtual) {
+      somAtual.pause()
+      somAtual.removeAttribute('src')
+      somAtual.load()
+      somAtual = null
     }
   }
 
@@ -86,19 +95,21 @@ export function useCallPopup(erro: Ref<string>) {
   }
 
   // Watchers
-  watch(() => call.recebendoChamada, (recebendo) => {
-    if (recebendo) {
-      iniciarToque()
-      mostrarNotificacaoChamada()
+  watch(() => call.estado, (estado) => {
+    if (estado === 'recebendo') {
+      tocarTom(SOM_RECEBENDO)
+    } else if (estado === 'chamando') {
+      tocarTom(SOM_CHAMANDO)
     } else {
       pararToque()
-      fecharNotificacaoChamada()
     }
   })
 
-  watch(() => call.emChamada, (em) => {
-    if (!em) {
-      pararToque()
+  watch(() => call.recebendoChamada, (recebendo) => {
+    if (recebendo) {
+      mostrarNotificacaoChamada()
+    } else {
+      fecharNotificacaoChamada()
     }
   })
 

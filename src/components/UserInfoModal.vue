@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="aberta && usuario"
-    class="fixed inset-0 z-[120] flex items-center justify-center bg-surface-950/45 px-4 py-6"
+    class="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 px-4 py-6"
     @click.self="emit('close')"
   >
     <div class="relative w-full max-w-[260px] rounded-3xl bg-surface-base shadow-2xl">

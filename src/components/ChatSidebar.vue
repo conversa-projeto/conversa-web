@@ -91,7 +91,7 @@
                     {{ conversa.mensagens_sem_visualizar }}
                   </span>
                 </div>
-                <p class="truncate text-xs text-surface-500">{{ conversa.ultima_mensagem_texto || 'Sem mensagens' }}</p>
+                <p class="truncate text-xs text-surface-500">{{ resumirTexto(conversa.ultima_mensagem_texto || '') || 'Sem mensagens' }}</p>
               </div>
               <div
                 v-if="conversasComDigitando.has(conversa.id)"
@@ -125,9 +125,9 @@
               @click="selecionarContatoNovaConversa(contato.id)"
             >
               <div class="relative shrink-0">
-                <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
-                  <img v-if="avatarContato(contato)" :src="avatarContato(contato) || ''" alt="Avatar" class="h-full w-full object-cover" />
-                  <span v-else>{{ inicialNome(contato.nome || '', 'C') }}</span>
+                <div class="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
+                  {{ inicialNome(contato.nome || '', 'C') }}
+                  <img v-if="avatarContato(contato)" :src="avatarContato(contato)" alt="Avatar" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                 </div>
                 <span
                   v-if="chat.estaOnline(contato.id)"
@@ -153,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { inicialNome } from '../utils/formatters'
+import { inicialNome, resumirTexto } from '../utils/formatters'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
@@ -266,7 +266,10 @@ function fecharUsuarioInfo() {
   conversaIdInfo.value = null
 }
 
+// A lista de contatos nao traz foto: a sua vem do perfil e a dos outros, da
+// conversa direta com eles. Sem foto (ou se ela falhar) fica a inicial.
 function avatarContato(contato: Contato) {
+  if (contato.id === auth.user?.id) return auth.avatarUrl || auth.user.avatar_url || ''
   const conversaDireta = chat.conversas.find((conversa) =>
     conversa.tipo === TipoConversa.Direta && conversa.destinatario_id === contato.id
   )

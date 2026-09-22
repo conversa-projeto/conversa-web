@@ -1,5 +1,5 @@
 import { TipoConteudo, type Mensagem } from '../types/api'
-import { temCodigoFormatado } from './codeBlocks'
+import { removerBlocosCodigo, temCodigoFormatado } from './codeBlocks'
 import { obterReferenciaPrincipal } from './messageReferences'
 import { isMensagemSoEmoji } from './formatters'
 
@@ -29,7 +29,7 @@ export function classificarMensagem(mensagem: Mensagem): TipoExibicaoMensagem {
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Texto && !temReferencia) {
     if (temCodigoFormatado(conteudoUnico.conteudo)) {
-      const semCodigo = conteudoUnico.conteudo.replace(/```\w*\n[\s\S]*?```/g, '').trim()
+      const semCodigo = removerBlocosCodigo(conteudoUnico.conteudo).trim()
       if (semCodigo.length === 0) {
         return TipoExibicaoMensagem.Codigo
       }
