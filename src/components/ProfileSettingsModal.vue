@@ -298,6 +298,8 @@
 
           <ConfiguracaoCores v-else-if="props.abaAtiva === 'cores'" />
 
+          <ConfiguracaoChamadas v-else-if="props.abaAtiva === 'chamadas'" />
+
           <div v-else class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-3">
@@ -367,8 +369,9 @@ import { TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import { useTheme } from '../composables/useTheme'
 import ConfiguracaoCores from './ConfiguracaoCores.vue'
+import ConfiguracaoChamadas from './ConfiguracaoChamadas.vue'
 
-type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores'
+type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas'
 
 type DispositivoMidiaItem = {
   id: string
@@ -413,6 +416,7 @@ const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'permissoes', titulo: 'Permissoes', descricao: 'Notificacoes, microfone e camera' },
   { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario' },
   { id: 'cores', titulo: 'Cores', descricao: 'Cores do sistema, salvas neste navegador' },
+  { id: 'chamadas', titulo: 'Chamadas', descricao: 'Qualidade do áudio, vídeo e tela' },
 ]
 
 const subnivelMobile = ref<AbaId | null>(null)

@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
 export type SecaoId = 'chat' | 'config' | 'chamadas' | 'atividades' | 'equipes' | 'ramal' | 'anexos'
-export type AbaConfigId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores'
+export type AbaConfigId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas'
 
 export interface AncoraScroll {
   mensagemId: number
@@ -16,7 +16,7 @@ export interface EstadoNavegacao {
 }
 
 const SECOES_SIMPLES: SecaoId[] = ['chamadas', 'atividades', 'equipes', 'ramal']
-const ABAS_CONFIG: AbaConfigId[] = ['usuario', 'dispositivos', 'permissoes', 'voip', 'cores']
+const ABAS_CONFIG: AbaConfigId[] = ['usuario', 'dispositivos', 'permissoes', 'voip', 'cores', 'chamadas']
 
 function parseUrl(pathname: string): { secao: SecaoId; conversaId: number | null; abaConfig: AbaConfigId | null } {
   const partes = pathname.replace(/^\/+|\/+$/g, '').split('/')

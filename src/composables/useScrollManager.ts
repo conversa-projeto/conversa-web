@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import * as api from '../services/conversaApi'
 import type { Mensagem } from '../types/api'
+import { ordenarMensagens, primeiraMensagemSalva, ultimaMensagemSalva } from '../utils/ordemMensagens'
 import type { AncoraScroll } from './useHistoryNavigation'
 
 /**
@@ -415,7 +416,8 @@ export function useScrollManager() {
   //   - Limiar proporcional (1.5x clientHeight) funciona em qualquer tela
   // =====================================================================
 
-  let prefetchPromise: Promise<Mensagem[]> | null = null
+  // null no resultado = a busca falhou (diferente de [] = não há mais mensagens)
+  let prefetchPromise: Promise<Mensagem[] | null> | null = null
   let prefetchConversaId: number | null = null
   let prefetchBuscando = false
   let semMaisHistorico = false
@@ -423,7 +425,7 @@ export function useScrollManager() {
   // Estado de paginação para BAIXO (mensagens seguintes).
   // semMaisSeguintes começa true — em modo normal já estamos nas mensagens mais recentes.
   // Ao navegar para uma mensagem via busca, ativarPaginacaoBidirecional() seta para false.
-  let prefetchSeguintesPromise: Promise<Mensagem[]> | null = null
+  let prefetchSeguintesPromise: Promise<Mensagem[] | null> | null = null
   let prefetchSeguintesConversaId: number | null = null
   let prefetchSeguintesBuscando = false
   let semMaisSeguintes = true
@@ -441,7 +443,7 @@ export function useScrollManager() {
     const atuais = chat.mensagensAtivas
     if (atuais.length === 0) return
 
-    const referencia = atuais[0]?.id || 0
+    const referencia = primeiraMensagemSalva(atuais)?.id || 0
     if (!referencia) return
 
     prefetchBuscando = true
@@ -455,7 +457,7 @@ export function useScrollManager() {
         prefetchBuscando = false
         prefetchPromise = null
         prefetchConversaId = null
-        return []
+        return null
       })
   }
 
@@ -506,6 +508,9 @@ export function useScrollManager() {
       prefetchPromise = null
       prefetchConversaId = null
 
+      // Falha na busca: tenta de novo na próxima rolagem até o topo
+      if (anteriores === null) return
+
       if (!anteriores.length) {
         // API retornou vazio — não há mais mensagens anteriores nesta conversa.
         // Parar de tentar para evitar requisições infinitas.
@@ -514,12 +519,12 @@ export function useScrollManager() {
       }
 
       // Merge com deduplicação: Map garante que mensagens com mesmo ID não duplicam.
-      // Sort por ID mantém a ordem cronológica.
+      // ordenarMensagens mantém a ordem da API (agendadas pelo visivel_em).
       const atuais = chat.mensagensAtivas
       const mapa = new Map<number, Mensagem>()
       for (const msg of anteriores) mapa.set(msg.id, msg)
       for (const msg of atuais) mapa.set(msg.id, msg)
-      const merged = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+      const merged = ordenarMensagens(Array.from(mapa.values()))
       const adicionadas = merged.length - atuais.length
 
       if (adicionadas > 0) {
@@ -580,7 +585,7 @@ export function useScrollManager() {
     const atuais = chat.mensagensAtivas
     if (atuais.length === 0) return
 
-    const referencia = atuais[atuais.length - 1]?.id || 0
+    const referencia = ultimaMensagemSalva(atuais)?.id || 0
     if (!referencia) return
 
     prefetchSeguintesBuscando = true
@@ -594,7 +599,7 @@ export function useScrollManager() {
         prefetchSeguintesBuscando = false
         prefetchSeguintesPromise = null
         prefetchSeguintesConversaId = null
-        return []
+        return null
       })
   }
 
@@ -645,6 +650,8 @@ export function useScrollManager() {
       prefetchSeguintesPromise = null
       prefetchSeguintesConversaId = null
 
+      if (seguintes === null) return
+
       if (!seguintes.length) {
         semMaisSeguintes = true
         return
@@ -654,7 +661,7 @@ export function useScrollManager() {
       const mapa = new Map<number, Mensagem>()
       for (const msg of atuais) mapa.set(msg.id, msg)
       for (const msg of seguintes) mapa.set(msg.id, msg)
-      const merged = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+      const merged = ordenarMensagens(Array.from(mapa.values()))
       const adicionadas = merged.length - atuais.length
 
       if (adicionadas > 0) {

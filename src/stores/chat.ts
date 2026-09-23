@@ -7,6 +7,7 @@ import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
 import { resumirTexto } from '../utils/formatters'
+import { ordenarMensagens, primeiraMensagemSalva } from '../utils/ordemMensagens'
 import { useUploadProgress } from '../composables/useUploadProgress'
 
 export const useChatStore = defineStore('chat', () => {
@@ -171,7 +172,7 @@ export const useChatStore = defineStore('chat', () => {
       return 0
     }
 
-    const referencia = atuais[0]?.id || 0
+    const referencia = primeiraMensagemSalva(atuais)?.id || 0
     if (!referencia) return 0
 
     const anteriores = await api.getMensagens(conversaId, referencia, limite, 0)
@@ -181,7 +182,7 @@ export const useChatStore = defineStore('chat', () => {
     for (const msg of anteriores) mapa.set(msg.id, msg)
     for (const msg of atuais) mapa.set(msg.id, msg)
 
-    const merged = Array.from(mapa.values()).sort((a, b) => a.id - b.id)
+    const merged = ordenarMensagens(Array.from(mapa.values()))
     const antes = atuais.length
     mensagensPorConversa.value[conversaId] = merged
     return Math.max(0, merged.length - antes)
@@ -480,7 +481,7 @@ export const useChatStore = defineStore('chat', () => {
 
     // Substituir (não merge) para que a paginação bidirecional funcione
     // a partir do contexto da mensagem encontrada.
-    mensagensPorConversa.value[conversaId] = [...bloco].sort((a, b) => a.id - b.id)
+    mensagensPorConversa.value[conversaId] = ordenarMensagens(bloco)
     return mensagensPorConversa.value[conversaId].some(m => m.id === mensagemId)
   }
   async function buscarNaConversa(texto: string) {

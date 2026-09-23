@@ -1,10 +1,11 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { useAuthStore } from './auth'
 import { useChatStore } from './chat'
 import * as api from '../services/conversaApi'
 import { TipoChamada, StatusUsuarioChamada, TipoEventoSocket } from '../types/api'
 import type { Chamada, EventoChamadaSocket } from '../types/api'
+import { BITRATE_AUDIO, BITRATE_VIDEO, DIMENSOES_VIDEO, useConfigChamada, type ConfigChamada } from '../composables/useConfigChamada'
 
 export type EstadoChamada = 'inativo' | 'chamando' | 'recebendo' | 'ativa' | 'encerrando'
 
@@ -256,31 +257,78 @@ export const useCallStore = defineStore('call', () => {
     return /Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent)
   }
 
+  // Qualidade da chamada escolhida em Configurações > Chamadas
+  const { config: configChamada } = useConfigChamada()
+
+  function constraintsAudio(): MediaTrackConstraints {
+    const c = configChamada.value
+    return {
+      echoCancellation: c.cancelamentoEco,
+      noiseSuppression: c.reducaoRuido,
+      autoGainControl: c.ganhoAutomatico,
+      channelCount: c.qualidadeAudio === 'musica' ? 2 : 1
+    }
+  }
+
+  function constraintsVideo(): MediaTrackConstraints {
+    const c = configChamada.value
+    const { width, height } = DIMENSOES_VIDEO[c.resolucao]
+    return {
+      width: { ideal: width },
+      height: { ideal: height },
+      frameRate: { ideal: c.fps, max: c.fps },
+      ...(isMobileDevice() ? { facingMode: 'user' } : {})
+    }
+  }
+
   function criarConstraintsMidia(tipo: TipoChamada): MediaStreamConstraints {
-    const audio: MediaTrackConstraints = {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
-    }
+    return { audio: constraintsAudio(), video: tipo === TipoChamada.Video ? constraintsVideo() : false }
+  }
 
-    if (tipo !== TipoChamada.Video) {
-      return { audio, video: false }
-    }
+  // Áudio em estéreo (qualidade "Música") precisa ser pedido no SDP do Opus
+  function sdpComOpusEstereo(sdp: string) {
+    const opus = sdp.match(/a=rtpmap:(\d+) opus\/48000/i)
+    if (!opus) return sdp
+    return sdp.replace(new RegExp(`a=fmtp:${opus[1]} ([^\r\n]*)`), (linha, params: string) =>
+      /stereo=1/.test(params) ? linha : `a=fmtp:${opus[1]} ${params};stereo=1;sprop-stereo=1`)
+  }
 
-    const video: MediaTrackConstraints = isMobileDevice()
-      ? {
-        width: { ideal: 640, max: 1280 },
-        height: { ideal: 360, max: 720 },
-        frameRate: { ideal: 15, max: 24 },
-        facingMode: 'user'
+  // Limites de envio da transmissão: bitrate do áudio, bitrate e fps do vídeo.
+  // Na tela, a prioridade decide entre manter a nitidez ou a fluidez quando a
+  // banda aperta.
+  async function aplicarParametrosEnvio(pc: RTCPeerConnection | null = pcPublicacaoLocal) {
+    if (!pc) return
+    const c = configChamada.value
+    for (const transceiver of pc.getTransceivers()) {
+      const sender = transceiver.sender
+      const parametros = sender.getParameters()
+      const codificacao = parametros.encodings?.[0]
+      if (!codificacao) continue
+      if (transceiver.receiver.track.kind === 'audio') {
+        codificacao.maxBitrate = BITRATE_AUDIO[c.qualidadeAudio]
+      } else {
+        const bitrate = BITRATE_VIDEO[c.bandaVideo]
+        if (bitrate) codificacao.maxBitrate = bitrate
+        else delete codificacao.maxBitrate
+        if (compartilhandoTela.value) {
+          codificacao.maxFramerate = c.prioridadeTela === 'nitidez' ? 15 : 30
+          parametros.degradationPreference = c.prioridadeTela === 'nitidez' ? 'maintain-resolution' : 'maintain-framerate'
+        } else {
+          codificacao.maxFramerate = c.fps
+          delete parametros.degradationPreference
+        }
       }
-      : {
-        width: { ideal: 1280, max: 1920 },
-        height: { ideal: 720, max: 1080 },
-        frameRate: { ideal: 24, max: 30 }
+      try {
+        await sender.setParameters(parametros)
+      } catch (e) {
+        console.warn('[CALL] Não foi possível aplicar a qualidade de envio', e)
       }
+    }
+  }
 
-    return { audio, video }
+  function aplicarPrioridadeTela() {
+    const dica = configChamada.value.prioridadeTela === 'nitidez' ? 'detail' : 'motion'
+    streamTela.value?.getVideoTracks().forEach(t => { t.contentHint = dica })
   }
 
   // --- WHIP: publicar stream local para um peer ---
@@ -296,7 +344,9 @@ export const useCallStore = defineStore('call', () => {
     streamLocal.value.getTracks().forEach(t => pc.addTrack(t, streamLocal.value!))
 
     const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
+    await pc.setLocalDescription(configChamada.value.qualidadeAudio === 'musica'
+      ? { type: 'offer', sdp: sdpComOpusEstereo(offer.sdp || '') }
+      : offer)
     await esperarICE(pc)
 
     const caminhoStream = montarCaminhoStreamUsuario(chamadaId, auth.user.id)
@@ -318,6 +368,7 @@ export const useCallStore = defineStore('call', () => {
       sdp: await resposta.text()
     })
 
+    await aplicarParametrosEnvio(pc)
     console.debug('[CALL][WHIP] publicado com sucesso', { caminhoStream })
     monitorarPublicacaoLocal(pc)
 
@@ -420,8 +471,9 @@ export const useCallStore = defineStore('call', () => {
       console.debug('[CALL][WHEP] iceConnectionState', { fromUserId, state: pc.iceConnectionState })
     }
 
+    // Aceita áudio estéreo de quem transmite na qualidade "Música"
     const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
+    await pc.setLocalDescription({ type: 'offer', sdp: sdpComOpusEstereo(offer.sdp || '') })
     await esperarICE(pc)
 
     const caminhoStream = montarCaminhoStreamUsuario(chamadaId, fromUserId)
@@ -717,6 +769,7 @@ export const useCallStore = defineStore('call', () => {
   }
 
   function liberarStreamTela() {
+    encerrarMisturaAudio()
     if (streamTela.value) {
       streamTela.value.getTracks().forEach(t => t.stop())
       streamTela.value = null
@@ -764,10 +817,8 @@ export const useCallStore = defineStore('call', () => {
 
     try {
       if (comTela && tipo === TipoChamada.Video) {
-        const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: { sampleRate: 48000, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        })
+        const telaStream = await navigator.mediaDevices.getDisplayMedia(OPCOES_TELA)
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: constraintsAudio() })
         streamLocal.value = new MediaStream([
           ...audioStream.getAudioTracks(),
           ...telaStream.getVideoTracks()
@@ -775,6 +826,7 @@ export const useCallStore = defineStore('call', () => {
         streamTela.value = telaStream
         compartilhandoTela.value = true
         trackCamera = null
+        aplicarPrioridadeTela()
 
         telaStream.getVideoTracks()[0].onended = () => { void pararCompartilhamento() }
       } else {
@@ -799,6 +851,7 @@ export const useCallStore = defineStore('call', () => {
       try {
         pcPublicacaoLocal = await publicarLocalNaSala()
         console.debug('[CALL] Stream local publicado após iniciar chamada')
+        if (streamTela.value) await misturarAudioDaTela(streamTela.value)
       } catch (whipErr) {
         console.warn('[CALL] Falha ao publicar stream local após iniciar chamada', whipErr)
       }
@@ -942,6 +995,53 @@ export const useCallStore = defineStore('call', () => {
 
   // Transceiver de video da publicacao WHIP. Pelo receiver, porque o sender
   // pode estar sem track depois de um replaceTrack(null).
+  // Tela com o som do computador: o navegador mostra a opção de compartilhar o
+  // áudio (Chrome/Edge: aba sempre; tela inteira no Windows; janela não tem).
+  // restrictOwnAudio tira desta captura o som da própria página, ou seja, as
+  // vozes da chamada; sem isso os outros ouviriam o próprio eco.
+  const OPCOES_TELA = {
+    video: true,
+    audio: { restrictOwnAudio: true, suppressLocalAudioPlayback: false },
+    systemAudio: 'include'
+  } as DisplayMediaStreamOptions
+
+  function transceiverAudioPublicado() {
+    return pcPublicacaoLocal?.getTransceivers().find(t => t.receiver.track.kind === 'audio') || null
+  }
+
+  // A transmissão tem uma trilha de áudio só (é a que os outros recebem). O som
+  // do computador e o microfone viram uma trilha, que substitui a do microfone.
+  // O microfone continua em streamLocal: mutá-lo silencia só a voz.
+  let misturaAudioTela: { contexto: AudioContext; trilha: MediaStreamTrack } | null = null
+
+  async function misturarAudioDaTela(telaStream: MediaStream) {
+    const somTela = telaStream.getAudioTracks()[0]
+    const transceiver = transceiverAudioPublicado()
+    // Sem "compartilhar áudio" marcado, ou sem microfone na transmissão
+    if (!somTela || !transceiver) return
+    const contexto = new AudioContext()
+    const destino = contexto.createMediaStreamDestination()
+    contexto.createMediaStreamSource(new MediaStream([somTela])).connect(destino)
+    const microfone = streamLocal.value?.getAudioTracks()[0]
+    if (microfone) contexto.createMediaStreamSource(new MediaStream([microfone])).connect(destino)
+    const trilha = destino.stream.getAudioTracks()[0]
+    await transceiver.sender.replaceTrack(trilha)
+    misturaAudioTela = { contexto, trilha }
+  }
+
+  function encerrarMisturaAudio() {
+    if (!misturaAudioTela) return
+    misturaAudioTela.trilha.stop()
+    void misturaAudioTela.contexto.close().catch(() => {})
+    misturaAudioTela = null
+  }
+
+  async function desfazerMisturaAudio() {
+    if (!misturaAudioTela) return
+    await transceiverAudioPublicado()?.sender.replaceTrack(streamLocal.value?.getAudioTracks()[0] || null)
+    encerrarMisturaAudio()
+  }
+
   function transceiverVideoPublicado() {
     return pcPublicacaoLocal?.getTransceivers().find(t => t.receiver.track.kind === 'video') || null
   }
@@ -949,7 +1049,7 @@ export const useCallStore = defineStore('call', () => {
   async function compartilharTela() {
     if (compartilhandoTela.value || tipoChamada.value !== TipoChamada.Video || !chamada.value) return
 
-    const telaStream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+    const telaStream = await navigator.mediaDevices.getDisplayMedia(OPCOES_TELA)
     const screenTrack = telaStream.getVideoTracks()[0]
 
     // Quem entrou sem microfone nem camera ainda nao tem stream local
@@ -964,6 +1064,7 @@ export const useCallStore = defineStore('call', () => {
 
     streamTela.value = telaStream
     compartilhandoTela.value = true
+    aplicarPrioridadeTela()
 
     screenTrack.onended = () => { void pararCompartilhamento() }
 
@@ -981,6 +1082,9 @@ export const useCallStore = defineStore('call', () => {
       notificarPeers()
       if (chamada.value) api.chamadaVideo(chamada.value.id).catch(() => { /* ignore */ })
     }
+
+    await misturarAudioDaTela(telaStream)
+    await aplicarParametrosEnvio()
   }
 
   async function pararCompartilhamento() {
@@ -991,7 +1095,7 @@ export const useCallStore = defineStore('call', () => {
     // Restaura track da câmera ou adquire nova
     if (!trackCamera) {
       try {
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: true })
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: constraintsVideo() })
         trackCamera = camStream.getVideoTracks()[0]
       } catch {
         // Câmera indisponível
@@ -1005,12 +1109,57 @@ export const useCallStore = defineStore('call', () => {
     if (screenTrack) streamLocal.value.removeTrack(screenTrack)
     if (trackCamera) streamLocal.value.addTrack(trackCamera)
 
+    // Volta só o microfone na transmissão
+    await desfazerMisturaAudio()
+
     // Para as tracks da tela
     streamTela.value?.getTracks().forEach(t => t.stop())
     streamTela.value = null
     compartilhandoTela.value = false
     trackCamera = null
+    await aplicarParametrosEnvio()
   }
+
+  // --- Qualidade alterada durante a chamada ---
+
+  // Redução de ruído, eco e ganho: o navegador só aplica ao abrir o microfone,
+  // então ele é reaberto e trocado na transmissão sem derrubar a chamada.
+  async function reabrirMicrofone() {
+    const stream = streamLocal.value
+    const antigo = stream?.getAudioTracks()[0]
+    if (!stream || !antigo) return
+    let novo: MediaStreamTrack
+    try {
+      novo = (await navigator.mediaDevices.getUserMedia({ audio: constraintsAudio() })).getAudioTracks()[0]
+    } catch {
+      return
+    }
+    novo.enabled = !micMutado.value
+    stream.removeTrack(antigo)
+    stream.addTrack(novo)
+    if (misturaAudioTela && streamTela.value) {
+      encerrarMisturaAudio()
+      await misturarAudioDaTela(streamTela.value)
+    } else {
+      await transceiverAudioPublicado()?.sender.replaceTrack(novo)
+    }
+    antigo.stop()
+  }
+
+  async function aplicarConfigAoVivo(novo: ConfigChamada, antigo: ConfigChamada) {
+    if (!streamLocal.value || !emChamada.value) return
+    const mudou = (chave: keyof ConfigChamada) => novo[chave] !== antigo[chave]
+    if (mudou('reducaoRuido') || mudou('cancelamentoEco') || mudou('ganhoAutomatico') || mudou('qualidadeAudio')) {
+      await reabrirMicrofone()
+    }
+    if ((mudou('resolucao') || mudou('fps')) && !compartilhandoTela.value) {
+      await streamLocal.value.getVideoTracks()[0]?.applyConstraints(constraintsVideo()).catch(() => {})
+    }
+    if (mudou('prioridadeTela')) aplicarPrioridadeTela()
+    await aplicarParametrosEnvio()
+  }
+
+  watch(() => ({ ...configChamada.value }), (novo, antigo) => { void aplicarConfigAoVivo(novo, antigo) })
 
   // --- Adicionar usuario a chamada ativa ---
 
@@ -1055,7 +1204,7 @@ export const useCallStore = defineStore('call', () => {
 
     // Tenta adquirir video, mas continua sem webcam para poder assistir
     try {
-      const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+      const videoStream = await navigator.mediaDevices.getUserMedia({ video: constraintsVideo() })
       const videoTrack = videoStream.getVideoTracks()[0]
 
       if (streamLocal.value) {
