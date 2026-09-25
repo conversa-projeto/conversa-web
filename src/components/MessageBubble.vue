@@ -17,7 +17,7 @@
 
       <div
         ref="wrapperRef"
-        class="group/bubble relative flex w-fit items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
+        class="group/bubble relative flex w-fit max-w-full items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
         :class="[isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '']"
         @mouseleave="onMouseLeave"
         @contextmenu.prevent="onContextMenu"
@@ -49,7 +49,14 @@
         />
 
         <!-- Indicador de status de entrega (fora da bolha) -->
-        <div v-if="isOwn && mensagem.id > 0 && !ehChamada" class="mb-1 shrink-0">
+        <div
+          v-if="isOwn && mensagem.id > 0 && !ehChamada"
+          class="relative mb-1 shrink-0 cursor-default"
+          @mouseenter="abrirStatus"
+          @mouseleave="fecharStatus"
+          @click.stop="mostrarStatus = !mostrarStatus"
+        >
+          <DetalheStatusMensagem v-if="mostrarStatus" :mensagem="mensagem" :is-group="isGroup" />
           <svg
             v-if="mensagem.enviando"
             xmlns="http://www.w3.org/2000/svg"
@@ -163,6 +170,7 @@ import BolhaTextoCurto from './BolhaTextoCurto.vue'
 import BolhaEmoji from './BolhaEmoji.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
 import BolhaChamada from './BolhaChamada.vue'
+import DetalheStatusMensagem from './DetalheStatusMensagem.vue'
 
 const props = defineProps<{
   mensagem: Mensagem
@@ -185,6 +193,19 @@ const emit = defineEmits<{
 
 const wrapperRef = ref<HTMLElement>()
 const menuAcoesAberto = ref(false)
+
+// Detalhe de quem recebeu e viu, ao parar o mouse sobre o ✓✓ (ou tocar nele)
+const mostrarStatus = ref(false)
+let esperaStatus: number | undefined
+
+function abrirStatus() {
+  esperaStatus = window.setTimeout(() => { mostrarStatus.value = true }, 300)
+}
+
+function fecharStatus() {
+  window.clearTimeout(esperaStatus)
+  mostrarStatus.value = false
+}
 const acoesRef = ref<InstanceType<typeof MensagemAcoes>>()
 
 function onMouseLeave() {

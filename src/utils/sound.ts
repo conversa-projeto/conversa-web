@@ -149,11 +149,53 @@ const notificacoesAtivas = new Map<number, Notification>()
  * @param options - Opções adicionais do Notification API (body com texto da mensagem)
  * @param onClick - Callback executado ao clicar na notificação (após focar a janela)
  */
+// Service worker do push (firebase-messaging-sw.js). Notificação criada por ele
+// tem o clique tratado lá: foca a aba já aberta e abre a conversa, mesmo que a
+// página que a criou tenha sido recarregada. Uma notificação criada pela página
+// (new Notification), clicada depois disso, faz o navegador abrir outra aba.
+let registroNotificacoes: Promise<ServiceWorkerRegistration | null> | null = null
+
+function obterRegistroNotificacoes() {
+  registroNotificacoes ??= (async () => {
+    if (!('serviceWorker' in navigator)) return null
+    const registros = await navigator.serviceWorker.getRegistrations()
+    return registros.find((registro) => registro.active?.scriptURL.endsWith('/firebase-messaging-sw.js')) || null
+  })().catch(() => null)
+  return registroNotificacoes
+}
+
+// O navegador só procura versão nova do service worker de vez em quando; ao
+// abrir o app ele busca na hora, para valer a última correção do clique.
+export function atualizarServiceWorkerNotificacoes() {
+  void obterRegistroNotificacoes().then((registro) => registro?.update().catch(() => {}))
+}
+
 export function showNotification(conversaId: number, title: string, options?: NotificationOptions, onClick?: () => void) {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     return
   }
 
+  void obterRegistroNotificacoes().then((registro) => {
+    if (!registro) {
+      mostrarNotificacaoDaPagina(conversaId, title, options, onClick)
+      return
+    }
+    // Mesma tag da conversa: substitui a anterior. O clique vai para o service
+    // worker, que pede a conversa à janela (App.vue, 'conversa-abrir').
+    return registro.showNotification(title, {
+      icon: '/logo.png',
+      silent: true,
+      tag: `conversa-${conversaId}`,
+      renotify: true,
+      requireInteraction: true,
+      ...options,
+      data: { conversa: conversaId }
+    } as NotificationOptions)
+  }).catch(() => mostrarNotificacaoDaPagina(conversaId, title, options, onClick))
+}
+
+// Sem service worker (push não registrado): notificação da própria página.
+function mostrarNotificacaoDaPagina(conversaId: number, title: string, options?: NotificationOptions, onClick?: () => void) {
   try {
     // --- Fechar notificação anterior da mesma conversa ---
     // ORDEM CRÍTICA: remover do mapa e anular onclose ANTES de close().
@@ -224,4 +266,8 @@ export function fecharNotificacao(conversaId: number) {
     notificacao.close()
     notificacoesAtivas.delete(conversaId)
   }
+  void obterRegistroNotificacoes()
+    .then((registro) => registro?.getNotifications({ tag: `conversa-${conversaId}` }))
+    .then((notificacoes) => notificacoes?.forEach((n) => n.close()))
+    .catch(() => {})
 }

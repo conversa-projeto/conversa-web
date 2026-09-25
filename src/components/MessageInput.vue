@@ -9,7 +9,32 @@
       accept="*/*"
     />
 
-    <div class="mx-auto w-full max-w-[850px]">
+    <div class="relative mx-auto w-full max-w-[850px]">
+      <!-- Indicador de digitando/gravando: acima de todo o bloco do campo (resposta,
+           imagens e barra), para não ficar por cima da resposta ou das imagens -->
+      <div
+        v-if="atividadeVisivel && !gravandoAudio"
+        class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
+        :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
+      />
+
+      <!-- Chip com texto: so aparece quando o usuario esta no fim do chat.
+           Posicionado logo acima da linha de efeito (2px de gap). -->
+      <div
+        v-if="atividadeVisivel && chatNoFim && !gravandoAudio"
+        class="pointer-events-none absolute inset-x-0 z-10 flex pl-3 pr-1"
+        style="bottom: calc(100% + 2px)"
+      >
+        <div class="pointer-events-auto flex items-center gap-1.5 rounded-lg bg-surface-300 px-2 py-1 text-[10px] leading-none text-surface-700 dark:bg-surface-200 dark:text-surface-600">
+          <span class="flex gap-0.5">
+            <span class="typing-dot" :style="{ animationDelay: '0ms', background: corAtividade }"></span>
+            <span class="typing-dot" :style="{ animationDelay: '200ms', background: corAtividade }"></span>
+            <span class="typing-dot" :style="{ animationDelay: '400ms', background: corAtividade }"></span>
+          </span>
+          <span class="truncate">{{ textoAtividade }}</span>
+        </div>
+      </div>
+
       <p v-if="erro" class="mb-2 rounded bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
 
       <!-- File queue preview -->
@@ -47,29 +72,6 @@
       <div class="relative flex items-end gap-2">
         <!-- Normal input bar -->
         <div v-if="!gravandoAudio" class="relative min-w-0 flex-1">
-          <!-- Efeito de linha pulsante (original) -->
-          <div
-            v-if="atividadeVisivel"
-            class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
-            :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
-          />
-
-          <!-- Chip com texto: so aparece quando o usuario esta no fim do chat.
-               Posicionado logo acima da linha de efeito (2px de gap). -->
-          <div
-            v-if="atividadeVisivel && chatNoFim"
-            class="pointer-events-none absolute inset-x-0 z-10 flex pl-3 pr-1"
-            style="bottom: calc(100% + 2px)"
-          >
-            <div class="pointer-events-auto flex items-center gap-1.5 rounded-lg bg-surface-300 px-2 py-1 text-[10px] leading-none text-surface-700 dark:bg-surface-200 dark:text-surface-600">
-              <span class="flex gap-0.5">
-                <span class="typing-dot" :style="{ animationDelay: '0ms', background: corAtividade }"></span>
-                <span class="typing-dot" :style="{ animationDelay: '200ms', background: corAtividade }"></span>
-                <span class="typing-dot" :style="{ animationDelay: '400ms', background: corAtividade }"></span>
-              </span>
-              <span class="truncate">{{ textoAtividade }}</span>
-            </div>
-          </div>
           <div class="flex items-end rounded-3xl border border-surface-500 bg-surface-base pl-3 pr-1 transition-colors focus-within:border-primary-500">
           <!-- Attach button -->
           <div class="relative flex shrink-0 self-end pb-[6px]">

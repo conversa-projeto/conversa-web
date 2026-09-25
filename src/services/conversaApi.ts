@@ -1,4 +1,4 @@
-﻿import type { AnexoItem, AnexoResponse, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
+﻿import type { AnexoItem, AnexoResponse, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
 import { requestApi } from './http'
 
 export function login(loginValue: string, senha: string, dispositivoId?: number) {
@@ -242,6 +242,12 @@ export function mensagemStatus(conversaId: number, mensagemIds: number[]) {
       conversa: conversaId,
       mensagem: mensagemIds.join(',')
     }
+  })
+}
+
+export function getDetalheStatusMensagem(mensagemId: number) {
+  return requestApi<StatusDestinatario[]>('/mensagem/status/detalhe', 'GET', {
+    query: { id: mensagemId }
   })
 }
 

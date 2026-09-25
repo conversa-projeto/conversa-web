@@ -286,6 +286,15 @@ export interface EventoChamadaSocket {
   usuario_id: number
 }
 
+// Status de uma mensagem para cada destinatário (horários ou null)
+export interface StatusDestinatario {
+  usuario_id: number
+  nome: string
+  recebida: string | null
+  visualizada: string | null
+  reproduzida: string | null
+}
+
 export interface MensagemStatusItem {
   conversa_id: number
   mensagem_id: number

@@ -267,6 +267,7 @@ import { ErroNaoAutenticado } from './services/http'
 import LoginForm from './components/LoginForm.vue'
 import RegisterForm from './components/RegisterForm.vue'
 import ChatSidebar from './components/ChatSidebar.vue'
+import { atualizarServiceWorkerNotificacoes } from './utils/sound'
 import CallBar from './components/CallBar.vue'
 import ChatHeader from './components/ChatHeader.vue'
 import ProfileSettingsModal from './components/ProfileSettingsModal.vue'
@@ -474,6 +475,7 @@ function aoReceberMensagemServiceWorker(evento: MessageEvent) {
 onMounted(async () => {
   window.addEventListener('beforeunload', onBeforeUnload)
   navigator.serviceWorker?.addEventListener('message', aoReceberMensagemServiceWorker)
+  atualizarServiceWorkerNotificacoes()
   if (auth.isAuthenticated) {
     try {
       await chat.inicializar()
