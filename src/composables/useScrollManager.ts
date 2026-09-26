@@ -534,7 +534,7 @@ export function useScrollManager() {
         const alturaAntes = container.scrollHeight
         // Atualizar ultimoIdConhecido ANTES de definir mensagens para evitar que
         // o watch interprete mensagens paginadas como "novas"
-        ultimoIdConhecido = merged[merged.length - 1].id
+        ultimoIdConhecido = merged.at(-1)?.id ?? ultimoIdConhecido
         chat.definirMensagens(conversaId, merged)
         await nextTick()
         container.scrollTop = container.scrollHeight - alturaAntes
@@ -667,7 +667,7 @@ export function useScrollManager() {
       if (adicionadas > 0) {
         // Atualizar ultimoIdConhecido ANTES de definir mensagens para evitar que
         // o watch interprete as mensagens injetadas como "novas" e cause auto-scroll
-        ultimoIdConhecido = merged[merged.length - 1].id
+        ultimoIdConhecido = merged.at(-1)?.id ?? ultimoIdConhecido
         chat.definirMensagens(conversaId, merged)
         await nextTick()
       } else {
@@ -763,9 +763,9 @@ export function useScrollManager() {
     // para mensagens com ID MAIOR que este valor. Isso impede que mudanças
     // de IDs causadas pela substituição do cache pela resposta da API
     // sejam interpretadas como "novas mensagens" e puxem o scroll para baixo.
-    const msgs = chat.mensagensAtivas
-    if (msgs.length > 0) {
-      ultimoIdConhecido = msgs[msgs.length - 1].id
+    const ultima = chat.mensagensAtivas.at(-1)
+    if (ultima) {
+      ultimoIdConhecido = ultima.id
     }
 
     await nextTick()
@@ -954,8 +954,8 @@ export function useScrollManager() {
   watch(
     () => {
       const msgs = chat.mensagensAtivas
-      if (!msgs.length) return 0
-      const ultima = msgs[msgs.length - 1]
+      const ultima = msgs.at(-1)
+      if (!ultima) return 0
       return (ultima.reacoes || []).reduce((acc: number, r: { quantidade: number }) => acc + r.quantidade, 0)
     },
     async () => {

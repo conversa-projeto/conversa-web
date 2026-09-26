@@ -87,7 +87,7 @@ const diasSemana = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
 watch(aberto, (val) => {
   if (val && props.modelValue) {
-    const [a, m] = props.modelValue.split('-').map(Number)
+    const [a = anoCal.value, m = mesCal.value + 1] = props.modelValue.split('-').map(Number)
     anoCal.value = a
     mesCal.value = m - 1
   }

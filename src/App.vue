@@ -129,6 +129,7 @@
           ref="messageListRef"
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
+          @open-message="abrirMensagemPesquisaGlobal"
           @ancora-changed="aoAncoraMudou"
           :altura-campo-mensagem="alturaInput"
           @at-bottom-changed="(val) => chatNoFim = val"
@@ -612,8 +613,8 @@ function aoMudarConversaAnexos(conversaId: number | null) {
 
 /** Abre o visualizador de imagens usando o mesmo fluxo do chat (galeria + blob cache). */
 function handleOpenAnexoImagem(item: import('./types/api').AnexoItem, galeria: import('./types/api').AnexoItem[]) {
-  const galeriaViewer = galeria.map(g => ({ identificador: g.identificador, nome: g.nome, url: g.url }))
-  handleOpenFilaImage(item.url, item.nome, item.identificador, galeriaViewer)
+  const galeriaViewer = galeria.map(g => ({ identificador: g.identificador, nome: g.nome ?? '', url: g.url ?? '' }))
+  handleOpenFilaImage(item.url ?? '', item.nome ?? '', item.identificador, galeriaViewer)
 }
 
 /** Abre a mensagem referente ao anexo: navega para o chat e scrolla ate a mensagem. */

@@ -12,7 +12,7 @@ O passo a passo completo, da primeira vez e do dia a dia, esta no [SETUP.md](../
 2. Abrir a pasta `conversa` no VS Code com **Reopen in Container**. O Vite sobe sozinho numa aba de terminal
 3. Acessar `https://SEU_IP`
 
-Node nao precisa estar instalado na maquina: ele roda dentro do Dev Container. Na maquina basta o Docker Desktop e o VS Code com a extensao Dev Containers.
+O Bun nao precisa estar instalado na maquina: ele roda dentro do Dev Container. Na maquina basta o Docker Desktop e o VS Code com a extensao Dev Containers.
 
 ## Como o Vite se conecta ao resto
 
@@ -37,16 +37,19 @@ Rode no terminal do VS Code, dentro de `/git/conversa-web`.
 
 | Comando | Descricao |
 |---------|-----------|
-| `npm run dev` | Inicia o Vite com recarga automatica. O Dev Container ja roda sozinho ao conectar; use so se tiver parado |
-| `npm run build` | Confere os tipos e gera o build de producao em `dist/` |
-| `npm install` | Instala dependencias, depois de alterar o `package.json` |
+| `bun run dev` | Inicia o Vite com recarga automatica. O Dev Container ja roda sozinho ao conectar; use so se tiver parado |
+| `bun run build` | Confere os tipos e gera o build de producao em `dist/` |
+| `bun run typecheck` | So confere os tipos (pagina, `vite.config.ts` e `scripts/`) |
+| `bun install` | Instala dependencias, depois de alterar o `package.json` |
+
+A checagem de tipos usa `scripts/vue-tsc.ts`: o `vue-tsc` direto no Bun nao enxerga os arquivos `.vue`, e o script aplica a mesma adaptacao dele de um jeito que funciona no Bun.
 
 ## Atualizar a producao
 
 No terminal do VS Code, gere o build e copie para a pasta que o nginx de producao entrega:
 
 ```bash
-cd /git/conversa-web && npm run build && rm -rf /git/conversa/bin/web/* && cp -r dist/* /git/conversa/bin/web/
+cd /git/conversa-web && bun run build && rm -rf /git/conversa/bin/web/* && cp -r dist/* /git/conversa/bin/web/
 ```
 
 Nao e preciso reiniciar nada depois de copiar.

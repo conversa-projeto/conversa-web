@@ -140,7 +140,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = {
       id: Number(response.id),
       nome: response.nome,
-      login: response.login,
+      login: loginValue,
       email: response.email,
       telefone: response.telefone,
       avatar_url: response.avatar_url ?? null,

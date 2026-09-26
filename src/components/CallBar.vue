@@ -17,17 +17,22 @@
       {{ (call.peers.size + 1) }} {{ (call.peers.size + 1) === 1 ? 'pessoa' : 'pessoas' }}
     </span>
 
-    <!-- Avatares -->
+    <!-- Avatares: anel verde em quem esta falando -->
     <div class="hidden -space-x-1.5 sm:flex">
-      <div class="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-600 text-[9px] font-bold text-chamada-300 ring-1 ring-surface-800">
+      <div
+        class="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-600 text-[9px] font-bold text-chamada-300 transition-shadow duration-150"
+        :class="estaFalando(auth.user?.id) ? 'z-10 ring-2 ring-success-400' : 'ring-1 ring-surface-800'"
+        :title="estaFalando(auth.user?.id) ? 'Você está falando' : undefined"
+      >
         {{ iniciaisUsuario(auth.user?.nome || '') }}
         <img v-if="avatarUsuario(auth.user?.id)" :src="avatarUsuario(auth.user?.id)" alt="" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
       </div>
       <div
         v-for="[userId, peer] in call.peers"
         :key="`bar-${userId}`"
-        class="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-600 text-[9px] font-bold text-chamada-300 ring-1 ring-surface-800"
-        :title="peer.usuarioNome"
+        class="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-600 text-[9px] font-bold text-chamada-300 transition-shadow duration-150"
+        :class="estaFalando(userId) ? 'z-10 ring-2 ring-success-400' : 'ring-1 ring-surface-800'"
+        :title="estaFalando(userId) ? `${peer.usuarioNome} está falando` : peer.usuarioNome"
       >
         {{ iniciaisUsuario(peer.usuarioNome) }}
         <img v-if="avatarUsuario(userId)" :src="avatarUsuario(userId)" alt="" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
@@ -119,6 +124,7 @@ import { useCallStore } from '../stores/call'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'
 import { iniciaisUsuario } from '../utils/formatters'
+import { useFalaChamada } from '../composables/useFalaChamada'
 import CallControlButton from './CallControlButton.vue'
 
 const emit = defineEmits<{
@@ -131,6 +137,9 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const call = useCallStore()
 const chat = useChatStore()
+
+const { falando } = useFalaChamada()
+const estaFalando = (usuarioId?: number) => usuarioId !== undefined && falando.value.has(usuarioId)
 
 // Foto do participante: a propria vem do perfil; a dos outros, do contato ou
 // da conversa direta com ele, como na lista de conversas. Sem foto, fica a inicial.

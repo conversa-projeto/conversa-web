@@ -40,13 +40,36 @@
           </div>
         </div>
         <div class="flex-1 overflow-auto bg-surface-200">
+          <template v-for="{ chave, conversa } in itensLista" :key="chave">
+          <button
+            v-if="!conversa"
+            type="button"
+            class="flex w-full items-center gap-1.5 border-b border-surface-300 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-surface-500 transition hover:bg-surface-300"
+            @click="mostrarArquivadas = !mostrarArquivadas"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transition-transform" :class="mostrarArquivadas ? 'rotate-90' : ''">
+              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+            </svg>
+            Arquivadas ({{ totalArquivadas }})
+          </button>
           <div
-            v-for="conversa in conversasFiltradas"
-            :key="conversa.id"
-            class="group/conv border-b border-surface-300 px-3 py-2"
-            :class="conversa.id === chat.conversaAtivaId ? 'bg-surface-50' : 'hover:bg-surface-300'"
+            v-else
+            class="group/conv relative border-b border-surface-300 px-3 py-2"
+            :class="[
+              conversa.id === chat.conversaAtivaId ? 'bg-surface-50' : 'hover:bg-surface-300',
+              arraste?.id === conversa.id ? 'opacity-50' : '',
+              arraste?.alvoId === conversa.id && arraste.id !== conversa.id
+                ? (arraste.depois ? 'after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-primary-500' : 'before:absolute before:inset-x-0 before:-top-px before:h-0.5 before:bg-primary-500')
+                : ''
+            ]"
             role="button"
             tabindex="0"
+            :draggable="podeArrastar(conversa)"
+            @dragstart="iniciarArraste($event, conversa)"
+            @dragover="sobreArraste($event, conversa)"
+            @drop.prevent="soltarArraste"
+            @dragend="arraste = null"
+            @contextmenu.prevent="abrirMenuConversa($event, conversa)"
             @click="abrirConversa(conversa.id)"
             @keydown.enter.prevent="abrirConversa(conversa.id)"
             @keydown.space.prevent="abrirConversa(conversa.id)"
@@ -83,9 +106,27 @@
                     >
                       Grupo
                     </span>
+                    <span
+                      v-if="conversa.arquivada_em && filtroConversa.trim()"
+                      class="shrink-0 rounded-full bg-surface-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-surface-600"
+                    >
+                      Arquivada
+                    </span>
+                    <svg
+                      v-if="conversa.fixada_ordem != null && !conversa.arquivada_em"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="2"
+                      stroke="currentColor"
+                      class="h-3.5 w-3.5 shrink-0 rotate-45 text-surface-500"
+                    >
+                      <title>Fixada</title>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 17v5M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+                    </svg>
                   </div>
                   <span
-                    v-if="(conversa.mensagens_sem_visualizar || 0) > 0"
+                    v-if="(conversa.mensagens_sem_visualizar || 0) > 0 && !conversa.arquivada_em"
                     class="ml-2 rounded-full bg-primary-600 px-2 py-0.5 text-xs text-white"
                   >
                     {{ conversa.mensagens_sem_visualizar }}
@@ -104,6 +145,13 @@
               </div>
               <button
                 class="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-surface-500 hover:bg-surface-200 hover:text-surface-700 md:group-hover/conv:flex"
+                title="Mais opções"
+                @click.stop="abrirMenuConversa($event, conversa)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4"><path d="M3 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM8.5 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM15.5 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" /></svg>
+              </button>
+              <button
+                class="hidden h-6 w-6 shrink-0 items-center justify-center rounded text-surface-500 hover:bg-surface-200 hover:text-surface-700 md:group-hover/conv:flex"
                 title="Abrir em nova janela"
                 @click.stop="emit('popout', conversa.id)"
               >
@@ -111,6 +159,8 @@
               </button>
             </div>
           </div>
+
+          </template>
 
           <!-- Contatos sem conversa (quando pesquisando) -->
           <template v-if="filtroConversa.trim() && contatosSemConversa.length">
@@ -142,6 +192,25 @@
       </section>
     </div>
 
+    <!-- Menu da conversa: fixar, ordenar as fixadas e arquivar -->
+    <div
+      v-if="menuConversa"
+      class="fixed z-50 min-w-[170px] rounded-lg border border-surface-200 bg-surface-base py-1 shadow-lg"
+      :style="{ left: menuConversa.x + 'px', top: menuConversa.y + 'px' }"
+      @click.stop
+      @contextmenu.prevent
+    >
+      <button
+        v-for="acao in acoesMenuConversa"
+        :key="acao.rotulo"
+        type="button"
+        class="flex w-full items-center px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
+        @click="executarAcaoConversa(acao.executar)"
+      >
+        {{ acao.rotulo }}
+      </button>
+    </div>
+
     <UserInfoModal
       :aberta="mostrarUsuarioInfo"
       :usuario="usuarioSelecionado"
@@ -154,7 +223,7 @@
 
 <script setup lang="ts">
 import { inicialNome, resumirTexto } from '../utils/formatters'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useSipStore } from '../stores/sip'
@@ -208,6 +277,126 @@ const conversasFiltradas = computed(() => {
       })
     : [...chat.conversas]
   return lista.sort((a, b) => (b.mensagem_id ?? 0) - (a.mensagem_id ?? 0))
+})
+
+const mostrarArquivadas = ref(false)
+const totalArquivadas = computed(() => chat.conversas.filter((c) => c.arquivada_em).length)
+
+// Fixadas primeiro, na ordem escolhida; depois as demais pela mensagem mais
+// recente. Sem pesquisa, as arquivadas ficam numa seção recolhível no fim
+// (item sem conversa é o cabeçalho dela); pesquisando, aparecem junto.
+const itensLista = computed(() => {
+  const porRecente = (a: Conversa, b: Conversa) => (b.mensagem_id ?? 0) - (a.mensagem_id ?? 0)
+  const fixada = (c: Conversa) => c.fixada_ordem != null && !c.arquivada_em
+  const ordenar = (lista: Conversa[]) => [
+    ...lista.filter(fixada).sort((a, b) => a.fixada_ordem! - b.fixada_ordem!),
+    ...lista.filter((c) => !fixada(c)).sort(porRecente),
+  ]
+  const item = (conversa: Conversa): { chave: string; conversa: Conversa | null } => ({ chave: String(conversa.id), conversa })
+
+  if (filtroConversa.value.trim()) return ordenar(conversasFiltradas.value).map(item)
+  const itens = ordenar(conversasFiltradas.value.filter((c) => !c.arquivada_em)).map(item)
+  const arquivadas = conversasFiltradas.value.filter((c) => c.arquivada_em).sort(porRecente)
+  if (arquivadas.length) {
+    itens.push({ chave: 'arquivadas', conversa: null })
+    if (mostrarArquivadas.value) itens.push(...arquivadas.map(item))
+  }
+  return itens
+})
+
+// --- Arrastar para ordenar as fixadas ---
+
+const arraste = ref<{ id: number; alvoId: number | null; depois: boolean } | null>(null)
+
+function podeArrastar(conversa: Conversa) {
+  return conversa.fixada_ordem != null && !conversa.arquivada_em && !filtroConversa.value.trim()
+}
+
+function iniciarArraste(event: DragEvent, conversa: Conversa) {
+  if (!podeArrastar(conversa) || !event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(conversa.id))
+  arraste.value = { id: conversa.id, alvoId: null, depois: false }
+}
+
+// Metade de cima da linha: cai antes dela; metade de baixo: depois
+function sobreArraste(event: DragEvent, conversa: Conversa) {
+  if (!arraste.value || !podeArrastar(conversa)) return
+  event.preventDefault()
+  const caixa = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  arraste.value.alvoId = conversa.id
+  arraste.value.depois = event.clientY > caixa.top + caixa.height / 2
+}
+
+async function soltarArraste() {
+  const soltado = arraste.value
+  arraste.value = null
+  if (!soltado?.alvoId || soltado.alvoId === soltado.id) return
+  try {
+    await chat.moverFixada(soltado.id, soltado.alvoId, soltado.depois)
+  } catch (e) {
+    console.error('Erro ao reordenar as fixadas', e)
+  }
+}
+
+// --- Menu da conversa ---
+
+const menuConversa = ref<{ x: number; y: number; conversa: Conversa } | null>(null)
+
+function abrirMenuConversa(event: MouseEvent, conversa: Conversa) {
+  menuConversa.value = {
+    x: Math.min(event.clientX, window.innerWidth - 180),
+    y: Math.min(event.clientY, window.innerHeight - 160),
+    conversa,
+  }
+}
+
+function fecharMenuConversa() {
+  menuConversa.value = null
+}
+
+const acoesMenuConversa = computed(() => {
+  const conversa = menuConversa.value?.conversa
+  if (!conversa) return []
+  const acoes: Array<{ rotulo: string; executar: () => Promise<void> }> = []
+  if (!conversa.arquivada_em) {
+    const fixadas = chat.conversasFixadas.map((c) => c.id)
+    const posicao = fixadas.indexOf(conversa.id)
+    if (posicao < 0) {
+      acoes.push({ rotulo: 'Fixar', executar: () => chat.fixarConversa(conversa.id, true) })
+    } else {
+      acoes.push({ rotulo: 'Desafixar', executar: () => chat.fixarConversa(conversa.id, false) })
+    }
+    acoes.push({ rotulo: 'Arquivar', executar: () => chat.arquivarConversa(conversa.id, true) })
+  } else {
+    acoes.push({ rotulo: 'Desarquivar', executar: () => chat.arquivarConversa(conversa.id, false) })
+  }
+  return acoes
+})
+
+async function executarAcaoConversa(executar: () => Promise<void>) {
+  fecharMenuConversa()
+  try {
+    await executar()
+  } catch (e) {
+    console.error('Erro ao alterar a conversa', e)
+  }
+}
+
+function aoTeclarComMenu(event: KeyboardEvent) {
+  if (event.key === 'Escape') fecharMenuConversa()
+}
+
+onMounted(() => {
+  document.addEventListener('click', fecharMenuConversa)
+  document.addEventListener('keydown', aoTeclarComMenu)
+  window.addEventListener('resize', fecharMenuConversa)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', fecharMenuConversa)
+  document.removeEventListener('keydown', aoTeclarComMenu)
+  window.removeEventListener('resize', fecharMenuConversa)
 })
 
 const contatosSemConversa = computed(() => {

@@ -36,7 +36,7 @@
         @open-image="(id, nome) => emit('open-image', id, nome)"
         @image-loaded="emit('image-loaded')"
         @download="(id, nome) => emit('download', id, nome)"
-        @go-to-message="(id) => emit('go-to-message', id)"
+        @go-to-message="(id, conversaId) => emit('go-to-message', id, conversaId)"
       />
 
       <MessageContent
@@ -85,6 +85,7 @@ import { formatarHora } from '../utils/formatters'
 import MessageContent from './MessageContent.vue'
 import MensagemStatus from './MensagemStatus.vue'
 import ReferenciaRecursiva from './ReferenciaRecursiva.vue'
+import { useChatStore } from '../stores/chat'
 
 const props = defineProps<{
   mensagem: Mensagem
@@ -97,8 +98,10 @@ const emit = defineEmits<{
   'open-image': [identificador: string, nome: string]
   'image-loaded': []
   'download': [identificador: string, nome: string]
-  'go-to-message': [mensagemId: number]
+  'go-to-message': [mensagemId: number, conversaId?: number]
 }>()
+
+const chat = useChatStore()
 
 const referencia = computed(() => obterReferenciaPrincipal(props.mensagem))
 const conteudosRefOriginal = computed(() => obterConteudosReferencia(props.mensagem))
@@ -132,8 +135,11 @@ const referenciaAninhada = computed((): MensagemReferencia | null => {
   return props.mensagem.mensagem_referencia?.mensagem?.mensagem_referencia || null
 })
 
+// Encaminhada abre a conversa de origem, se o usuário participa dela
 const navegavel = computed(() => {
-  return !!referencia.value && Number(referencia.value.tipo) === TipoMensagemReferencia.Resposta
+  if (!referencia.value) return false
+  if (Number(referencia.value.tipo) === TipoMensagemReferencia.Resposta) return true
+  return chat.conversas.some((c) => c.id === referencia.value!.conversa_id)
 })
 
 const titulo = computed(() => {
@@ -143,6 +149,6 @@ const titulo = computed(() => {
 
 function abrirReferencia() {
   if (!referencia.value || !navegavel.value) return
-  emit('go-to-message', referencia.value.id)
+  emit('go-to-message', referencia.value.id, referencia.value.conversa_id)
 }
 </script>

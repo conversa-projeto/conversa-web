@@ -24,7 +24,7 @@
       @open-image="(id, nome) => emit('open-image', id, nome)"
       @image-loaded="emit('image-loaded')"
       @download="(id, nome) => emit('download', id, nome)"
-      @go-to-message="(id) => emit('go-to-message', id)"
+      @go-to-message="(id, conversaId) => emit('go-to-message', id, conversaId)"
     />
 
     <MessageContent
@@ -48,6 +48,7 @@ import { TipoMensagemReferencia, type MensagemReferencia } from '../types/api'
 import { tituloReferencia } from '../utils/messageReferences'
 import { formatarHora } from '../utils/formatters'
 import MessageContent from './MessageContent.vue'
+import { useChatStore } from '../stores/chat'
 
 const props = withDefaults(defineProps<{
   referencia: MensagemReferencia
@@ -62,13 +63,17 @@ const emit = defineEmits<{
   'open-image': [identificador: string, nome: string]
   'image-loaded': []
   'download': [identificador: string, nome: string]
-  'go-to-message': [mensagemId: number]
+  'go-to-message': [mensagemId: number, conversaId?: number]
 }>()
+
+const chat = useChatStore()
 
 const mensagemRef = computed(() => props.referencia.mensagem)
 
+// Encaminhada abre a conversa de origem, se o usuário participa dela
 const navegavel = computed(() => {
-  return Number(props.referencia.tipo) === TipoMensagemReferencia.Resposta
+  if (Number(props.referencia.tipo) === TipoMensagemReferencia.Resposta) return true
+  return chat.conversas.some((c) => c.id === mensagemRef.value?.conversa_id)
 })
 
 const titulo = computed(() => {
@@ -78,6 +83,6 @@ const titulo = computed(() => {
 
 function abrirReferencia() {
   if (!navegavel.value || !mensagemRef.value) return
-  emit('go-to-message', mensagemRef.value.id)
+  emit('go-to-message', mensagemRef.value.id, mensagemRef.value.conversa_id)
 }
 </script>

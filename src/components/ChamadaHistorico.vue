@@ -153,7 +153,7 @@ const chamadasAgrupadas = computed(() => {
   ontem.setDate(ontem.getDate() - 1)
 
   for (const chamada of chamadasFiltradas.value) {
-    const data = new Date(chamada.criado_em)
+    const data = chamada.criado_em
     let label: string
     if (data.toDateString() === hoje.toDateString()) label = 'Hoje'
     else if (data.toDateString() === ontem.toDateString()) label = 'Ontem'
@@ -208,8 +208,8 @@ function textoStatus(status: number): string {
   }
 }
 
-function formatarHoraChamada(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+function formatarHoraChamada(data: Date): string {
+  return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatarDuracaoChamada(segundos: number): string {

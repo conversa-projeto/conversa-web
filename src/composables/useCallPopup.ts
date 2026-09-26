@@ -1,10 +1,12 @@
 import { watch, onUnmounted, type Ref } from 'vue'
 import { useCallStore } from '../stores/call'
+import { obterRegistroNotificacoes } from '../utils/sound'
 
 // Sons da chamada, em public/: quem recebe ouve o toque; quem liga ouve o
 // som de chamando ate alguem atender. Os dois tocam em loop.
 const SOM_RECEBENDO = '/toque.mp3'
 const SOM_CHAMANDO = '/chamando.mp3'
+const TAG_CHAMADA = 'conversa-chamada'
 
 export function useCallPopup(erro: Ref<string>) {
   const call = useCallStore()
@@ -70,21 +72,28 @@ export function useCallPopup(erro: Ref<string>) {
     }
   }
 
-  // Notification
+  // Notification. Criada pelo service worker, o clique foca a aba já aberta
+  // (criada pela página, abriria outra aba se ela tivesse sido recarregada).
   function mostrarNotificacaoChamada() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return
     const remetente = call.chamadaRemetente?.usuario_nome || 'Alguém'
     const tipo = call.tipoChamada === 2 ? 'Vídeo' : 'Áudio'
-    notificacaoChamada = new Notification('Chamada recebida', {
+    const titulo = 'Chamada recebida'
+    const opcoes: NotificationOptions = {
       body: `${remetente} está ligando (${tipo})`,
-      tag: 'conversa-chamada',
+      tag: TAG_CHAMADA,
       requireInteraction: true
-    })
-    notificacaoChamada.onclick = () => {
-      window.focus()
-      notificacaoChamada?.close()
-      notificacaoChamada = null
     }
+    void obterRegistroNotificacoes().then((registro): Promise<void> | undefined => {
+      if (registro) return registro.showNotification(titulo, { ...opcoes, icon: '/logo.png', data: { conversa: null } })
+      notificacaoChamada = new Notification(titulo, opcoes)
+      notificacaoChamada.onclick = () => {
+        window.focus()
+        notificacaoChamada?.close()
+        notificacaoChamada = null
+      }
+      return undefined
+    }).catch(() => {})
   }
 
   function fecharNotificacaoChamada() {
@@ -92,6 +101,10 @@ export function useCallPopup(erro: Ref<string>) {
       notificacaoChamada.close()
       notificacaoChamada = null
     }
+    void obterRegistroNotificacoes()
+      .then((registro) => registro?.getNotifications({ tag: TAG_CHAMADA }))
+      .then((notificacoes) => notificacoes?.forEach((n) => n.close()))
+      .catch(() => {})
   }
 
   // Watchers

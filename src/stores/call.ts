@@ -341,7 +341,10 @@ export const useCallStore = defineStore('call', () => {
     const chamadaId = getChamadaIdAtual()
 
     const pc = new RTCPeerConnection(await obterConfigRTC())
-    streamLocal.value.getTracks().forEach(t => pc.addTrack(t, streamLocal.value!))
+    // O MediaMTX recusa (406) transmissão com mais de uma trilha de cada tipo
+    const ativa = (lista: MediaStreamTrack[]) => lista.find(t => t.readyState === 'live') || lista[0]
+    const trilhas = [ativa(streamLocal.value.getAudioTracks()), ativa(streamLocal.value.getVideoTracks())]
+    trilhas.forEach(t => { if (t) pc.addTrack(t, streamLocal.value!) })
 
     const offer = await pc.createOffer()
     await pc.setLocalDescription(configChamada.value.qualidadeAudio === 'musica'
@@ -828,7 +831,8 @@ export const useCallStore = defineStore('call', () => {
         trackCamera = null
         aplicarPrioridadeTela()
 
-        telaStream.getVideoTracks()[0].onended = () => { void pararCompartilhamento() }
+        const trilhaTela = telaStream.getVideoTracks()[0]
+        if (trilhaTela) trilhaTela.onended = () => { void pararCompartilhamento() }
       } else {
         try {
           streamLocal.value = await adquirirMidiaLocal(tipo)
@@ -862,10 +866,14 @@ export const useCallStore = defineStore('call', () => {
     }
   }
 
+  // Enquanto esta aba atende, o aviso de que o usuário entrou é dela mesma
+  let atendendoAqui = false
+
   async function aceitarChamada() {
     if (!chamada.value || estado.value !== 'recebendo') return
     erroMsg.value = ''
     cancelarTemporizadorToque()
+    atendendoAqui = true
 
     try {
       // Tenta adquirir midia: video+audio → audio → sem midia (somente recepcao).
@@ -910,6 +918,8 @@ export const useCallStore = defineStore('call', () => {
       liberarMidiaLocal()
       resetarEstado()
       throw e
+    } finally {
+      atendendoAqui = false
     }
   }
 
@@ -1025,6 +1035,7 @@ export const useCallStore = defineStore('call', () => {
     const microfone = streamLocal.value?.getAudioTracks()[0]
     if (microfone) contexto.createMediaStreamSource(new MediaStream([microfone])).connect(destino)
     const trilha = destino.stream.getAudioTracks()[0]
+    if (!trilha) return
     await transceiver.sender.replaceTrack(trilha)
     misturaAudioTela = { contexto, trilha }
   }
@@ -1051,6 +1062,7 @@ export const useCallStore = defineStore('call', () => {
 
     const telaStream = await navigator.mediaDevices.getDisplayMedia(OPCOES_TELA)
     const screenTrack = telaStream.getVideoTracks()[0]
+    if (!screenTrack) return
 
     // Quem entrou sem microfone nem camera ainda nao tem stream local
     if (!streamLocal.value) streamLocal.value = new MediaStream()
@@ -1096,7 +1108,7 @@ export const useCallStore = defineStore('call', () => {
     if (!trackCamera) {
       try {
         const camStream = await navigator.mediaDevices.getUserMedia({ video: constraintsVideo() })
-        trackCamera = camStream.getVideoTracks()[0]
+        trackCamera = camStream.getVideoTracks()[0] ?? null
       } catch {
         // Câmera indisponível
       }
@@ -1128,12 +1140,13 @@ export const useCallStore = defineStore('call', () => {
     const stream = streamLocal.value
     const antigo = stream?.getAudioTracks()[0]
     if (!stream || !antigo) return
-    let novo: MediaStreamTrack
+    let novo: MediaStreamTrack | undefined
     try {
       novo = (await navigator.mediaDevices.getUserMedia({ audio: constraintsAudio() })).getAudioTracks()[0]
     } catch {
       return
     }
+    if (!novo) return
     novo.enabled = !micMutado.value
     stream.removeTrack(antigo)
     stream.addTrack(novo)
@@ -1199,15 +1212,27 @@ export const useCallStore = defineStore('call', () => {
 
   // --- Upgrade audio → video ---
 
-  async function upgradeParaVideo(notificar = true) {
-    if (tipoChamada.value !== TipoChamada.Audio || estado.value !== 'ativa') return
+  // Dois pedidos juntos (clique duplo, ou clique e o tempo do aviso) abririam
+  // duas câmeras, e a transmissão com dois vídeos é recusada
+  let ativandoVideo = false
 
+  async function upgradeParaVideo(notificar = true) {
+    if (tipoChamada.value !== TipoChamada.Audio || estado.value !== 'ativa' || ativandoVideo) return
+    ativandoVideo = true
+    try {
+      await ativarVideo(notificar)
+    } finally {
+      ativandoVideo = false
+    }
+  }
+
+  async function ativarVideo(notificar: boolean) {
     // Tenta adquirir video, mas continua sem webcam para poder assistir
     try {
       const videoStream = await navigator.mediaDevices.getUserMedia({ video: constraintsVideo() })
       const videoTrack = videoStream.getVideoTracks()[0]
 
-      if (streamLocal.value) {
+      if (streamLocal.value && videoTrack) {
         streamLocal.value.addTrack(videoTrack)
       } else {
         streamLocal.value = await adquirirMidiaLocal(TipoChamada.Video)
@@ -1322,6 +1347,12 @@ export const useCallStore = defineStore('call', () => {
       }
 
       case TipoEventoSocket.UsuarioRecusou: {
+        // Recusada em outra aba ou aparelho: esta para de tocar
+        if (chamada.value?.id === evento.chamada_id && eventoUsuarioId === meuUsuarioId && estado.value === 'recebendo') {
+          cancelarTemporizadorToque()
+          resetarEstado()
+          break
+        }
         if (chamada.value?.id === evento.chamada_id) {
           chamada.value = await api.chamadaDados(evento.chamada_id)
 
@@ -1343,6 +1374,11 @@ export const useCallStore = defineStore('call', () => {
         // Ignorar evento do próprio usuário (o caller recebe seu próprio UsuarioEntrou
         // quando inicia a chamada, não deve transicionar para 'ativa' por isso)
         if (eventoUsuarioId !== null && eventoUsuarioId === meuUsuarioId) {
+          // Atendida em outra aba ou aparelho: esta para de tocar
+          if (chamada.value?.id === evento.chamada_id && estado.value === 'recebendo' && !atendendoAqui) {
+            cancelarTemporizadorToque()
+            resetarEstado()
+          }
           console.debug('[CALL] Ignorando UsuarioEntrou do próprio usuário')
           break
         }
@@ -1414,9 +1450,8 @@ export const useCallStore = defineStore('call', () => {
       return
     }
 
-    if (pendentes.length === 0) return
-
     const chamadaPendente = pendentes[0]
+    if (!chamadaPendente) return
     const idadeMs = Date.now() - new Date(chamadaPendente.criado_em).getTime()
 
     if (idadeMs > 25000) {

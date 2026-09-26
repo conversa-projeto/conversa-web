@@ -68,6 +68,16 @@
         Responder
       </button>
       <button
+        v-if="isGroup && !isOwn"
+        class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
+        @click="acaoResponderPrivado"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+          <path fill-rule="evenodd" d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 9a7 7 0 1 1 14 0H3Z" clip-rule="evenodd" />
+        </svg>
+        Responder no privado
+      </button>
+      <button
         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoEncaminhar"
       >
@@ -122,23 +132,26 @@ import { TipoConteudo } from '../types/api'
 import EmojiPicker from './EmojiPicker.vue'
 import { emojiNome } from '../utils/emojiNomes'
 import { useAgora } from '../composables/useAgora'
+import type { AlvoCopia } from '../utils/copiarImagem'
 
 const props = defineProps<{
   mensagem: Mensagem
   isOwn?: boolean
+  isGroup?: boolean
   menuAberto?: boolean
 }>()
 
 const emit = defineEmits<{
   reply: [mensagem: Mensagem]
+  'responder-privado': [mensagem: Mensagem]
   forward: [mensagem: Mensagem]
-  copiar: [mensagem: Mensagem]
+  copiar: [mensagem: Mensagem, alvo: AlvoCopia]
   reagir: [emoji: string]
   excluir: [mensagem: Mensagem]
   'menu-toggle': [aberto: boolean]
 }>()
 
-const MENU_LARGURA = 160
+const MENU_LARGURA = 200
 const MENU_ALTURA_ESTIMADA = 180
 const PICKER_LARGURA = 320
 const PICKER_ALTURA = 310
@@ -231,6 +244,7 @@ function toggleMenu() {
     fecharMenu()
     return
   }
+  alvoCopia = null
   abrirMenu()
 }
 
@@ -252,6 +266,11 @@ function acaoResponder() {
   emit('reply', props.mensagem)
 }
 
+function acaoResponderPrivado() {
+  fecharMenu()
+  emit('responder-privado', props.mensagem)
+}
+
 function acaoEncaminhar() {
   fecharMenu()
   emit('forward', props.mensagem)
@@ -259,7 +278,7 @@ function acaoEncaminhar() {
 
 function acaoCopiar() {
   fecharMenu()
-  emit('copiar', props.mensagem)
+  emit('copiar', props.mensagem, alvoCopia)
 }
 
 function acaoExcluir() {
@@ -303,7 +322,11 @@ function fecharMenuExterno(e: MouseEvent) {
   }
 }
 
-function abrirViaContextMenu() {
+// Conteúdo que o "Copiar" copia: o do clique direito, ou a mensagem toda
+let alvoCopia: AlvoCopia = null
+
+function abrirViaContextMenu(alvo: AlvoCopia = null) {
+  alvoCopia = alvo
   abrirMenu()
 }
 

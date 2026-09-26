@@ -63,7 +63,7 @@ const props = defineProps<{ aberta: boolean }>()
 
 const emit = defineEmits<{
   close: []
-  confirmar: [isoLocal: string]
+  confirmar: [quando: Date]
 }>()
 
 const data = ref('')
@@ -82,8 +82,8 @@ watch(() => props.aberta, (aberto) => {
 
 const dataHoraLocal = computed<Date | null>(() => {
   if (!data.value || !hora.value) return null
-  const [ano, mes, dia] = data.value.split('-').map(Number)
-  const [hh, mm] = hora.value.split(':').map(Number)
+  const [ano = NaN, mes = NaN, dia = NaN] = data.value.split('-').map(Number)
+  const [hh = NaN, mm = NaN] = hora.value.split(':').map(Number)
   if ([ano, mes, dia, hh, mm].some(v => !Number.isFinite(v))) return null
   return new Date(ano, mes - 1, dia, hh, mm, 0, 0)
 })
@@ -105,6 +105,6 @@ function confirmar() {
   if (erro.value) return
   const d = dataHoraLocal.value
   if (!d) return
-  emit('confirmar', d.toISOString())
+  emit('confirmar', d)
 }
 </script>

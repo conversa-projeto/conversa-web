@@ -27,8 +27,10 @@
           ref="acoesRef"
           :mensagem="mensagem"
           :is-own="isOwn"
+          :is-group="isGroup"
           :menu-aberto="menuAcoesAberto"
           @reply="(msg) => emit('reply', msg)"
+          @responder-privado="(msg) => emit('responder-privado', msg)"
           @forward="(msg) => emit('forward', msg)"
           @copiar="copiarMensagem"
           @reagir="(emoji) => emit('reagir', mensagem.id, emoji)"
@@ -45,7 +47,7 @@
           @open-image="(id: string, nome: string) => emit('open-image', id, nome)"
           @image-loaded="emit('image-loaded')"
           @download="(id: string, nome: string) => emit('download', id, nome)"
-          @go-to-message="(id: number) => emit('go-to-message', id)"
+          @go-to-message="(id: number, conversaId?: number) => emit('go-to-message', id, conversaId)"
         />
 
         <!-- Indicador de status de entrega (fora da bolha) -->
@@ -171,6 +173,7 @@ import BolhaEmoji from './BolhaEmoji.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
 import BolhaChamada from './BolhaChamada.vue'
 import DetalheStatusMensagem from './DetalheStatusMensagem.vue'
+import { copiarImagem, type AlvoCopia } from '../utils/copiarImagem'
 
 const props = defineProps<{
   mensagem: Mensagem
@@ -185,8 +188,9 @@ const emit = defineEmits<{
   'image-loaded': []
   'download': [identificador: string, nome: string]
   'reply': [mensagem: Mensagem]
+  'responder-privado': [mensagem: Mensagem]
   'forward': [mensagem: Mensagem]
-  'go-to-message': [mensagemId: number]
+  'go-to-message': [mensagemId: number, conversaId?: number]
   'reagir': [mensagemId: number, emoji: string]
   'excluir': [mensagem: Mensagem]
 }>()
@@ -213,34 +217,28 @@ function onMouseLeave() {
   // O fechamento é tratado pelo click externo e evento global.
 }
 
-function onContextMenu() {
+function onContextMenu(event: MouseEvent) {
   if (props.mensagem.id > 0 && acoesRef.value) {
-    acoesRef.value.abrirViaContextMenu()
+    acoesRef.value.abrirViaContextMenu(alvoDoClique(event.target as Element))
   }
 }
 
-async function copiarMensagem(msg: Mensagem) {
+// Imagem ou texto sob o clique direito, para copiar só aquele conteúdo
+function alvoDoClique(elemento: Element): AlvoCopia {
+  const imagem = elemento.closest('img')
+  if (imagem?.src) return { tipo: 'imagem', url: imagem.src }
+  if (elemento.closest('[data-conteudo-texto]')) return { tipo: 'texto' }
+  return null
+}
+
+async function copiarMensagem(msg: Mensagem, alvo: AlvoCopia) {
   const imagemConteudo = msg.conteudos.find(c => Number(c.tipo) === TipoConteudo.Imagem)
-  if (imagemConteudo) {
+  const urlImagem = alvo?.tipo === 'imagem'
+    ? alvo.url
+    : !alvo && imagemConteudo ? props.getAnexoUrl(imagemConteudo.conteudo) : ''
+  if (urlImagem) {
     try {
-      const url = props.getAnexoUrl(imagemConteudo.conteudo)
-      const resp = await fetch(url)
-      const blob = await resp.blob()
-      const pngBlob = blob.type === 'image/png'
-        ? blob
-        : await new Promise<Blob>((resolve) => {
-            const img = new Image()
-            img.crossOrigin = 'anonymous'
-            img.onload = () => {
-              const canvas = document.createElement('canvas')
-              canvas.width = img.naturalWidth
-              canvas.height = img.naturalHeight
-              canvas.getContext('2d')!.drawImage(img, 0, 0)
-              canvas.toBlob((b) => resolve(b!), 'image/png')
-            }
-            img.src = url
-          })
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+      await copiarImagem(urlImagem)
     } catch { /* silently fail */ }
     return
   }
@@ -254,8 +252,7 @@ async function copiarMensagem(msg: Mensagem) {
   }
 }
 
-function formatarHoraReacao(data: string): string {
-  const d = new Date(data.endsWith('Z') ? data : data + 'Z')
+function formatarHoraReacao(d: Date): string {
   const agora = new Date()
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   if (d.toDateString() === agora.toDateString()) return hora

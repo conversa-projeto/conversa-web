@@ -17,9 +17,10 @@
 | **Framework** | Vue 3 (`<script setup lang="ts">`) |
 | **Estado** | Pinia 3 |
 | **Estilo** | Tailwind CSS 3 com CSS variables (tema via classe `dark`) |
-| **Build** | Vite 7 + vue-tsc |
+| **Runtime / pacotes** | Bun (instalação, scripts, Vite e checagem de tipos) |
+| **Build** | Vite 7 + vue-tsc (via `scripts/vue-tsc.ts`) |
 | **Linguagem** | TypeScript (strict mode) |
-| **HTTP Client** | `fetch` nativo via wrapper `src/services/http.ts` |
+| **HTTP Client** | Eden (`@elysiajs/eden`), tipado pelas rotas da API (`src/services/eden.ts`) |
 | **Tempo real** | WebSocket nativo (reconexão automática no chat store) |
 | **Push** | Firebase Cloud Messaging |
 | **Upload** | MinIO via presigned URL (XHR para progress) |
@@ -116,20 +117,19 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 
 ## 5. CONVENÇÕES DA API
 
-### HTTP Client (`src/services/http.ts`)
+### Cliente da API (`src/services/eden.ts`)
 
-- Todas as requests passam por `requestApi<T>(path, method, options)`
-- URL: `{apiBase}/api{path}` (ex: `https://host/api/mensagens`)
-- Auth: header `Authorization: Bearer {token}` (token vem do `localStorage`)
-- Body: JSON (`Content-Type: application/json`)
-- Erros: 401 limpa token e lança `ErroNaoAutenticado`; outros lançam `Error` com mensagem do servidor
-- Resposta: retorna `T` parseado do JSON
+- As chamadas usam o cliente Eden, tipado pelo `App` da API (`../conversa/src/app.ts`). O `tsconfig.json` referencia `../conversa/tsconfig.tipos.json`, que gera as declarações da API: caminho, corpo, consulta e resposta de cada rota são conferidos na compilação
+- `api()` devolve o cliente das rotas `/api` no endereço atual (`getApiBase()`); `dados(chamada)` devolve os dados ou lança o erro
+- Auth: header `Authorization: Bearer {token}` (token vem do `localStorage`, em `http.ts`)
+- Erros: 401 limpa token e lança `ErroNaoAutenticado`; outros lançam `Error` com a mensagem do servidor (`{ error }`)
+- **Datas chegam como `Date`**: só os campos de data da lista `CAMPOS_DATA` são convertidos (o texto das mensagens nunca). Campo de data novo na API precisa entrar nessa lista
 
 ### Padrão de chamadas (`src/services/conversaApi.ts`)
 
-- Cada endpoint é uma função exportada com tipagem explícita
-- GET com query params: `requestApi<T>('/path', 'GET', { query: { ... } })`
-- POST/PUT/PATCH com body: `requestApi<T>('/path', 'METHOD', { body: { ... } })`
+- Cada endpoint é uma função exportada com o tipo de retorno do front (`types/api.ts`); se a API mudar e o tipo não bater, a compilação acusa
+- GET com consulta: `dados(api().mensagens.get({ query: { ... } }))`
+- POST/PUT/PATCH com corpo: `dados(api().mensagem.put({ ... }))`
 - Upload de anexos: hash SHA-256 → verificar existência → presign → PUT no MinIO
 
 ### Verbos HTTP usados
@@ -167,7 +167,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Nunca usar CSS scoped ou classes CSS customizadas** — usar Tailwind
 - **Nunca usar enums TypeScript nativos** (`enum X {}`) — usar `const` objects
 - **Nunca criar stores com Options API** — usar Composition API do Pinia
-- **Nunca alterar o wrapper HTTP** (`http.ts`) sem necessidade — todos os endpoints dependem dele
+- **Nunca chamar a API com `fetch` direto** — usar o cliente Eden (`api()` e `dados()` de `eden.ts`), que confere os tipos
 - **Nunca hardcodar URLs da API** — usar `getApiBase()` do `http.ts`
 - **Nunca adicionar dependências sem justificativa** — o projeto mantém o bundle enxuto com chunks manuais no Vite
 
@@ -190,9 +190,10 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 ## 9. COMANDOS ÚTEIS
 
 ```bash
-npm run dev       # Inicia o Vite (porta 5173, acessado pelo nginx do backend em HTTPS na 443)
-npm run build     # Type-check + build de produção
-npm run preview   # Preview do build de produção
+bun run dev        # Inicia o Vite (porta 5173, acessado pelo nginx do backend em HTTPS na 443)
+bun run typecheck  # Checagem de tipos (strict + noUncheckedIndexedAccess)
+bun run build      # Type-check + build de produção
+bun run preview    # Preview do build de produção
 ```
 
 ## 10. DOCUMENTAÇÃO DO PROJETO

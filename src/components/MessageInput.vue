@@ -58,7 +58,7 @@
       <!-- Reply preview -->
       <div v-if="chat.mensagemRespondendo" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2">
         <div class="min-w-0 flex-1">
-          <span class="text-xs font-semibold text-primary-500">{{ chat.mensagemRespondendo.remetente }}</span>
+          <span class="text-xs font-semibold text-primary-500">{{ chat.tipoReferenciaPendente === TipoMensagemReferencia.Encaminhada ? `Encaminhando de ${chat.mensagemRespondendo.remetente}` : chat.mensagemRespondendo.remetente }}</span>
           <p class="truncate text-xs text-surface-500">{{ resumoMensagem(chat.mensagemRespondendo) }}</p>
         </div>
         <button class="shrink-0 text-surface-400 hover:text-surface-600" @click="chat.cancelarResposta()">
@@ -113,14 +113,23 @@
           </div>
 
           <!-- Textarea -->
-          <div class="min-w-0 flex-1 pb-[7px] pt-[11px]">
+          <div class="relative min-w-0 flex-1 pb-[7px] pt-[11px]">
+            <!-- Com menção, o texto é desenhado aqui atrás (o do campo fica transparente) para a menção aparecer destacada -->
+            <div
+              v-if="trechosComMencao"
+              ref="realceMencoes"
+              aria-hidden="true"
+              class="pointer-events-none absolute inset-x-0 bottom-[7px] top-[11px] overflow-hidden whitespace-pre-wrap break-words pr-2 text-sm leading-5 text-surface-800"
+            ><template v-for="(trecho, i) in trechosComMencao" :key="i"><span v-if="trecho.mencao" class="rounded-sm bg-primary-50 text-primary-600 dark:bg-primary-900/30">{{ trecho.texto }}</span><template v-else>{{ trecho.texto }}</template></template>{{ ' ' }}</div>
             <textarea
               ref="textareaMsg"
               v-model="textoMensagem"
               spellcheck="true"
               rows="1"
-              class="max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 text-surface-800 outline-none placeholder:text-surface-500"
+              class="relative max-h-[120px] w-full resize-none bg-transparent pr-2 text-sm leading-5 outline-none placeholder:text-surface-500"
+              :class="trechosComMencao ? 'text-transparent caret-surface-800 selection:bg-primary-500/30 [scrollbar-width:none]' : 'text-surface-800'"
               placeholder="Digite uma mensagem"
+              @scroll="sincronizarRealce"
               @keydown.enter.exact="onEnterTextarea"
               @keydown="aoTeclarNoTextarea"
               @paste="aoColarNoChat"
@@ -208,10 +217,13 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch, type ComponentPublicInstance } from 'vue'
 import type { Contato } from '../types/api'
+import { TipoMensagemReferencia } from '../types/api'
+import { dividirMencoes, extrairMencoesCruas, textoParaEnvio, type MencaoInserida } from '../utils/mencoesTexto'
 import { useChatStore } from '../stores/chat'
 import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
 import { substituirAtalhoAntesDoCursor, substituirAtalhoNoFim } from '../utils/emojiAtalhos'
-import { cercaCodigo } from '../utils/codeBlocks'
+import { cercaCodigo, ehDesenhoAscii, pareceCodigo } from '../utils/codeBlocks'
+import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { useFilaArquivos } from '../composables/useFilaArquivos'
 import AnexoPopup from './AnexoPopup.vue'
@@ -299,18 +311,66 @@ function detectarMencao(): { inicio: number; texto: string } | null {
   const antes = textoMensagem.value.slice(0, pos)
   const match = antes.match(/@([\w\s]*)$/)
   if (!match || match.index === undefined) return null
-  return { inicio: match.index, texto: match[1] }
+  // "@Nome" de uma menção já inserida não abre a lista de novo
+  const inicio = match.index
+  if (mencoesInseridas.value.some((m) => antes.startsWith(`@${m.nome}`, inicio))) return null
+  return { inicio, texto: match[1] ?? '' }
 }
+
+// Menções inseridas no texto atual: o campo mostra "@Nome" e o id fica aqui
+const mencoesInseridas = ref<MencaoInserida[]>([])
+const realceMencoes = ref<HTMLDivElement | null>(null)
+
+function registrarMencoes(novas: MencaoInserida[]) {
+  for (const mencao of novas) {
+    if (!mencoesInseridas.value.some((m) => m.id === mencao.id && m.nome === mencao.nome)) {
+      mencoesInseridas.value.push(mencao)
+    }
+  }
+}
+
+const trechosComMencao = computed(() => {
+  if (!mencoesInseridas.value.length) return null
+  const trechos = dividirMencoes(textoMensagem.value, mencoesInseridas.value)
+  return trechos.some((t) => t.mencao) ? trechos : null
+})
+
+function sincronizarRealce() {
+  if (realceMencoes.value && textareaMsg.value) realceMencoes.value.scrollTop = textareaMsg.value.scrollTop
+}
+
+// Texto com "@[Nome](id)" (colado de uma mensagem, por exemplo) passa a mostrar "@Nome"
+watch(textoMensagem, (texto) => {
+  if (!texto) {
+    mencoesInseridas.value = []
+    return
+  }
+  const { texto: limpo, mencoes } = extrairMencoesCruas(texto)
+  if (!mencoes.length) {
+    nextTick(sincronizarRealce)
+    return
+  }
+  const cursor = textareaMsg.value?.selectionStart ?? texto.length
+  const cursorLimpo = extrairMencoesCruas(texto.slice(0, cursor)).texto.length
+  registrarMencoes(mencoes)
+  textoMensagem.value = limpo
+  nextTick(() => {
+    if (!textareaMsg.value) return
+    textareaMsg.value.selectionStart = cursorLimpo
+    textareaMsg.value.selectionEnd = cursorLimpo
+  })
+})
 
 function inserirMencao(contato: Contato) {
   const pos = textareaMsg.value?.selectionStart ?? textoMensagem.value.length
   const antes = textoMensagem.value.slice(0, mencaoAtiva.value!.inicio)
   const depois = textoMensagem.value.slice(pos)
-  textoMensagem.value = antes + `@[${contato.nome}](${contato.id})` + depois
+  registrarMencoes([{ nome: contato.nome, id: contato.id }])
+  textoMensagem.value = antes + `@${contato.nome}` + depois
   mencaoAtiva.value = null
   nextTick(() => {
     if (!textareaMsg.value) return
-    const novaPosicao = antes.length + `@[${contato.nome}](${contato.id})`.length
+    const novaPosicao = antes.length + `@${contato.nome}`.length
     textareaMsg.value.focus()
     textareaMsg.value.selectionStart = novaPosicao
     textareaMsg.value.selectionEnd = novaPosicao
@@ -574,8 +634,8 @@ function focarTextarea(posicao?: number) {
   })
 }
 
-async function enviarMensagem(visivelEm: string | null = null) {
-  const texto = substituirAtalhoNoFim(textoMensagem.value.trim())
+async function enviarMensagem(visivelEm: Date | null = null) {
+  const texto = textoParaEnvio(substituirAtalhoNoFim(textoMensagem.value.trim()), mencoesInseridas.value)
   const temArquivos = fila.arquivosFila.value.length > 0
   if (!texto && !temArquivos && !chat.mensagemRespondendo) return
 
@@ -615,9 +675,9 @@ async function enviarMensagem(visivelEm: string | null = null) {
   }
 }
 
-function enviarAgendada(isoLocal: string) {
+function enviarAgendada(quando: Date) {
   mostrarAgendarModal.value = false
-  void enviarMensagem(isoLocal)
+  void enviarMensagem(quando)
 }
 
 function aoDigitar(event: Event) {
@@ -686,6 +746,13 @@ function aoColarNoChat(event: ClipboardEvent) {
   const items = event.clipboardData?.items
   if (!items || items.length === 0) return
 
+  const texto = event.clipboardData?.getData('text/plain') || ''
+  if (pareceCodigo(texto)) {
+    event.preventDefault()
+    void colarComoCodigo(texto)
+    return
+  }
+
   for (const item of items) {
     if (item.kind !== 'file' || !item.type.startsWith('image/')) continue
     const arquivo = item.getAsFile()
@@ -698,6 +765,26 @@ function aoColarNoChat(event: ClipboardEvent) {
     fila.arquivosFila.value = [...fila.arquivosFila.value, novoItem]
     return
   }
+}
+
+// Código colado vai entre crases, com a linguagem detectada. Entra primeiro
+// como texto e depois vira bloco: o Ctrl+Z volta ao texto sem formatação.
+async function colarComoCodigo(codigo: string) {
+  const el = textareaMsg.value
+  if (!el) return
+  const inicio = el.selectionStart
+  document.execCommand('insertText', false, codigo)
+  const linguagem = ehDesenhoAscii(codigo) ? 'texto' : await detectarLinguagem(codigo).catch(() => 'texto')
+  if (el.value.slice(inicio, inicio + codigo.length) !== codigo) return
+  const antes = el.value.slice(0, inicio)
+  const depois = el.value.slice(inicio + codigo.length)
+  const cerca = cercaCodigo(codigo)
+  const bloco = (antes && !antes.endsWith('\n') ? '\n' : '')
+    + cerca + linguagem + '\n' + codigo.replace(/\n+$/, '') + '\n' + cerca
+    + (depois && !depois.startsWith('\n') ? '\n' : '')
+  el.focus()
+  el.setSelectionRange(inicio, inicio + codigo.length)
+  document.execCommand('insertText', false, bloco)
 }
 
 // Uma letra digitada fora de qualquer campo vai para a mensagem, sem precisar

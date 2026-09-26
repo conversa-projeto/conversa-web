@@ -8,7 +8,7 @@
     </p>
 
     <div class="flex flex-col" :class="isOwn ? 'items-end' : 'items-start'">
-      <p class="text-4xl leading-tight">{{ mensagem.conteudos[0].conteudo }}</p>
+      <p class="text-4xl leading-tight">{{ mensagem.conteudos[0]?.conteudo }}</p>
 
       <MensagemStatus
         :mensagem="mensagem"

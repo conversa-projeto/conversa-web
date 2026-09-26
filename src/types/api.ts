@@ -87,7 +87,8 @@ export interface Dispositivo {
   ativo: boolean
 }
 
-export interface LoginResponse extends Usuario {
+// O login devolve o usuario sem o campo login (a pagina ja o tem)
+export interface LoginResponse extends Omit<Usuario, 'login'> {
   token: string
   dispositivo: Dispositivo
 }
@@ -96,16 +97,19 @@ export interface Contato extends Usuario { }
 
 export interface Conversa {
   id: number
-  descricao: string
+  descricao: string | null
   tipo: TipoConversa
-  inserida: string
+  inserida: Date
   nome?: string | null
   destinatario_id?: number | null
   mensagem_id?: number
-  ultima_mensagem?: string | null
+  ultima_mensagem?: Date | null
   ultima_mensagem_texto?: string | null
   mensagens_sem_visualizar?: number
   avatar_url?: string | null
+  // Posição entre as fixadas (nula quando não fixada) e quando foi arquivada
+  fixada_ordem?: number | null
+  arquivada_em?: Date | null
 }
 
 export interface ConteudoMensagem {
@@ -144,7 +148,7 @@ export interface MensagemReferencia {
     id: number
     conversa_id?: number
     remetente?: string
-    inserida?: string
+    inserida?: Date
     conteudos: ConteudoMensagem[]
     mensagem_referencia?: MensagemReferencia | null
   } | null
@@ -154,7 +158,7 @@ export interface ReacaoUsuario {
   usuario_id: number
   nome: string
   avatar_url?: string | null
-  reagido_em: string
+  reagido_em: Date
 }
 
 export interface Reacao {
@@ -169,13 +173,13 @@ export interface Mensagem {
   remetente_id: number
   remetente: string
   conversa_id: number
-  inserida: string
-  alterada: string
+  inserida: Date
+  alterada: Date | null
   /**
-   * Timestamp ISO-8601 para mensagens agendadas (autor ve imediatamente;
-   * destinatarios so depois que visivel_em <= now). Null = mensagem normal.
+   * Data para mensagens agendadas (autor ve imediatamente; destinatarios so
+   * depois que visivel_em <= now). Null = mensagem normal.
    */
-  visivel_em: string | null
+  visivel_em: Date | null
   recebida: boolean
   visualizada: boolean
   reproduzida: boolean
@@ -200,7 +204,7 @@ export interface SipConfig {
   domain: string
   ws_server: string
   ativo: boolean
-  criado_em?: string
+  criado_em?: Date | null
   criado_por?: number | null
 }
 
@@ -218,19 +222,19 @@ export interface ChamadaUsuario {
   status: StatusUsuarioChamada
   adicionado_por: number
   adicionado_por_nome: string
-  adicionado_em: string
-  entrou_em: string | null
-  saiu_em: string | null
-  recusou_em: string | null
+  adicionado_em: Date | null
+  entrou_em: Date | null
+  saiu_em: Date | null
+  recusou_em: Date | null
 }
 
 export interface Chamada {
   id: number
-  iniciada: string | null
-  finalizada: string | null
+  iniciada: Date | null
+  finalizada: Date | null
   tipo: TipoChamada
   status: StatusChamada
-  criado_em: string
+  criado_em: Date
   criado_por: number
   usuarios: ChamadaUsuario[]
 }
@@ -239,10 +243,10 @@ export interface ChamadaPendente {
   id: number
   tipo: TipoChamada
   status: StatusChamada
-  iniciada: string | null
-  finalizada: string | null
+  iniciada: Date | null
+  finalizada: Date | null
   conversa_id: number
-  criado_em: string
+  criado_em: Date
   criado_por: number
 }
 
@@ -265,11 +269,11 @@ export interface ChamadaHistoricoItem {
   id: number
   tipo: number
   status: number
-  criado_em: string
+  criado_em: Date
   criado_por: number
   conversa_id: number | null
-  iniciada: string | null
-  finalizada: string | null
+  iniciada: Date | null
+  finalizada: Date | null
   duracao: number | null
   participantes: Array<{
     usuario_id: number
@@ -290,9 +294,9 @@ export interface EventoChamadaSocket {
 export interface StatusDestinatario {
   usuario_id: number
   nome: string
-  recebida: string | null
-  visualizada: string | null
-  reproduzida: string | null
+  recebida: Date | null
+  visualizada: Date | null
+  reproduzida: Date | null
 }
 
 export interface MensagemStatusItem {
@@ -322,15 +326,15 @@ export interface EventoSocket {
 export interface AnexoItem {
   anexo_id: number
   identificador: string
-  nome: string
-  extensao: string
+  nome: string | null
+  extensao: string | null
   tamanho: number
-  criado_em: string
+  criado_em: Date | null
   tipo: number
   mensagem_id: number
   conversa_id: number
-  conversa_descricao: string
+  conversa_descricao: string | null
   autor_id: number
   autor_nome: string
-  url: string
+  url: string | null
 }

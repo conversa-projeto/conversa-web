@@ -28,6 +28,8 @@ export const useChatStore = defineStore('chat', () => {
   const marcandoVisualizacao = new Set<number>()
 
   const mensagemRespondendo = ref<Mensagem | null>(null)
+  // Resposta comum, ou Encaminhada quando a resposta é no privado
+  const tipoReferenciaPendente = ref<TipoMensagemReferencia>(TipoMensagemReferencia.Resposta)
   const usuariosConversa = ref<Record<number, Array<{ id: number; usuario_id: number; nome: string; avatar_url?: string | null }>>>({})
 
   let digitandoDebounceTimer: number | null = null
@@ -58,13 +60,12 @@ export const useChatStore = defineStore('chat', () => {
    * Mensagens agendadas futuras do autor NAO avancam o cursor (filtro <= now),
    * senao mensagens normais enviadas antes de visivel_em sumiriam da sync.
    */
-  const cursorSync = ref<string>(new Date().toISOString())
+  const cursorSync = ref<Date>(new Date())
 
-  function avancarCursorSync(timestamp: string | null | undefined) {
-    if (!timestamp) return
-    const agora = new Date().toISOString()
-    if (timestamp > agora) return
-    if (timestamp > cursorSync.value) cursorSync.value = timestamp
+  function avancarCursorSync(momento: Date | null | undefined) {
+    if (!momento) return
+    if (momento.getTime() > Date.now()) return
+    if (momento > cursorSync.value) cursorSync.value = momento
   }
 
   let _tratarEventoChamada: ((evento: EventoChamadaSocket) => void) | null = null
@@ -145,6 +146,60 @@ export const useChatStore = defineStore('chat', () => {
     conversas.value = await api.getConversas()
   }
 
+  // --- Fixar e arquivar (valem só para o usuário) ---
+
+  function conversaArquivada(conversaId: number) {
+    return !!conversas.value.find((c) => c.id === conversaId)?.arquivada_em
+  }
+
+  const conversasFixadas = computed(() => conversas.value
+    .filter((c) => c.fixada_ordem != null && !c.arquivada_em)
+    .sort((a, b) => a.fixada_ordem! - b.fixada_ordem!))
+
+  async function salvarFixadas(ids: number[]) {
+    for (const conversa of conversas.value) {
+      conversa.fixada_ordem = ids.includes(conversa.id) ? ids.indexOf(conversa.id) + 1 : null
+    }
+    try {
+      await api.ordenarConversasFixadas(ids)
+    } catch (e) {
+      await carregarConversas()
+      throw e
+    }
+  }
+
+  async function fixarConversa(conversaId: number, fixar: boolean) {
+    const ids = conversasFixadas.value.map((c) => c.id).filter((id) => id !== conversaId)
+    if (fixar) ids.push(conversaId)
+    await salvarFixadas(ids)
+  }
+
+  // Leva a fixada para antes (ou depois) de outra, ao soltar o arraste
+  async function moverFixada(conversaId: number, alvoId: number, depois: boolean) {
+    const ids = conversasFixadas.value.map((c) => c.id).filter((id) => id !== conversaId)
+    const posicao = ids.indexOf(alvoId)
+    if (posicao < 0) return
+    ids.splice(posicao + (depois ? 1 : 0), 0, conversaId)
+    if (ids.join() === conversasFixadas.value.map((c) => c.id).join()) return
+    await salvarFixadas(ids)
+  }
+
+  // Arquivada some da lista e não toca nem notifica; mensagens continuam chegando
+  async function arquivarConversa(conversaId: number, arquivada: boolean) {
+    const conversa = conversas.value.find((c) => c.id === conversaId)
+    if (conversa) {
+      conversa.arquivada_em = arquivada ? new Date() : null
+      if (arquivada) conversa.fixada_ordem = null
+    }
+    if (arquivada) fecharNotificacao(conversaId)
+    try {
+      await api.arquivarConversa(conversaId, arquivada)
+    } catch (e) {
+      await carregarConversas()
+      throw e
+    }
+  }
+
   async function selecionarConversa(conversaId: number) {
     conversaAtivaId.value = conversaId
     resultadosBuscaConversa.value = []
@@ -192,7 +247,7 @@ export const useChatStore = defineStore('chat', () => {
     mensagensPorConversa.value[conversaId] = mensagens
   }
 
-  async function obterOuCriarConversaDireta(contato: Contato) {
+  async function obterOuCriarConversaDireta(contato: Pick<Contato, 'id' | 'nome'>) {
     const auth = useAuthStore()
     if (!auth.user) {
       throw new Error('Usuário não autenticado')
@@ -249,10 +304,21 @@ export const useChatStore = defineStore('chat', () => {
 
   function responderMensagem(msg: Mensagem) {
     mensagemRespondendo.value = msg
+    tipoReferenciaPendente.value = TipoMensagemReferencia.Resposta
+  }
+
+  // Abre a conversa direta com quem enviou a mensagem do grupo, já com ela
+  // encaminhada no campo de texto para acrescentar o comentário
+  async function responderNoPrivado(msg: Mensagem) {
+    const conversa = await obterOuCriarConversaDireta({ id: msg.remetente_id, nome: msg.remetente })
+    await selecionarConversa(conversa.id)
+    mensagemRespondendo.value = msg
+    tipoReferenciaPendente.value = TipoMensagemReferencia.Encaminhada
   }
 
   function cancelarResposta() {
     mensagemRespondendo.value = null
+    tipoReferenciaPendente.value = TipoMensagemReferencia.Resposta
   }
 
   function criarMensagemReferenciaResumo(origem: Mensagem, tipo: TipoMensagemReferencia) {
@@ -303,7 +369,7 @@ export const useChatStore = defineStore('chat', () => {
     await encaminharMensagemParaConversa(origem, conversa.id)
   }
 
-  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: string | null = null) {
+  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: Date | null = null) {
 
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
@@ -325,6 +391,16 @@ export const useChatStore = defineStore('chat', () => {
     const conteudosOptimistas: Mensagem['conteudos'] = []
     const conteudosApi: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }> = []
     const localUrlsParaLimpar: string[] = []
+
+    // Encaminhada (resposta no privado): os conteúdos dela vêm antes do texto
+    const tipoReferencia = tipoReferenciaPendente.value
+    if (tipoReferencia === TipoMensagemReferencia.Encaminhada && mensagemRespondendo.value) {
+      for (const conteudo of mensagemRespondendo.value.conteudos.slice().sort((a, b) => a.ordem - b.ordem)) {
+        conteudosOptimistas.push({ ...conteudo, ordem })
+        conteudosApi.push({ ordem, tipo: conteudo.tipo, conteudo: conteudo.conteudo })
+        ordem += 1
+      }
+    }
 
     if (textoLimpo) {
       conteudosOptimistas.push({
@@ -366,9 +442,10 @@ export const useChatStore = defineStore('chat', () => {
     // Captura referencia antes de limpar
     const respostaMsg = mensagemRespondendo.value
     const mensagemReferencia = respostaMsg?.id && respostaMsg.id > 0
-      ? { tipo: TipoMensagemReferencia.Resposta, origem_mensagem_id: respostaMsg.id }
+      ? { tipo: tipoReferencia, origem_mensagem_id: respostaMsg.id }
       : undefined
     mensagemRespondendo.value = null
+    tipoReferenciaPendente.value = TipoMensagemReferencia.Resposta
 
     // Adiciona mensagem otimista ? UI imediatamente (antes dos uploads)
     const optimisticMsg: Mensagem = {
@@ -376,8 +453,8 @@ export const useChatStore = defineStore('chat', () => {
       remetente_id: auth.user.id,
       remetente: auth.user.nome,
       conversa_id: conversaId,
-      inserida: new Date().toISOString(),
-      alterada: new Date().toISOString(),
+      inserida: new Date(),
+      alterada: new Date(),
       visivel_em: visivelEm,
       recebida: false,
       visualizada: false,
@@ -385,7 +462,7 @@ export const useChatStore = defineStore('chat', () => {
       enviando: true,
       conteudos: conteudosOptimistas,
       ...(mensagemReferencia && respostaMsg ? {
-        mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, TipoMensagemReferencia.Resposta),
+        mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, tipoReferencia),
       } : {})
     }
 
@@ -424,11 +501,12 @@ export const useChatStore = defineStore('chat', () => {
         }
       })
 
-      const msgs = mensagensPorConversa.value[conversaId]
+      const msgs = mensagensPorConversa.value[conversaId] ?? []
       const idx = msgs.findIndex(m => m.id === tempId)
-      if (idx !== -1) {
+      const otimista = msgs[idx]
+      if (otimista) {
         msgs[idx] = {
-          ...msgs[idx],
+          ...otimista,
           id: resp.id,
           enviando: false,
           conteudos: conteudosFinais
@@ -450,7 +528,7 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function enviarTexto(texto: string, visivelEm: string | null = null) {
+  async function enviarTexto(texto: string, visivelEm: Date | null = null) {
     await enviarMensagemComConteudos(texto, [], visivelEm)
   }
 
@@ -463,8 +541,7 @@ export const useChatStore = defineStore('chat', () => {
     // Remove localmente de todas as conversas (no caso de cache em outra)
     for (const cid of Object.keys(mensagensPorConversa.value)) {
       const lista = mensagensPorConversa.value[Number(cid)]
-      const idx = lista?.findIndex(m => m.id === mensagemId) ?? -1
-      if (idx >= 0) {
+      if (lista?.some(m => m.id === mensagemId)) {
         mensagensPorConversa.value[Number(cid)] = lista.filter(m => m.id !== mensagemId)
       }
     }
@@ -497,7 +574,7 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    const resultado = await api.pesquisarMensagens(auth.user.id, termo, conversaAtivaId.value!)
+    const resultado = await api.pesquisarMensagens(termo, conversaAtivaId.value!)
     // Filtro no frontend como fallback caso o backend não filtre por conversa
     resultadosBuscaConversa.value = resultado.filter((mensagem) => mensagem.conversa_id === conversaAtivaId.value)
   }
@@ -517,7 +594,7 @@ export const useChatStore = defineStore('chat', () => {
 
     buscandoGlobal.value = true
     try {
-      resultadosBuscaGlobal.value = await api.pesquisarMensagens(auth.user.id, termo)
+      resultadosBuscaGlobal.value = await api.pesquisarMensagens(termo)
     } finally {
       buscandoGlobal.value = false
     }
@@ -547,8 +624,7 @@ export const useChatStore = defineStore('chat', () => {
     )
 
     let marcadas = 0
-    for (let idx = 0; idx < pendentes.length; idx += 1) {
-      const mensagem = pendentes[idx]
+    for (const [idx, mensagem] of pendentes.entries()) {
       marcandoVisualizacao.delete(mensagem.id)
       if (resultados[idx]?.status === 'fulfilled') {
         mensagem.visualizada = true
@@ -765,14 +841,14 @@ export const useChatStore = defineStore('chat', () => {
     // Defensivo: avanca cursor tambem pelo timestamp efetivo de cada mensagem
     // processada (cobre caso de `ate` estar dessincronizado com o detalhe).
     for (const m of todasNovasDetalhes) {
-      avancarCursorSync(m.visivel_em || m.inserida)
+      avancarCursorSync(m.visivel_em ?? m.inserida)
     }
 
     // Verifica se há novas mensagens de outros usuários que devem disparar notificação
     const deOutrosParaNotificar = todasNovasDetalhes.filter((m) => {
       const isMe = m.remetente_id === meuId
       const isChatAtivoEFocado = m.conversa_id === ativa && document.hasFocus()
-      return !isMe && !isChatAtivoEFocado
+      return !isMe && !isChatAtivoEFocado && !conversaArquivada(m.conversa_id)
     })
 
     if (deOutrosParaNotificar.length > 0) {
@@ -805,8 +881,8 @@ export const useChatStore = defineStore('chat', () => {
           const avatarUrl = contato?.avatar_url || conversa?.avatar_url || '/logo.png'
 
           let texto = ''
-          if (ultima.conteudos && ultima.conteudos.length > 0) {
-            const c = ultima.conteudos[0]
+          const c = ultima.conteudos?.[0]
+          if (c) {
             if (c.tipo === TipoConteudo.Texto) texto = resumirTexto(c.conteudo)
             else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
             else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
@@ -1065,7 +1141,7 @@ export const useChatStore = defineStore('chat', () => {
       }
     } else {
       const info = resolverNomeUsuario(usuarioId)
-      const novoUsuario = { usuario_id: usuarioId, nome: info.nome, avatar_url: info.avatar_url, reagido_em: new Date().toISOString() }
+      const novoUsuario = { usuario_id: usuarioId, nome: info.nome, avatar_url: info.avatar_url, reagido_em: new Date() }
 
       if (reacaoExistente) {
         reacaoExistente.quantidade++
@@ -1128,6 +1204,11 @@ export const useChatStore = defineStore('chat', () => {
     contatos,
     conversas,
     conversaAtiva,
+    conversasFixadas,
+    conversaArquivada,
+    fixarConversa,
+    moverFixada,
+    arquivarConversa,
     conversaAtivaId,
     mensagensAtivas,
     resultadosBuscaConversa,
@@ -1171,7 +1252,9 @@ export const useChatStore = defineStore('chat', () => {
     usuariosConversaAtiva,
     carregarUsuariosConversa,
     mensagemRespondendo,
+    tipoReferenciaPendente,
     responderMensagem,
+    responderNoPrivado,
     cancelarResposta,
     adicionarMembroGrupo,
     removerMembroGrupo,

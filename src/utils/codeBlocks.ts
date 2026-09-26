@@ -37,8 +37,8 @@ function fecharBloco(texto: string, posicao: number, cerca: string, linguagem: s
     while (inicioLinha <= texto.length) {
       const quebra = texto.indexOf('\n', inicioLinha)
       const fimLinha = quebra < 0 ? texto.length : quebra
-      const crases = texto.slice(inicioLinha, fimLinha).match(/^(`{3,})\s*$/)
-      if (crases && crases[1].length >= cerca.length) {
+      const crases = texto.slice(inicioLinha, fimLinha).match(/^(`{3,})\s*$/)?.[1]
+      if (crases && crases.length >= cerca.length) {
         ultimo = { conteudoFim: Math.max(posicao, inicioLinha - 1), fim: fimLinha }
       }
       if (quebra < 0) break
@@ -53,9 +53,9 @@ function fecharBloco(texto: string, posicao: number, cerca: string, linguagem: s
     const quebra = texto.indexOf('\n', inicioLinha)
     const fimLinha = quebra < 0 ? texto.length : quebra
     const linha = texto.slice(inicioLinha, fimLinha)
-    const crases = linha.match(/^(`{3,})(\w*)\s*$/)
-    if (crases && crases[1].length >= cerca.length) {
-      if (crases[2]) {
+    const [, crases, linguagemInterna] = linha.match(/^(`{3,})(\w*)\s*$/) ?? []
+    if (crases && crases.length >= cerca.length) {
+      if (linguagemInterna) {
         profundidade++
       } else if (profundidade > 0) {
         profundidade--
@@ -79,13 +79,14 @@ function encontrarBlocos(texto: string): Bloco[] {
   const abertura = new RegExp(ABERTURA)
   let match: RegExpExecArray | null
   while ((match = abertura.exec(texto)) !== null) {
-    const inicioCodigo = match.index + match[0].length
-    const fechamento = fecharBloco(texto, inicioCodigo, match[1], match[2])
+    const [inteiro, cerca = '', linguagem = ''] = match
+    const inicioCodigo = match.index + inteiro.length
+    const fechamento = fecharBloco(texto, inicioCodigo, cerca, linguagem)
     if (!fechamento) continue
     blocos.push({
       inicio: match.index,
       fim: fechamento.fim,
-      linguagem: match[2],
+      linguagem,
       conteudo: texto.slice(inicioCodigo, fechamento.conteudoFim),
     })
     abertura.lastIndex = fechamento.fim
@@ -131,4 +132,35 @@ export function parseCodeBlocks(texto: string): SegmentoTexto[] {
     segmentos.push({ tipo: 'texto', conteudo: texto.slice(ultimo) })
   }
   return segmentos
+}
+
+// Desenho com caracteres de caixa (├── │ ┌─┐) ou bordas ASCII (+---+, | x |)
+const DESENHO_ASCII = /[─│┌┐└┘├┤┬┴┼═║╔╗╚╝]|^\s*[+|].*[+|]\s*$/
+
+// Linha com cara de código: termina em ; { } ), tem =>, começa com palavra
+// reservada comum, tag HTML, indentação ou é parte de um desenho ASCII
+const LINHA_CODIGO = /[;{}]\s*$|\)\s*$|=>|^\s*[}\])]|^\s*(import|export|from|const|let|var|function|return|class|def|public|private|protected|static|if|else|elif|for|foreach|while|switch|case|try|catch|using|namespace|package|#include|select|insert|update|delete|create|alter|begin|end|procedure|with)\b|^\s*<\/?[a-zA-Z][\w-]*|^( {2,}|\t)/i
+
+// Sinal que texto comum quase não tem, para uma lista indentada não virar código
+const SINAL_FORTE = /[{};]|=>|\w\([^)]*\)|<\/[a-zA-Z][\w-]*>|^\s*(def|function|class|import|select|from)\b/im
+
+// Comando de terminal no começo da linha (cd, npm, docker, git...)
+const COMANDO_TERMINAL = /^\s*(\$\s+)?(cd|ls|npm|npx|node|docker|git|sudo|apt|curl|chmod|mkdir|rm|cp|mv|psql)\s/
+
+// Texto colado que parece código: duas ou mais linhas, metade delas com cara
+// de código e algum sinal forte (ou um desenho ASCII, ou comandos de terminal)
+export function pareceCodigo(texto: string): boolean {
+  if (/^`{3}/m.test(texto)) return false
+  const linhas = texto.split('\n').filter((linha) => linha.trim())
+  if (linhas.length < 2) return false
+  const desenho = linhas.filter((linha) => DESENHO_ASCII.test(linha)).length
+  if (desenho / linhas.length >= 0.5) return true
+  const comandos = linhas.filter((linha) => COMANDO_TERMINAL.test(linha)).length
+  if (comandos / linhas.length >= 0.5) return true
+  const comCara = linhas.filter((linha) => LINHA_CODIGO.test(linha) || COMANDO_TERMINAL.test(linha)).length
+  return comCara >= 2 && comCara / linhas.length >= 0.5 && SINAL_FORTE.test(texto)
+}
+
+export function ehDesenhoAscii(texto: string): boolean {
+  return texto.split('\n').some((linha) => DESENHO_ASCII.test(linha))
 }

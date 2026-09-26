@@ -1,5 +1,5 @@
 <template>
-  <div class="min-w-0 mb-1 last:mb-0">
+  <div class="min-w-0 mb-1 last:mb-0" :data-conteudo-texto="ehTipo(conteudo.tipo, TipoConteudo.Texto) || undefined">
     <template v-if="ehTipo(conteudo.tipo, TipoConteudo.Texto)">
       <template v-if="temCodigoFormatado(conteudo.conteudo)">
         <template v-for="(seg, segIdx) in parseCodeBlocks(conteudo.conteudo)" :key="segIdx">

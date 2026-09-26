@@ -41,9 +41,8 @@ const carregando = ref(true)
 const erro = ref('')
 
 // Hoje mostra só a hora; outros dias, dia/mês e hora
-function quando(iso: string | null) {
-  if (!iso) return ''
-  const data = new Date(iso)
+function quando(data: Date | null) {
+  if (!data) return ''
   const hora = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   if (data.toDateString() === new Date().toDateString()) return hora
   return `${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hora}`

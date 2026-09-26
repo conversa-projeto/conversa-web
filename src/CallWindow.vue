@@ -429,7 +429,7 @@ function definirModoExibicao(modo: ModoExibicao) {
 function alternarDestaque(passo: number) {
   const lista = participantesExibicao.value
   const atual = Math.max(0, lista.indexOf(videoDestaque.value ?? 'local'))
-  videoDestaque.value = lista[(atual + passo + lista.length) % lista.length]
+  videoDestaque.value = lista[(atual + passo + lista.length) % lista.length] ?? null
 }
 
 const gridClass = computed(() => {

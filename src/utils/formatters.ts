@@ -26,7 +26,8 @@ export function parseTextSegments(texto: string): SegmentoTexto[] {
         resultado.push(seg)
       }
     }
-    resultado.push({ tipo: 'mencao', conteudo: match[1], usuarioId: Number(match[2]) })
+    const [, nome = '', usuarioId] = match
+    resultado.push({ tipo: 'mencao', conteudo: nome, usuarioId: Number(usuarioId) })
     ultimo = match.index + match[0].length
   }
   if (ultimo < texto.length) {
@@ -43,17 +44,16 @@ export function resumirTexto(texto: string): string {
   return resumirCodigo(texto.replace(REGEX_MENCAO, '@$1'))
 }
 
-export function formatarHora(iso: string): string {
-  if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('pt-BR', {
+export function formatarHora(data: Date | null | undefined): string {
+  if (!data) return ''
+  return data.toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit'
   })
 }
 
-export function formatarDiaSeparador(iso: string): string {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('pt-BR', {
+export function formatarDiaSeparador(data: Date): string {
+  return data.toLocaleDateString('pt-BR', {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -146,7 +146,7 @@ const REGEX_LINKS = /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/g
 // do proprio link, como em https://pt.wikipedia.org/wiki/Java_(linguagem).
 function removerPontuacaoFinal(url: string) {
   while (url.length > 1) {
-    const ultimo = url[url.length - 1]
+    const ultimo = url.at(-1) ?? ''
     if (/[.,;:!?']/.test(ultimo)) {
       url = url.slice(0, -1)
     } else if (ultimo === ')' && (url.match(/\)/g) || []).length > (url.match(/\(/g) || []).length) {

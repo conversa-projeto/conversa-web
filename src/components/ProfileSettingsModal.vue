@@ -163,13 +163,17 @@
               </div>
 
               <div class="grid gap-4 md:grid-cols-2">
+                <div class="md:col-span-2 md:w-1/2 md:pr-2">
+                  <label class="mb-1 block text-sm text-surface-700">Senha atual</label>
+                  <input v-model="senhaAtual" type="password" autocomplete="current-password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
+                </div>
                 <div>
                   <label class="mb-1 block text-sm text-surface-700">Nova senha</label>
-                  <input v-model="senhaNova" type="password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
+                  <input v-model="senhaNova" type="password" autocomplete="new-password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
                 </div>
                 <div>
                   <label class="mb-1 block text-sm text-surface-700">Confirmar nova senha</label>
-                  <input v-model="confirmacaoSenha" type="password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
+                  <input v-model="confirmacaoSenha" type="password" autocomplete="new-password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
                 </div>
               </div>
 
@@ -430,6 +434,7 @@ function voltarMenuMobile() {
   subnivelMobile.value = null
 }
 
+const senhaAtual = ref('')
 const senhaNova = ref('')
 const confirmacaoSenha = ref('')
 const erro = ref('')
@@ -648,6 +653,7 @@ function resetarEstado() {
   // Nao resetar abaAtiva aqui: ela e controlada pelo pai via v-model e
   // pode vir pre-definida via URL (/config/:aba).
   subnivelMobile.value = null
+  senhaAtual.value = ''
   senhaNova.value = ''
   confirmacaoSenha.value = ''
   erro.value = ''
@@ -829,7 +835,7 @@ async function salvarSenha() {
   erro.value = ''
   sucesso.value = ''
 
-  if (!senhaNova.value || !confirmacaoSenha.value) {
+  if (!senhaAtual.value || !senhaNova.value || !confirmacaoSenha.value) {
     erro.value = 'Preencha todos os campos de senha.'
     return
   }
@@ -846,8 +852,9 @@ async function salvarSenha() {
 
   salvando.value = true
   try {
-    await api.alterarSenha(senhaNova.value)
+    await api.alterarSenha(senhaAtual.value, senhaNova.value)
     sucesso.value = 'Senha alterada com sucesso.'
+    senhaAtual.value = ''
     senhaNova.value = ''
     confirmacaoSenha.value = ''
   } catch (e) {

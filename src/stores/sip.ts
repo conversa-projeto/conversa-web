@@ -61,7 +61,7 @@ export const useSipStore = defineStore('sip', () => {
     const audio = getAudioElement()
 
     pc.ontrack = (event) => {
-      audio.srcObject = event.streams[0]
+      audio.srcObject = event.streams[0] ?? null
       audio.play().catch(() => {})
     }
 

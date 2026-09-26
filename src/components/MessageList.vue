@@ -53,8 +53,9 @@
             @image-loaded="aoCarregarImagemNoChat"
             @download="(id, nome) => abrirAnexo(id, nome)"
             @reply="(msg) => chat.responderMensagem(msg)"
+            @responder-privado="(msg) => chat.responderNoPrivado(msg).catch((e) => console.error('Erro ao responder no privado', e))"
             @forward="(msg) => emit('forward', msg)"
-            @go-to-message="(id) => irParaMensagem(id)"
+            @go-to-message="irParaReferencia"
             @reagir="(mensagemId, emoji) => chat.reagirMensagem(mensagemId, emoji)"
             @excluir="excluirMensagem"
           />
@@ -123,7 +124,17 @@ const emit = defineEmits<{
   'forward': [mensagem: Mensagem]
   'ancora-changed': [ancora: import('../composables/useHistoryNavigation').AncoraScroll | null]
   'at-bottom-changed': [noFim: boolean]
+  'open-message': [conversaId: number, mensagemId: number]
 }>()
+
+// Resposta fica nesta conversa; encaminhamento pode vir de outra
+function irParaReferencia(mensagemId: number, conversaId?: number) {
+  if (conversaId && conversaId !== chat.conversaAtivaId) {
+    emit('open-message', conversaId, mensagemId)
+    return
+  }
+  void irParaMensagem(mensagemId)
+}
 
 const auth = useAuthStore()
 const chat = useChatStore()
@@ -319,8 +330,7 @@ watch(
  */
 watch(
   () => {
-    const msgs = chat.mensagensAtivas
-    return msgs.length > 0 ? msgs[msgs.length - 1].id : 0
+    return chat.mensagensAtivas.at(-1)?.id ?? 0
   },
   (ultimoId, anteriorId) => {
     if (!ultimoId || ultimoId === anteriorId) return

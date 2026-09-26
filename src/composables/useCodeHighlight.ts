@@ -1,4 +1,5 @@
 import { ref, onUnmounted } from 'vue'
+import type { Language, LanguageFn } from 'highlight.js'
 
 export { temCodigoFormatado, parseCodeBlocks } from '../utils/codeBlocks'
 export type { SegmentoTexto } from '../utils/codeBlocks'
@@ -8,10 +9,10 @@ export type { SegmentoTexto } from '../utils/codeBlocks'
 // Quando carrega, hljsReady muda para true → Vue re-renderiza e aplica syntax highlighting.
 
 let hljsInstance: {
-  registerLanguage: (name: string, lang: any) => void
-  getLanguage: (name: string) => any
+  registerLanguage: (name: string, lang: LanguageFn) => void
+  getLanguage: (name: string) => Language | undefined
   highlight: (code: string, options: { language: string }) => { value: string }
-  highlightAuto: (code: string) => { value: string }
+  highlightAuto: (code: string, subset?: string[]) => { value: string; language?: string; relevance: number }
 } | null = null
 
 let hljsPromise: Promise<void> | null = null
@@ -92,6 +93,39 @@ export function highlightCodigo(codigo: string, linguagem?: string): string {
     return hljsInstance.highlight(codigo, { language: linguagem }).value
   }
   return hljsInstance.highlightAuto(codigo).value
+}
+
+// Linguagem provável de um código (nomes do seletor de linguagens). Sem
+// confiança suficiente, devolve texto puro.
+const LINGUAGENS_DETECTAVEIS = ['javascript', 'typescript', 'python', 'sql', 'json', 'xml', 'css', 'bash', 'csharp', 'delphi']
+
+// Em trechos curtos o highlight.js erra muito (função JS vira CSS, select vira
+// Python); estas marcas decidem antes dele, na ordem
+const MARCAS_LINGUAGEM: Array<[string, RegExp]> = [
+  ['html', /^\s*<[!a-zA-Z]/],
+  ['sql', /^\s*(select|insert|update|delete|create|alter|with)\b[\s\S]*\b(from|into|set|table|view|where|values|as)\b/i],
+  ['pascal', /^\s*(procedure|function)\s+[\w.]+[\s\S]*\bbegin\b|\bbegin\b[\s\S]*\bend;/i],
+  ['csharp', /\b(public|private|protected|internal)\s+(static\s+)?(class|void|string|int|bool|async|override)\b|^\s*using\s+System/m],
+  ['typescript', /\binterface\s+\w+\s*\{|:\s*(string|number|boolean)(\[\])?\s*[;,)=]?\s*$/m],
+  ['python', /^\s*(def|class)\s+\w+.*:\s*$|^\s*(elif|except|from\s+\w+\s+import)\b|\bprint\(/m],
+  ['javascript', /\b(function|const|let|var|return|console\.|require\(|import\s+.+\s+from)\b|=>/],
+  ['css', /^\s*[.#]?[\w-]+[^{\n]*\{[^}]*:[^;]+;/m],
+  ['bash', /^\s*(\$\s+)?(cd|ls|npm|npx|docker|git|sudo|apt|curl|echo|export|chmod)\s/m],
+]
+
+export async function detectarLinguagem(codigo: string): Promise<string> {
+  try {
+    JSON.parse(codigo)
+    if (/^\s*[{[]/.test(codigo)) return 'json'
+  } catch { /* não é JSON */ }
+  const marcada = MARCAS_LINGUAGEM.find(([, marca]) => marca.test(codigo))
+  if (marcada) return marcada[0]
+
+  await carregarHljs()
+  const resultado = hljsInstance!.highlightAuto(codigo, LINGUAGENS_DETECTAVEIS)
+  if (!resultado.language || resultado.relevance < 3) return 'texto'
+  const nomeNoSeletor: Record<string, string> = { xml: 'html', delphi: 'pascal' }
+  return nomeNoSeletor[resultado.language] || resultado.language
 }
 
 export function useCodeHighlight() {

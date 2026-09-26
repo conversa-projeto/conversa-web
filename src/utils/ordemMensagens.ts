@@ -1,7 +1,7 @@
 import type { Mensagem } from '../types/api'
 
 function momento(mensagem: Mensagem) {
-  return Date.parse(mensagem.visivel_em || mensagem.inserida) || 0
+  return (mensagem.visivel_em ?? mensagem.inserida).getTime() || 0
 }
 
 // Mesma ordem da API: o momento em que a mensagem ficou visível (visivel_em das
@@ -22,8 +22,5 @@ export function primeiraMensagemSalva(mensagens: Mensagem[]) {
 }
 
 export function ultimaMensagemSalva(mensagens: Mensagem[]) {
-  for (let i = mensagens.length - 1; i >= 0; i--) {
-    if (mensagens[i].id > 0) return mensagens[i]
-  }
-  return undefined
+  return mensagens.findLast((mensagem) => mensagem.id > 0)
 }

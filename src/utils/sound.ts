@@ -155,7 +155,7 @@ const notificacoesAtivas = new Map<number, Notification>()
 // (new Notification), clicada depois disso, faz o navegador abrir outra aba.
 let registroNotificacoes: Promise<ServiceWorkerRegistration | null> | null = null
 
-function obterRegistroNotificacoes() {
+export function obterRegistroNotificacoes() {
   registroNotificacoes ??= (async () => {
     if (!('serviceWorker' in navigator)) return null
     const registros = await navigator.serviceWorker.getRegistrations()

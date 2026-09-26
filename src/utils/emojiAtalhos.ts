@@ -53,7 +53,7 @@ export function substituirAtalhoAntesDoCursor(texto: string, cursor: number): { 
   const antes = texto.slice(0, cursor)
   const achado = antes.match(ANTES_DO_ESPACO)
   if (!achado || achado.index === undefined || dentroDeCodigo(antes)) return null
-  const [, inicio, atalho, espaco] = achado
+  const [, inicio = '', atalho = '', espaco = ''] = achado
   const novoAntes = antes.slice(0, achado.index) + inicio + ATALHOS[atalho] + espaco
   return { texto: novoAntes + texto.slice(cursor), cursor: novoAntes.length }
 }
@@ -62,6 +62,6 @@ export function substituirAtalhoAntesDoCursor(texto: string, cursor: number): { 
 export function substituirAtalhoNoFim(texto: string): string {
   const achado = texto.match(NO_FIM)
   if (!achado || achado.index === undefined || dentroDeCodigo(texto)) return texto
-  const [, inicio, atalho] = achado
+  const [, inicio = '', atalho = ''] = achado
   return texto.slice(0, achado.index) + inicio + ATALHOS[atalho]
 }

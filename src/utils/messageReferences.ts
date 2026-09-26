@@ -5,7 +5,7 @@ export interface MensagemReferenciaResumo {
   tipo: number
   id: number
   remetente: string
-  inserida?: string
+  inserida?: Date
   conteudo_resumo: string
   conversa_id?: number
   mensagem_referencia?: MensagemReferencia | null
