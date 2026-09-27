@@ -39,12 +39,12 @@
             </button>
           </div>
         </div>
-        <div class="flex-1 overflow-auto bg-surface-200">
+        <div class="flex flex-1 flex-col overflow-auto bg-surface-200">
           <template v-for="{ chave, conversa } in itensLista" :key="chave">
           <button
             v-if="!conversa"
             type="button"
-            class="flex w-full items-center gap-1.5 border-b border-surface-300 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-surface-500 transition hover:bg-surface-300"
+            class="mt-auto flex w-full shrink-0 items-center gap-1.5 border-y border-surface-300 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-surface-500 transition hover:bg-surface-300"
             @click="mostrarArquivadas = !mostrarArquivadas"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transition-transform" :class="mostrarArquivadas ? 'rotate-90' : ''">
@@ -195,6 +195,7 @@
     <!-- Menu da conversa: fixar, ordenar as fixadas e arquivar -->
     <div
       v-if="menuConversa"
+      ref="menuConversaEl"
       class="fixed z-50 min-w-[170px] rounded-lg border border-surface-200 bg-surface-base py-1 shadow-lg"
       :style="{ left: menuConversa.x + 'px', top: menuConversa.y + 'px' }"
       @click.stop
@@ -223,7 +224,7 @@
 
 <script setup lang="ts">
 import { inicialNome, resumirTexto } from '../utils/formatters'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useSipStore } from '../stores/sip'
@@ -342,13 +343,17 @@ async function soltarArraste() {
 // --- Menu da conversa ---
 
 const menuConversa = ref<{ x: number; y: number; conversa: Conversa } | null>(null)
+const menuConversaEl = ref<HTMLElement | null>(null)
 
-function abrirMenuConversa(event: MouseEvent, conversa: Conversa) {
-  menuConversa.value = {
-    x: Math.min(event.clientX, window.innerWidth - 180),
-    y: Math.min(event.clientY, window.innerHeight - 160),
-    conversa,
-  }
+// Abre no ponto do clique e, depois de renderizado, recua pelo tamanho real
+// do menu se ele passar da borda da janela
+async function abrirMenuConversa(event: MouseEvent, conversa: Conversa) {
+  menuConversa.value = { x: event.clientX, y: event.clientY, conversa }
+  await nextTick()
+  const caixa = menuConversaEl.value?.getBoundingClientRect()
+  if (!menuConversa.value || !caixa) return
+  menuConversa.value.x = Math.max(0, Math.min(event.clientX, window.innerWidth - caixa.width - 8))
+  menuConversa.value.y = Math.max(0, Math.min(event.clientY, window.innerHeight - caixa.height - 8))
 }
 
 function fecharMenuConversa() {
