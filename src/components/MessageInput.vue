@@ -10,16 +10,9 @@
     />
 
     <div class="relative mx-auto w-full max-w-[850px]">
-      <!-- Indicador de digitando/gravando: acima de todo o bloco do campo (resposta,
-           imagens e barra), para não ficar por cima da resposta ou das imagens -->
-      <div
-        v-if="atividadeVisivel && !gravandoAudio"
-        class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
-        :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
-      />
-
       <!-- Chip com texto: so aparece quando o usuario esta no fim do chat.
-           Posicionado logo acima da linha de efeito (2px de gap). -->
+           Fica acima de todo o bloco do campo (resposta, imagens e barra), para
+           não ficar por cima da resposta ou das imagens. -->
       <div
         v-if="atividadeVisivel && chatNoFim && !gravandoAudio"
         class="pointer-events-none absolute inset-x-0 z-10 flex pl-3 pr-1"
@@ -70,6 +63,13 @@
 
       <!-- Composer bar -->
       <div class="relative flex items-end gap-2">
+        <!-- Linha de digitando/gravando: sempre encostada na borda de cima do campo,
+             mesmo com resposta ou anexos pendentes acima dele -->
+        <div
+          v-if="atividadeVisivel && !gravandoAudio"
+          class="indicador-atividade pointer-events-none absolute inset-x-0 bottom-full z-10"
+          :class="chat.gravandoNaConversaAtiva.length ? 'indicador-gravando' : 'indicador-digitando'"
+        />
         <!-- Normal input bar -->
         <div v-if="!gravandoAudio" class="relative min-w-0 flex-1">
           <div class="flex items-end rounded-3xl border border-surface-500 bg-surface-base pl-3 pr-1 transition-colors focus-within:border-primary-500">

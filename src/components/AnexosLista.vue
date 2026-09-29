@@ -155,15 +155,25 @@
         </svg>
       </div>
     </div>
+
+    <VisualizadorHtml
+      v-if="htmlAberto"
+      :identificador="htmlAberto.identificador"
+      :nome="htmlAberto.nome || 'Arquivo.html'"
+      @fechar="htmlAberto = null"
+      @baixar="baixarItem(htmlAberto)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { AnexoItem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import * as api from '../services/conversaApi'
 import { formatarTamanho } from '../utils/formatters'
+
+const VisualizadorHtml = defineAsyncComponent(() => import('./VisualizadorHtml.vue'))
 
 const props = withDefaults(defineProps<{
   conversaId?: number
@@ -283,9 +293,29 @@ function abrirItem(item: AnexoItem) {
     abrirImagem(item)
     return
   }
+  // HTML aberto direto rodaria no endereço do app, com acesso ao login
+  if (item.tipo === TipoConteudo.Arquivo && ehHtml(item)) {
+    htmlAberto.value = item
+    return
+  }
   if (item.tipo === TipoConteudo.Arquivo && item.url) {
     window.open(item.url, '_blank', 'noopener,noreferrer')
   }
+}
+
+const htmlAberto = ref<AnexoItem | null>(null)
+
+function ehHtml(item: AnexoItem) {
+  const extensao = (item.extensao || item.nome?.split('.').pop() || '').trim().toLowerCase().replace(/^\./, '')
+  return extensao === 'html' || extensao === 'htm'
+}
+
+function baixarItem(item: AnexoItem | null) {
+  if (!item?.url) return
+  const link = document.createElement('a')
+  link.href = item.url
+  link.download = item.nome || 'Arquivo'
+  link.click()
 }
 
 function formatarDataCurta(data: Date | null): string {

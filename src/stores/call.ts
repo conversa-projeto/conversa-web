@@ -50,6 +50,9 @@ export const useCallStore = defineStore('call', () => {
   const compartilhandoTela = ref(false)
   const erroMsg = ref('')
   const videoAtivadoPor = ref<{ usuarioId: number; usuarioNome: string } | null>(null)
+  // Quem escolheu "Apenas assistir": a janela da chamada abre em tela única
+  // neste participante e limpa o pedido
+  const telaUnicaSolicitada = ref<number | null>(null)
   let videoAtivadoTimeout: number | null = null
 
   const streamLocal = shallowRef<MediaStream | null>(null)
@@ -802,6 +805,7 @@ export const useCallStore = defineStore('call', () => {
     compartilhandoTela.value = false
     erroMsg.value = ''
     videoAtivadoPor.value = null
+    telaUnicaSolicitada.value = null
     if (videoAtivadoTimeout !== null) {
       window.clearTimeout(videoAtivadoTimeout)
       videoAtivadoTimeout = null
@@ -1262,6 +1266,7 @@ export const useCallStore = defineStore('call', () => {
   }
 
   async function responderUpgradeVideo(transmitir: boolean) {
+    const quemAtivou = videoAtivadoPor.value?.usuarioId ?? null
     videoAtivadoPor.value = null
     if (videoAtivadoTimeout !== null) {
       window.clearTimeout(videoAtivadoTimeout)
@@ -1277,6 +1282,7 @@ export const useCallStore = defineStore('call', () => {
         streamLocal.value.getVideoTracks().forEach(t => { t.enabled = false })
       }
       cameraMutada.value = true
+      telaUnicaSolicitada.value = quemAtivou
     }
   }
 
@@ -1506,6 +1512,7 @@ export const useCallStore = defineStore('call', () => {
     iniciarTransmissaoLocal,
     upgradeParaVideo,
     videoAtivadoPor,
+    telaUnicaSolicitada,
     responderUpgradeVideo,
     tratarEventoChamada,
     verificarChamadasPendentes,

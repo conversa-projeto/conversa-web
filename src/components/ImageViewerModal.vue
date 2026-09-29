@@ -13,8 +13,9 @@
         <img
           :src="url"
           :alt="nome"
-          class="max-h-[85vh] max-w-[92vw] select-none object-contain"
+          class="max-w-[92vw] select-none object-contain"
           :class="[
+            legenda ? 'max-h-[70vh]' : 'max-h-[85vh]',
             zoom !== 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default',
             transicaoAtiva ? 'transition-transform duration-300 ease-out' : ''
           ]"
@@ -55,6 +56,12 @@
         </div>
       </div>
     </div>
+
+    <!-- Texto da mensagem enviada junto da imagem -->
+    <p
+      v-if="legenda"
+      class="relative z-10 mb-3 max-h-[15vh] max-w-[92vw] overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-black/60 px-4 py-2 text-sm text-white md:max-w-2xl"
+    >{{ legenda }}</p>
 
     <div class="relative z-10 mb-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
       <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-out')">-</button>
@@ -147,10 +154,12 @@ const props = defineProps<{
   translateY: number
   isDragging: boolean
   transicaoAtiva: boolean
-  galeria: { identificador: string; nome: string }[]
+  galeria: { identificador: string; nome: string; legenda?: string }[]
   identificadorAtual: string
   anexosUrl: Record<string, string>
 }>()
+
+const legenda = computed(() => props.galeria.find((item) => item.identificador === props.identificadorAtual)?.legenda || '')
 
 const imagemCarregada = ref(false)
 const menuContexto = ref<{ x: number; y: number } | null>(null)

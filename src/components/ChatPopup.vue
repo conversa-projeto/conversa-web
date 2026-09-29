@@ -119,11 +119,17 @@ const alturaInput = ref(0)
 const { garantirAnexoUrl, anexosUrl } = useAttachments()
 
 const galeriaImagens = computed(() => {
-  const imagens: { identificador: string; nome: string }[] = []
+  const imagens: { identificador: string; nome: string; legenda?: string }[] = []
   for (const mensagem of chat.mensagensAtivas) {
+    // Texto enviado junto da imagem, mostrado no visualizador
+    const legenda = mensagem.conteudos
+      .filter((c) => c.tipo === TipoConteudo.Texto)
+      .map((c) => c.conteudo.trim())
+      .filter(Boolean)
+      .join('\n')
     for (const conteudo of mensagem.conteudos) {
       if (conteudo.tipo === TipoConteudo.Imagem) {
-        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem' })
+        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem', legenda })
       }
     }
   }

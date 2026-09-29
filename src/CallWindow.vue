@@ -426,6 +426,15 @@ function definirModoExibicao(modo: ModoExibicao) {
   }
 }
 
+// "Apenas assistir": tela única em quem ligou o vídeo (ou no primeiro outro
+// participante, se ele não estiver na chamada)
+watch(() => call.telaUnicaSolicitada, (usuarioId) => {
+  if (usuarioId === null) return
+  call.telaUnicaSolicitada = null
+  telaUnica.value = true
+  videoDestaque.value = call.peers.has(usuarioId) ? usuarioId : call.peers.keys().next().value ?? 'local'
+}, { immediate: true })
+
 function alternarDestaque(passo: number) {
   const lista = participantesExibicao.value
   const atual = Math.max(0, lista.indexOf(videoDestaque.value ?? 'local'))

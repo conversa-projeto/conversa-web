@@ -132,7 +132,6 @@ export const useChatStore = defineStore('chat', () => {
     await Promise.all([carregarContatos(), carregarConversas()])
     conectarWebSocket()
     iniciarPolling()
-    void carregarContatosOnline()
 
     // Solicita permissão para notificações na inicialização
     void requestNotificationPermission()
@@ -691,6 +690,8 @@ export const useChatStore = defineStore('chat', () => {
           token: auth.token
         })
       )
+      // Quem entrou ou saiu enquanto o socket estava fora não gerou aviso
+      void carregarContatosOnline()
       if (_tratarEventoChamada) {
         const callStore = useCallStore()
         void callStore.verificarChamadasPendentes()
@@ -856,49 +857,47 @@ export const useChatStore = defineStore('chat', () => {
       playNotificationSound()
 
       // --- Notificações do Windows ---
-      // Só exibir quando a janela NÃO está focada. Se o usuário já está
-      // olhando para o chat, notificação do sistema é redundante.
-      if (!document.hasFocus()) {
-        // Agrupar por conversa: cada conversa mantém UMA notificação no Windows.
-        // O Map naturalmente mantém a última mensagem de cada conversa (sobrescreve).
-        // Isso garante que a notificação mostre o conteúdo mais recente.
-        const porConversa = new Map<number, Mensagem>()
-        for (const msg of deOutrosParaNotificar) {
-          porConversa.set(msg.conversa_id, msg)
+      // Também com a janela em foco: o filtro acima já deixa de fora só a
+      // conversa aberta com a janela focada, que o usuário está vendo.
+      // Agrupar por conversa: cada conversa mantém UMA notificação no Windows.
+      // O Map naturalmente mantém a última mensagem de cada conversa (sobrescreve).
+      // Isso garante que a notificação mostre o conteúdo mais recente.
+      const porConversa = new Map<number, Mensagem>()
+      for (const msg of deOutrosParaNotificar) {
+        porConversa.set(msg.conversa_id, msg)
+      }
+
+      // Para cada conversa com novas mensagens: criar/atualizar notificação.
+      // O título é o nome do remetente (quem enviou a última mensagem).
+      // O body é o conteúdo da mensagem (texto, ou tipo "Imagem", "Audio", etc).
+      // showNotification() cuida de fechar a anterior e criar a nova
+      // (ver documentação detalhada em sound.ts).
+      for (const [convId, ultima] of porConversa) {
+        const contato = contatos.value.find((c) => c.id === ultima.remetente_id)
+        const conversa = conversas.value.find((c) => c.id === convId)
+        const nomeRemetente = contato?.nome || ultima.remetente || 'Nova mensagem'
+
+        // Avatar: prioridade contato > conversa > logo do app
+        const avatarUrl = contato?.avatar_url || conversa?.avatar_url || '/logo.png'
+
+        let texto = ''
+        const c = ultima.conteudos?.[0]
+        if (c) {
+          if (c.tipo === TipoConteudo.Texto) texto = resumirTexto(c.conteudo)
+          else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
+          else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
+          else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
+          else texto = 'Arquivo'
         }
 
-        // Para cada conversa com novas mensagens: criar/atualizar notificação.
-        // O título é o nome do remetente (quem enviou a última mensagem).
-        // O body é o conteúdo da mensagem (texto, ou tipo "Imagem", "Audio", etc).
-        // showNotification() cuida de fechar a anterior e criar a nova
-        // (ver documentação detalhada em sound.ts).
-        for (const [convId, ultima] of porConversa) {
-          const contato = contatos.value.find((c) => c.id === ultima.remetente_id)
-          const conversa = conversas.value.find((c) => c.id === convId)
-          const nomeRemetente = contato?.nome || ultima.remetente || 'Nova mensagem'
-
-          // Avatar: prioridade contato > conversa > logo do app
-          const avatarUrl = contato?.avatar_url || conversa?.avatar_url || '/logo.png'
-
-          let texto = ''
-          const c = ultima.conteudos?.[0]
-          if (c) {
-            if (c.tipo === TipoConteudo.Texto) texto = resumirTexto(c.conteudo)
-            else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
-            else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
-            else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
-            else texto = 'Arquivo'
-          }
-
-          showNotification(convId, nomeRemetente, {
-            body: texto,
-            icon: avatarUrl,
-            silent: true
-          }, () => {
-            // Ao clicar na notificação: abrir a conversa correspondente
-            void selecionarConversa(convId)
-          })
-        }
+        showNotification(convId, nomeRemetente, {
+          body: texto,
+          icon: avatarUrl,
+          silent: true
+        }, () => {
+          // Ao clicar na notificação: abrir a conversa correspondente
+          void selecionarConversa(convId)
+        })
       }
     }
 

@@ -400,11 +400,17 @@ const {
 } = useCallPopup(erro)
 
 const galeriaImagens = computed(() => {
-  const imagens: { identificador: string; nome: string }[] = []
+  const imagens: { identificador: string; nome: string; legenda?: string }[] = []
   for (const mensagem of chat.mensagensAtivas) {
+    // Texto enviado junto da imagem, mostrado no visualizador
+    const legenda = mensagem.conteudos
+      .filter((c) => c.tipo === TipoConteudo.Texto)
+      .map((c) => c.conteudo.trim())
+      .filter(Boolean)
+      .join('\n')
     for (const conteudo of mensagem.conteudos) {
       if (conteudo.tipo === TipoConteudo.Imagem) {
-        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem' })
+        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem', legenda })
       }
     }
   }
@@ -667,7 +673,9 @@ async function onConversationOpened() {
 }
 
 async function abrirConversaPorId(conversaId: number) {
-  chat.conversaAtivaId = conversaId
+  // Carrega as mensagens: as que estavam em memória não têm as que chegaram
+  // com a conversa fechada (ex.: a da notificação clicada)
+  await chat.selecionarConversa(conversaId)
   secaoAtiva.value = 'chat'
   sidebarAberta.value = false
   await nextTick()
