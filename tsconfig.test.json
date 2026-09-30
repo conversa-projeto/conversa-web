@@ -3,5 +3,6 @@
   "compilerOptions": {
     "types": ["vite/client", "bun"]
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts"],
+  "references": [{ "path": "../conversa/tsconfig.tipos.json" }]
 }

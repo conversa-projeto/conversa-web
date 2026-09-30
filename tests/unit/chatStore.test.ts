@@ -8,6 +8,9 @@ import { relogioFalso } from './relogioFalso'
 
 const EU = 7
 
+// Cópia sem os proxies reativos do Vue, que o toMatchObject do Bun não compara bem
+const simples = (valor: unknown) => JSON.parse(JSON.stringify(valor))
+
 // Conversa como a API devolve (datas em texto, convertidas pelo cliente)
 function conversaApi(id: number, extras: Record<string, unknown> = {}) {
   return { id, descricao: `Conversa ${id}`, tipo: 1, inserida: '2026-09-01T12:00:00.000Z', mensagens_sem_visualizar: 0, fixada_ordem: null, arquivada_em: null, ...extras }
@@ -104,11 +107,11 @@ describe('enviar', () => {
     const envio = chat.enviarTexto('  olá  ')
     await aguardar()
     expect(chat.mensagensAtivas).toHaveLength(1)
-    expect(chat.mensagensAtivas[0]).toMatchObject({ enviando: true, remetente_id: EU, conteudos: [{ conteudo: 'olá' }] })
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ enviando: true, remetente_id: EU, conteudos: [{ conteudo: 'olá' }] })
     expect(chat.mensagensAtivas[0]!.id).toBeLessThan(0)
     liberar()
     await envio
-    expect(chat.mensagensAtivas[0]).toMatchObject({ id: 99, enviando: false })
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ id: 99, enviando: false })
     expect(pedidos.find((p) => p.metodo === 'PUT')!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'olá' }] })
   })
 
@@ -177,7 +180,7 @@ describe('enviar', () => {
       expect(conteudo).toMatchObject({ ordem: 1, tipo: TipoConteudo.Arquivo })
       expect(conteudo.conteudo).toMatch(/^[0-9a-f]{64}$/)
       expect(enviados).toEqual(['https://localhost/storage/upload'])
-      expect(chat.mensagensAtivas[0]).toMatchObject({ id: 101, conteudos: [{ nome: 'nota.txt', extensao: 'txt' }] })
+      expect(simples(chat.mensagensAtivas[0])).toMatchObject({ id: 101, conteudos: [{ nome: 'nota.txt', extensao: 'txt' }] })
     } finally {
       globalThis.XMLHttpRequest = original
     }
@@ -473,7 +476,7 @@ describe('tempo real (WebSocket)', () => {
     chat.definirMensagens(1, [mensagem({ id: 30 })])
     chat.conversaAtivaId = 1
     socket.receber({ tipo: 7, conversa_id: 1, mensagem_id: 30, usuario_id: 2, emoji: '👍', acao: 'add' })
-    expect(chat.mensagensAtivas[0]!.reacoes).toMatchObject([{ emoji: '👍', quantidade: 1, reagiu: false, usuarios: [{ nome: 'Bruno' }] }])
+    expect(simples(chat.mensagensAtivas[0]!.reacoes)).toMatchObject([{ emoji: '👍', quantidade: 1, reagiu: false, usuarios: [{ nome: 'Bruno' }] }])
     socket.receber({ tipo: 7, conversa_id: 1, mensagem_id: 30, usuario_id: 2, emoji: '👍', acao: 'remove' })
     expect(chat.mensagensAtivas[0]!.reacoes).toEqual([])
   })
@@ -485,7 +488,7 @@ describe('tempo real (WebSocket)', () => {
     rota('GET', '/mensagem/status', [{ conversa_id: 1, mensagem_id: 30, recebida: true, visualizada: true, reproduzida: false }])
     socket.receber({ tipo: 3, grupo: 1, mensagens: '30' })
     await aguardar()
-    expect(chat.mensagensAtivas[0]).toMatchObject({ recebida: true, visualizada: true })
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ recebida: true, visualizada: true })
   })
 
   test('evento de chamada vai para quem a tela registrou', async () => {
@@ -610,7 +613,7 @@ describe('reações próprias', () => {
     chat.definirMensagens(1, [mensagem({ id: 9 })])
     chat.conversaAtivaId = 1
     await chat.reagirMensagem(9, '🎉')
-    expect(chat.mensagensAtivas[0]!.reacoes).toMatchObject([{ emoji: '🎉', quantidade: 1, reagiu: true, usuarios: [{ usuario_id: EU, nome: 'Eu' }] }])
+    expect(simples(chat.mensagensAtivas[0]!.reacoes)).toMatchObject([{ emoji: '🎉', quantidade: 1, reagiu: true, usuarios: [{ usuario_id: EU, nome: 'Eu' }] }])
     await chat.reagirMensagem(9, '🎉')
     expect(chat.mensagensAtivas[0]!.reacoes).toEqual([])
   })

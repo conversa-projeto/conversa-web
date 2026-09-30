@@ -46,6 +46,17 @@ export function relogioFalso() {
       }
       agora = fim
     },
+    // Roda uma ação que espera timers (retentativas, por exemplo), avançando o
+    // tempo aos poucos até ela terminar
+    async rodar<T>(acao: Promise<T>, passo = 500, limite = 120_000): Promise<T> {
+      let terminou = false
+      const resultado = acao.finally(() => { terminou = true })
+      for (let total = 0; !terminou && total < limite; total += passo) {
+        for (let i = 0; i < 5; i++) await Bun.sleep(0)
+        if (!terminou) this.avancar(passo)
+      }
+      return resultado
+    },
     pendentes: () => timers.size,
     restaurar() {
       Object.assign(window, { setTimeout: original.setTimeout, clearTimeout: original.clearTimeout, setInterval: original.setInterval, clearInterval: original.clearInterval })

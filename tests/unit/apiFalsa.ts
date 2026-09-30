@@ -1,8 +1,6 @@
 // API falsa no lugar do fetch: as stores chamam o conversaApi, que passa pelo
 // cliente Eden e chega aqui. Cada teste diz o que cada rota responde e confere
 // o que foi pedido.
-import { afterEach } from 'bun:test'
-
 export interface Pedido {
   metodo: string
   caminho: string
@@ -38,7 +36,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init?: RequestInit) => {
     metodo: requisicao.method,
     caminho: url.pathname.replace(/^\/api/, ''),
     consulta: Object.fromEntries(url.searchParams),
-    corpo: texto ? JSON.parse(texto) : undefined,
+    // JSON para a API; texto para o MediaMTX, que recebe SDP
+    corpo: texto && requisicao.headers.get('content-type')?.includes('json') ? JSON.parse(texto) : texto || undefined,
     cabecalhos: requisicao.headers,
   }
   pedidos.push(pedido)
@@ -49,10 +48,13 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init?: RequestInit) => {
   return valor instanceof Response ? valor.clone() : Response.json(valor)
 }) as typeof fetch
 
-afterEach(() => {
+// Chamado antes de cada teste pelo preparar.ts: um gancho registrado aqui só
+// valeria para o primeiro arquivo que importasse este módulo.
+export function limparApiFalsa() {
   rotas = new Map()
   pedidos.length = 0
-})
+  SocketFalso.instancias.length = 0
+}
 
 export function restaurarFetch() {
   globalThis.fetch = fetchOriginal
@@ -103,11 +105,9 @@ export class SocketFalso {
 }
 
 globalThis.WebSocket = SocketFalso as unknown as typeof WebSocket
-afterEach(() => {
-  SocketFalso.instancias.length = 0
-})
 
-// Espera as promessas pendentes (chamadas à API falsa) terminarem
+// Espera as promessas pendentes (chamadas à API falsa) terminarem. Usa o
+// temporizador do Bun, que o relógio falso (que troca o da página) não afeta.
 export async function aguardar(vezes = 5) {
-  for (let i = 0; i < vezes; i++) await new Promise((resolver) => setTimeout(resolver, 0))
+  for (let i = 0; i < vezes; i++) await Bun.sleep(0)
 }
