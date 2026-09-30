@@ -1,0 +1,3 @@
+[test]
+# Página simulada (happy-dom) e leitura dos arquivos .vue
+preload = ["./tests/unit/preparar.ts"]

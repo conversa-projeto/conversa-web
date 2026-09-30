@@ -744,11 +744,11 @@ async function confirmarChamadaGrupo(participantes: number[]) {
   }
 }
 
-async function aceitarChamadaRecebida() {
+async function aceitarChamadaRecebida(apenasAssistir = false) {
   pararToque()
   chamadaFlutuante.value = false
   try {
-    await call.aceitarChamada()
+    await call.aceitarChamada(apenasAssistir)
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao aceitar chamada'
   }
@@ -777,12 +777,12 @@ async function abrirResultadoBusca(mensagemId: number) {
   if (!conversaId) return
 
   try {
-    const ok = await chat.carregarContextoMensagem(conversaId, mensagemId, 30, 30)
-    await nextTick()
-    if (ok) {
-      messageListRef.value?.ativarPaginacaoBidirecional()
-      messageListRef.value?.irParaMensagem(mensagemId)
-    } else {
+    // irParaMensagem carrega o trecho só se a mensagem não estiver na lista, e
+    // nesse caso rola sem animação e repete depois do layout. Carregar antes
+    // aqui trocava as mensagens e a lista restaurava a posição anterior,
+    // cancelando a rolagem suave: era preciso clicar de novo.
+    const ok = await messageListRef.value?.irParaMensagem(mensagemId)
+    if (ok === false) {
       erro.value = 'Nao foi possivel localizar esta mensagem no contexto da conversa.'
     }
   } catch (e) {

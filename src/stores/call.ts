@@ -873,7 +873,8 @@ export const useCallStore = defineStore('call', () => {
   // Enquanto esta aba atende, o aviso de que o usuário entrou é dela mesma
   let atendendoAqui = false
 
-  async function aceitarChamada() {
+  // apenasAssistir: entra com a câmera desligada (pode ligar depois pelo botão).
+  async function aceitarChamada(apenasAssistir = false) {
     if (!chamada.value || estado.value !== 'recebendo') return
     erroMsg.value = ''
     cancelarTemporizadorToque()
@@ -901,9 +902,22 @@ export const useCallStore = defineStore('call', () => {
           }
         }
       }
+      if (apenasAssistir && streamLocal.value) {
+        streamLocal.value.getVideoTracks().forEach(t => { t.enabled = false })
+        cameraMutada.value = true
+      }
       await api.chamadaEntrar(chamada.value.id)
       estado.value = 'ativa'
       iniciarTimerDuracao()
+
+      // Chamada de vídeo sem enviar vídeo (escolheu só assistir, ou está sem
+      // câmera): abre em tela única em quem ligou. Pedido feito já aqui, antes
+      // de conectar aos outros, que pode levar alguns segundos: a janela da
+      // chamada espera o primeiro participante chegar para aplicar.
+      const enviaVideo = !!streamLocal.value?.getVideoTracks().some(t => t.enabled)
+      if (tipoChamada.value === TipoChamada.Video && !enviaVideo) {
+        telaUnicaSolicitada.value = normalizeUserId(chamadaRemetente.value?.usuario_id) ?? 0
+      }
 
       // Publicar stream local no MediaMTX antes de sincronizar peers
       // para que o caller já consiga assinar via WHEP.

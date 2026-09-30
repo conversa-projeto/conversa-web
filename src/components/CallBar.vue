@@ -25,7 +25,15 @@
         :title="estaFalando(auth.user?.id) ? 'Você está falando' : undefined"
       >
         {{ iniciaisUsuario(auth.user?.nome || '') }}
-        <img v-if="avatarUsuario(auth.user?.id)" :src="avatarUsuario(auth.user?.id)" alt="" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+        <!-- key pela URL: ao renovar a URL vencida nasce outra <img>, sem o display:none -->
+        <img
+          v-if="avatarUsuario(auth.user?.id)"
+          :key="avatarUsuario(auth.user?.id)"
+          :src="avatarUsuario(auth.user?.id)"
+          alt=""
+          class="absolute inset-0 h-full w-full object-cover"
+          @error="($event.target as HTMLImageElement).style.display = 'none'; auth.renovarAvatarExpirado(avatarUsuario(auth.user?.id))"
+        />
       </div>
       <div
         v-for="[userId, peer] in call.peers"

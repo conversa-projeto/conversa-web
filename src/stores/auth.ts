@@ -77,6 +77,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // A URL do avatar vence em alguns minutos: uma <img> criada depois disso falha.
+  // Quem exibe o avatar chama isto no @error; pede uma URL nova só se a que
+  // falhou for a atual e não tiver sido renovada há pouco, para não entrar em
+  // laço se o arquivo estiver mesmo indisponível.
+  let avatarRenovadoEm = 0
+  function renovarAvatarExpirado(urlQueFalhou: string) {
+    const atual = urlQueFalhou === avatarUrl.value || urlQueFalhou === user.value?.avatar_url
+    if (!atual || Date.now() - avatarRenovadoEm < 30_000) return
+    avatarRenovadoEm = Date.now()
+    void resolverAvatarUrl()
+  }
+
   function detectarNavegador(): { nome: string; modelo: string; versao_so: string; plataforma: string } {
     const ua = navigator.userAgent
     let nome = 'Navegador'
@@ -214,5 +226,6 @@ export const useAuthStore = defineStore('auth', () => {
     atualizarAvatar,
     removerAvatar,
     resolverAvatarUrl,
+    renovarAvatarExpirado,
   }
 })

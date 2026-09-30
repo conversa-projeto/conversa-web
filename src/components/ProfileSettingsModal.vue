@@ -58,7 +58,15 @@
             <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
               <div class="flex flex-col gap-4 md:flex-row md:items-center">
                 <div class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold text-primary-700">
-                  <img v-if="avatarPreview || avatarAtual" :src="avatarPreview || avatarAtual" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
+                  <!-- key pela URL: ao renovar a URL vencida nasce outra <img>, sem o display:none -->
+                  <img
+                    v-if="avatarPreview || avatarAtual"
+                    :key="avatarPreview || avatarAtual"
+                    :src="avatarPreview || avatarAtual"
+                    alt="Avatar"
+                    class="h-full w-full object-cover"
+                    @error="($event.target as HTMLImageElement).style.display = 'none'; auth.renovarAvatarExpirado(avatarAtual)"
+                  />
                   <span v-if="!avatarPreview && !avatarAtual">{{ inicialUsuario }}</span>
                   <div
                     v-if="uploadProgresso > 0 && uploadProgresso < 100"

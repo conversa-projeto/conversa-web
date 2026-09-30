@@ -191,7 +191,8 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 
 ```bash
 bun run dev        # Inicia o Vite (porta 5173, acessado pelo nginx do backend em HTTPS na 443)
-bun run typecheck  # Checagem de tipos (strict + noUncheckedIndexedAccess)
+bun run typecheck  # Checagem de tipos (strict + noUncheckedIndexedAccess), inclusive dos testes
+bun run test       # Testes unitários (bun test) das funções puras, em tests/unit
 bun run build      # Type-check + build de produção
 bun run preview    # Preview do build de produção
 ```

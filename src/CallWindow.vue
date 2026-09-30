@@ -414,6 +414,7 @@ const modoExibicao = computed<ModoExibicao>(() =>
 const participantesExibicao = computed<(number | 'local')[]>(() => ['local', ...call.peers.keys()])
 
 function definirModoExibicao(modo: ModoExibicao) {
+  call.telaUnicaSolicitada = null
   if (modo === 'grade') {
     telaUnica.value = false
     videoDestaque.value = null
@@ -426,10 +427,11 @@ function definirModoExibicao(modo: ModoExibicao) {
   }
 }
 
-// "Apenas assistir": tela única em quem ligou o vídeo (ou no primeiro outro
-// participante, se ele não estiver na chamada)
-watch(() => call.telaUnicaSolicitada, (usuarioId) => {
-  if (usuarioId === null) return
+// Só assistindo: tela única em quem ligou o vídeo (ou no primeiro outro
+// participante, se ele não estiver na chamada). Logo ao atender os outros
+// ainda estão conectando: o pedido espera o primeiro chegar.
+watch(() => [call.telaUnicaSolicitada, call.peers.size] as const, ([usuarioId]) => {
+  if (usuarioId === null || call.peers.size === 0) return
   call.telaUnicaSolicitada = null
   telaUnica.value = true
   videoDestaque.value = call.peers.has(usuarioId) ? usuarioId : call.peers.keys().next().value ?? 'local'
@@ -519,10 +521,13 @@ watch(() => call.streamLocal, (stream) => bindLocalStream(stream))
 watch(videoLocal, () => bindLocalStream(call.streamLocal))
 watch(videoLocalSidebar, () => bindLocalStream(call.streamLocal))
 
-// Reset highlight if peer leaves
+// Reset highlight if peer leaves. Em tela única, a conexão costuma cair e voltar
+// logo depois de atender: o pedido volta a ficar pendente e é reaplicado quando
+// ele (ou outro participante) reconectar, em vez de cair na grade.
 watch(() => call.peers, () => {
   if (videoDestaque.value !== null && videoDestaque.value !== 'local') {
     if (!call.peers.has(videoDestaque.value)) {
+      if (telaUnica.value) call.telaUnicaSolicitada = videoDestaque.value
       videoDestaque.value = null
     }
   }

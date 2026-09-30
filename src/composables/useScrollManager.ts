@@ -116,20 +116,24 @@ export function useScrollManager() {
    * Usado para navegar até uma mensagem referenciada (resposta, busca, etc).
    * Se a mensagem não estiver no DOM, carrega o contexto dela via API.
    */
-  async function irParaMensagem(mensagemId: number) {
+  async function irParaMensagem(mensagemId: number): Promise<boolean> {
+    // Ir até uma mensagem é sair do fim: sem isto, o observador da abertura
+    // via o conteúdo crescer (contexto novo, imagens) e puxava de volta ao
+    // final, cancelando a rolagem até a mensagem.
+    pararObservadorAberturaScroll()
     let node = document.getElementById(`msg-${mensagemId}`)
     let carregouContexto = false
 
     if (!node) {
       const conversaId = chat.conversaAtivaId
-      if (!conversaId) return
+      if (!conversaId) return false
       const ok = await chat.carregarContextoMensagem(conversaId, mensagemId, 30, 30)
-      if (!ok) return
+      if (!ok) return false
       ativarPaginacaoBidirecional()
       await nextTick()
       await nextTick()
       node = document.getElementById(`msg-${mensagemId}`)
-      if (!node) return
+      if (!node) return false
       carregouContexto = true
     }
 
@@ -151,6 +155,7 @@ export function useScrollManager() {
       node!.classList.remove('ring-2', 'ring-warning-400')
       highlightTimer = 0
     }, 1200)
+    return true
   }
 
   // =====================================================================
