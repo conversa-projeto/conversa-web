@@ -28,7 +28,7 @@ const STUN_FALLBACK: RTCIceServer[] = (() => {
  * temporarias e a politica de transporte (relay-only ou todas). Buscada a
  * cada conexao porque as credenciais expiram.
  */
-async function obterConfigRTC(): Promise<RTCConfiguration> {
+export async function obterConfigRTC(): Promise<RTCConfiguration> {
   try {
     const cfg = await api.getIceServers()
     if (cfg.iceServers.length) {

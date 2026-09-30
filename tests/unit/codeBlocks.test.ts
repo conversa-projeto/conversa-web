@@ -78,6 +78,13 @@ describe('pareceCodigo', () => {
     expect(pareceCodigo('Oi, tudo bem?\nAmanhã a gente conversa.')).toBe(false)
   })
 
+  test('texto com mais de 10 linhas é sugerido como código; com 10, não', () => {
+    const linhas = (n: number) => Array.from({ length: n }, (_, i) => `Linha ${i + 1} do texto.`).join('\n')
+    expect(pareceCodigo(linhas(11))).toBe(true)
+    expect(pareceCodigo(linhas(10) + '\n\n')).toBe(false)
+    expect(pareceCodigo('```\n' + linhas(11) + '\n```')).toBe(false)
+  })
+
   test('uma linha só nunca é código', () => {
     expect(pareceCodigo('const a = 1;')).toBe(false)
   })

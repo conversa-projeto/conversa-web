@@ -194,9 +194,8 @@ describe('nome do navegador no dispositivo', () => {
     expect(await informado(agente)).toMatchObject(esperado)
   })
 
-  // FALHA CONHECIDA: o iPhone se anuncia "like Mac OS X", e a detecção cai em
-  // macOS antes de chegar em iOS (detectarNavegador, stores/auth.ts).
-  test.failing('iPhone é registrado como iOS', async () => {
+  // O iPhone se anuncia "like Mac OS X"
+  test('iPhone é registrado como iOS', async () => {
     const agente = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1'
     expect(await informado(agente)).toMatchObject({ versao_so: 'iOS 17.4', modelo: 'Mobile' })
   })

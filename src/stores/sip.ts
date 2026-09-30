@@ -4,15 +4,17 @@ import { Inviter, Registerer, RegistererState, SessionState, TransportState, Use
 import type { Invitation, Session } from 'sip.js'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
+import { obterConfigRTC } from './call'
 import type { SipConfig } from '../types/api'
 
-const rtcConfiguration: RTCConfiguration = {
-  iceTransportPolicy: 'all',
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: "turns:voip.igerp.com:443", username: "webrtc", credential: "123456" },
-  ],
-  iceCandidatePoolSize: 10,
+// ICE das chamadas SIP: o mesmo do backend (GET /ice), com credenciais TURN
+// temporárias, renovado antes de cada chamada. Sem servidores configurados,
+// fica o padrão do sip.js.
+const opcoesSdh: { peerConnectionConfiguration?: RTCConfiguration } = {}
+
+async function renovarConfigRTC() {
+  const config = await obterConfigRTC()
+  opcoesSdh.peerConnectionConfiguration = config.iceServers?.length ? config : undefined
 }
 
 export const useSipStore = defineStore('sip', () => {
@@ -257,6 +259,7 @@ export const useSipStore = defineStore('sip', () => {
     pararToqueRecebido()
     chamadaRecebida.value = null
     conectandoChamadaRecebida.value = true
+    await renovarConfigRTC()
     await invitation.accept({
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -336,9 +339,7 @@ export const useSipStore = defineStore('sip', () => {
           authorizationUsername: config.auth_user || config.sip_user,
           authorizationPassword: config.sip_password,
           displayName: config.display_name || config.sip_user,
-          sessionDescriptionHandlerFactoryOptions: {
-            peerConnectionOptions: { rtcConfiguration },
-          },
+          sessionDescriptionHandlerFactoryOptions: opcoesSdh,
           delegate: {
             onInvite(invitation: Invitation) {
               session = invitation
@@ -450,6 +451,7 @@ export const useSipStore = defineStore('sip', () => {
     const target = UserAgent.makeURI(`sip:${numero}@${sipConfig.value.domain}`)
     if (!target) throw new Error('Numero de destino invalido.')
 
+    await renovarConfigRTC()
     const inviter = new Inviter(userAgent, target, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },

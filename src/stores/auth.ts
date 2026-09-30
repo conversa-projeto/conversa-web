@@ -112,16 +112,16 @@ export const useAuthStore = defineStore('auth', () => {
     let so = 'Desconhecido'
     if (ua.includes('Windows NT 10')) so = 'Windows 10/11'
     else if (ua.includes('Windows NT')) so = 'Windows'
-    else if (ua.includes('Mac OS X')) {
+    // iPhone e iPad se anunciam "like Mac OS X": testados antes do macOS
+    else if (/iPhone|iPad/.test(ua)) {
+      const v = ua.match(/OS ([\d_]+)/)?.[1]?.replace(/_/g, '.') || ''
+      so = 'iOS' + (v ? ' ' + v : '')
+    } else if (ua.includes('Mac OS X')) {
       const v = ua.match(/Mac OS X ([\d_.]+)/)?.[1]?.replace(/_/g, '.') || ''
       so = 'macOS' + (v ? ' ' + v : '')
     } else if (ua.includes('Android')) {
       so = 'Android ' + (ua.match(/Android ([\d.]+)/)?.[1] || '')
     } else if (ua.includes('Linux')) so = 'Linux'
-    else if (/iPhone|iPad/.test(ua)) {
-      const v = ua.match(/OS ([\d_]+)/)?.[1]?.replace(/_/g, '.') || ''
-      so = 'iOS' + (v ? ' ' + v : '')
-    }
 
     const modelo = /Mobi|Android/.test(ua) ? 'Mobile' : 'Desktop'
 

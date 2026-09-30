@@ -148,9 +148,11 @@ const SINAL_FORTE = /[{};]|=>|\w\([^)]*\)|<\/[a-zA-Z][\w-]*>|^\s*(def|function|c
 const COMANDO_TERMINAL = /^\s*(\$\s+)?(cd|ls|npm|npx|node|docker|git|sudo|apt|curl|chmod|mkdir|rm|cp|mv|psql)\s/
 
 // Texto colado que parece código: duas ou mais linhas, metade delas com cara
-// de código e algum sinal forte (ou um desenho ASCII, ou comandos de terminal)
+// de código e algum sinal forte (ou um desenho ASCII, ou comandos de terminal).
+// Mais de 10 linhas também é sugerido como código.
 export function pareceCodigo(texto: string): boolean {
   if (/^`{3}/m.test(texto)) return false
+  if (texto.trim().split('\n').length > 10) return true
   const linhas = texto.split('\n').filter((linha) => linha.trim())
   if (linhas.length < 2) return false
   const desenho = linhas.filter((linha) => DESENHO_ASCII.test(linha)).length
