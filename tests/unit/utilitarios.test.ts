@@ -314,13 +314,34 @@ describe('endereços dos anexos', () => {
     }
   })
 
-  test('URL sem assinatura é buscada de novo a cada uso', async () => {
+  test('URL sem assinatura vale até falhar ao carregar (sem buscar a cada desenho da tela)', async () => {
     rota('GET', '/anexo', { url: 'https://localhost/storage/sem-assinatura' })
     const anexos = useAttachments()
     await anexos.garantirAnexoUrl('b')
     await anexos.garantirAnexoUrl('b')
     await anexos.garantirAnexoUrl('')
+    for (let i = 0; i < 5; i++) anexos.anexoUrl('b')
+    await aguardar(5)
+    expect(pedidosDe('GET', '/anexo')).toHaveLength(1)
+    await anexos.renovarAnexoUrl('b')
     expect(pedidosDe('GET', '/anexo')).toHaveLength(2)
+  })
+
+  test('anexo indisponível em segundo plano não deixa erro solto; abrir repassa o erro', async () => {
+    rota('GET', '/anexo', new Response('{"error":"Anexo não encontrado"}', { status: 404, headers: { 'content-type': 'application/json' } }))
+    const soltos: unknown[] = []
+    const aoErro = (e: unknown) => void soltos.push(e)
+    process.on('unhandledRejection', aoErro)
+    try {
+      const anexos = useAttachments()
+      expect(anexos.anexoUrl('sumiu')).toBe('')
+      await anexos.renovarAnexoUrl('sumiu2')
+      await aguardar(10)
+      expect(soltos).toEqual([])
+      await expect(anexos.abrirAnexo('sumiu')).rejects.toThrow('Anexo não encontrado')
+    } finally {
+      process.off('unhandledRejection', aoErro)
+    }
   })
 
   test('renovar depois de um erro de carga: uma tentativa por minuto', async () => {

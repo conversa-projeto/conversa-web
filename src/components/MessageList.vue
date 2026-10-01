@@ -51,7 +51,7 @@
             :get-anexo-url="anexoUrl"
             @open-image="(id, nome) => emit('open-image', id, nome)"
             @image-loaded="aoCarregarImagemNoChat"
-            @download="(id, nome) => abrirAnexo(id, nome)"
+            @download="baixarAnexo"
             @reply="(msg) => chat.responderMensagem(msg)"
             @responder-privado="(msg) => chat.responderNoPrivado(msg).catch((e) => console.error('Erro ao responder no privado', e))"
             @forward="(msg) => emit('forward', msg)"
@@ -195,6 +195,12 @@ onBeforeUnmount(() => {
 })
 
 const { anexoUrl, renovarAnexoUrl, abrirAnexo, limparAnexos } = useAttachments()
+
+function baixarAnexo(identificador: string, nome: string) {
+  abrirAnexo(identificador, nome).catch((e) => {
+    window.alert(e instanceof Error ? e.message : 'Erro ao baixar o anexo')
+  })
+}
 
 provide('renovarAnexoUrl', renovarAnexoUrl)
 

@@ -202,6 +202,21 @@ describe('ações nas mensagens', () => {
     }
   })
 
+  test('baixar anexo indisponível avisa o erro', async () => {
+    rota('GET', '/anexo', erro(404, 'Anexo não encontrado'))
+    const avisos: string[] = []
+    const alertOriginal = window.alert
+    window.alert = (texto?: string) => void avisos.push(texto ?? '')
+    try {
+      await abrir([msg(1, 2, dia(1))])
+      bolhas()[0]!.vm.$emit('download', 'sumiu', 'a.txt')
+      await aguardar(10)
+      expect(avisos).toEqual(['Anexo não encontrado'])
+    } finally {
+      window.alert = alertOriginal
+    }
+  })
+
   test('baixar um anexo salva com o nome do arquivo', async () => {
     rota('GET', '/anexo', { url: 'https://localhost/storage/arq-1' })
     rota('GET', '/storage/arq-1', new Response('conteúdo'))

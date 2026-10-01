@@ -5,6 +5,8 @@ import { getAnexoUrl } from '../services/conversaApi'
 // validade vem na propria URL, em X-Amz-Date e X-Amz-Expires, e e guardada
 // aqui: sem isso a URL em cache continuava sendo usada depois de vencida e o
 // MinIO recusava o acesso ate a pagina ser recarregada.
+// URL sem validade conhecida (sem assinatura) vale ate falhar ao carregar
+// (renovarAnexoUrl): tratada como vencida, cada desenho da tela buscava outra.
 const MARGEM_RENOVACAO_MS = 60_000
 
 function expiracaoDaUrl(url: string): number {
@@ -13,13 +15,13 @@ function expiracaoDaUrl(url: string): number {
     const data = parametros.get('X-Amz-Date')
     const segundos = Number(parametros.get('X-Amz-Expires'))
     if (!data || !segundos) {
-      return 0
+      return Infinity
     }
     const iso = `${data.slice(0, 4)}-${data.slice(4, 6)}-${data.slice(6, 8)}T${data.slice(9, 11)}:${data.slice(11, 13)}:${data.slice(13, 15)}Z`
     const assinadaEm = Date.parse(iso)
-    return Number.isNaN(assinadaEm) ? 0 : assinadaEm + segundos * 1000
+    return Number.isNaN(assinadaEm) ? Infinity : assinadaEm + segundos * 1000
   } catch {
-    return 0
+    return Infinity
   }
 }
 
@@ -58,7 +60,8 @@ export function useAttachments() {
 
   function anexoUrl(identificador: string): string {
     if (!urlValida(identificador)) {
-      void garantirAnexoUrl(identificador)
+      // Em segundo plano: sem URL a imagem só fica sem aparecer
+      garantirAnexoUrl(identificador).catch(() => {})
     }
     return anexosUrl.value[identificador] || ''
   }
@@ -97,6 +100,8 @@ export function useAttachments() {
     anexosCarregando.add(identificador)
     try {
       guardarUrl(identificador, await getAnexoUrl(identificador))
+    } catch {
+      // Anexo indisponível: a imagem continua sem carregar
     } finally {
       anexosCarregando.delete(identificador)
       // Permitir nova tentativa após 60s

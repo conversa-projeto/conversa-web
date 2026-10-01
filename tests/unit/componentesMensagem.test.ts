@@ -105,7 +105,7 @@ describe('ações da mensagem', () => {
     await abrir(agendada)
     await botao(agendada, 'Excluir').trigger('click')
     expect(agendada.emitted('excluir')).toHaveLength(1)
-    const saiu = acoes({ isOwn: true, mensagem: mensagem({ id: 6, visivel_em: new Date(Date.now() - 3600_000) }) })
+    const saiu = acoes({ isOwn: true, mensagem: mensagem({ id: 6, visivel_em: new Date(Date.now() - 1000) }) })
     await abrir(saiu)
     expect(saiu.text()).not.toContain('Excluir')
     const normal = acoes({ isOwn: true })
@@ -132,6 +132,20 @@ describe('ações da mensagem', () => {
     await tela.vm.$nextTick()
     await botao(tela, 'Copiar').trigger('click')
     expect(tela.emitted('copiar')![0]![1]).toEqual(alvo)
+  })
+
+  test('agendada sai na hora: o Excluir some no minuto marcado, sem esperar o ciclo de 30 s', async () => {
+    const relogio = relogioFalso()
+    try {
+      const tela = acoes({ isOwn: true, mensagem: mensagem({ id: 7, visivel_em: new Date(Date.now() + 5000) }) })
+      await abrir(tela)
+      expect(tela.text()).toContain('Excluir')
+      relogio.avancar(5000)
+      await tela.vm.$nextTick()
+      expect(tela.text()).not.toContain('Excluir')
+    } finally {
+      relogio.restaurar()
+    }
   })
 
   test('menu e seletor não saem da tela: minha mensagem alinha pela direita, e sobem quando não cabem embaixo', async () => {

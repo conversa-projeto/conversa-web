@@ -106,7 +106,7 @@ describe('status, agendamento e reações', () => {
   test('agendada para o futuro mostra o aviso só para o autor', () => {
     const futuro = new Date(Date.now() + 3600_000)
     expect(bolha(mensagem({ visivel_em: futuro, conteudos: [texto('x')] }), { isOwn: true }).text()).toContain('Agendada para')
-    expect(bolha(mensagem({ visivel_em: new Date(Date.now() - 3600_000), conteudos: [texto('x')] }), { isOwn: true }).text()).not.toContain('Agendada para')
+    expect(bolha(mensagem({ visivel_em: new Date(Date.now() - 1000), conteudos: [texto('x')] }), { isOwn: true }).text()).not.toContain('Agendada para')
   })
 
   test('reações aparecem com a quantidade; clicar reage com o mesmo emoji', async () => {

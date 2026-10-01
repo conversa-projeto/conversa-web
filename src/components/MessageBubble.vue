@@ -273,7 +273,7 @@ const componenteMap = {
 
 const ehChamada = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Chamada)
 
-const agora = useAgora()
+const agora = useAgora(() => props.mensagem.visivel_em)
 
 /** True quando a mensagem esta agendada para um momento ainda no futuro. */
 const ehAgendadaFutura = computed(() => {

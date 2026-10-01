@@ -290,7 +290,7 @@ function acaoExcluir() {
 // - So mensagens agendadas podem ser excluidas (visivel_em != null).
 // - Somente enquanto a mensagem NAO amadureceu (visivel_em > agora).
 //   Apos o momento de amadurecimento, o botao some.
-const agora = useAgora()
+const agora = useAgora(() => props.mensagem.visivel_em)
 const podeExcluir = computed(() => {
   const visivelEm = props.mensagem.visivel_em
   if (!visivelEm) return false

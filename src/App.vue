@@ -443,7 +443,7 @@ const {
 watch(imagemTelaCheiaAberta, (aberta) => {
   if (aberta && !imagemGaleriaOverride.value) {
     for (const item of galeriaImagens.value) {
-      void garantirAnexoUrl(item.identificador)
+      garantirAnexoUrl(item.identificador).catch(() => {})
     }
   }
 })

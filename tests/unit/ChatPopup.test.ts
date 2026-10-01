@@ -37,15 +37,11 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-// URL assinada como a do MinIO: sem a assinatura, o app acha que venceu e busca de novo
-const assinadaEm = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
-const urlAssinada = `https://localhost/storage/img-1?X-Amz-Date=${assinadaEm}&X-Amz-Expires=600`
-
 const mensagemApi = (id: number, conteudos: object[]) => ({ id, remetente_id: 2, remetente: 'Bruno', conversa_id: 1, inserida: new Date(2026, 2, 1).toISOString(), alterada: null, visivel_em: null, recebida: true, visualizada: true, reproduzida: false, conteudos })
 
 async function abrir(conversaId = 1) {
   rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Bruno', login: 'bruno', email: 'b@t' }])
-  rota('GET', '/anexo', { url: urlAssinada })
+  rota('GET', '/anexo', { url: 'https://localhost/storage/img-1' })
   rota('GET', '/conversas', [{ id: 1, descricao: 'Bruno', tipo: TipoConversa.Direta, destinatario_id: 2, inserida: new Date().toISOString() }, { id: 2, descricao: 'Equipe', tipo: TipoConversa.Grupo, inserida: new Date().toISOString() }])
   rota('GET', '/mensagens', [
     mensagemApi(10, [{ ordem: 1, tipo: TipoConteudo.Imagem, conteudo: 'img-1', nome: 'praia.png' }, { ordem: 2, tipo: TipoConteudo.Texto, conteudo: ' Olha a praia ' }]),
@@ -90,7 +86,7 @@ describe('janela de conversa separada', () => {
   })
 
   test('abrir imagem mostra a galeria das imagens da conversa, com o texto junto', async () => {
-    rota('GET', '/anexo', { url: urlAssinada })
+    rota('GET', '/anexo', { url: 'https://localhost/storage/img-1' })
     await abrir()
     tela!.findComponent(MessageList).vm.$emit('open-image', 'img-1', 'praia.png')
     await aguardar(20)
