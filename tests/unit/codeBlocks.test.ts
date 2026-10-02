@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { cercaCodigo, ehDesenhoAscii, parseCodeBlocks, pareceCodigo, removerBlocosCodigo, resumirCodigo, temCodigoFormatado } from '@/utils/codeBlocks'
+import { cercaCodigo, ehDesenhoAscii, parseCodeBlocks, pareceCodigo, removerBlocosCodigo, textoLongo, resumirCodigo, temCodigoFormatado } from '@/utils/codeBlocks'
 
 describe('parseCodeBlocks', () => {
   test('separa texto e código com a linguagem', () => {
@@ -78,11 +78,14 @@ describe('pareceCodigo', () => {
     expect(pareceCodigo('Oi, tudo bem?\nAmanhã a gente conversa.')).toBe(false)
   })
 
-  test('texto com mais de 10 linhas é sugerido como código; com 10, não', () => {
+  test('texto longo: mais de 10 linhas (sem contar as vazias do fim), com ou sem blocos ``` dentro', () => {
     const linhas = (n: number) => Array.from({ length: n }, (_, i) => `Linha ${i + 1} do texto.`).join('\n')
-    expect(pareceCodigo(linhas(11))).toBe(true)
-    expect(pareceCodigo(linhas(10) + '\n\n')).toBe(false)
-    expect(pareceCodigo('```\n' + linhas(11) + '\n```')).toBe(false)
+    expect(textoLongo(linhas(11))).toBe(true)
+    expect(textoLongo(linhas(10) + '\n\n')).toBe(false)
+    expect(textoLongo('Exemplo:\n```js\nconst a = 1\n```\n' + linhas(160))).toBe(true)
+    expect(textoLongo(linhas(5).replace(/\n/g, '\r\n') + '\r\n' + linhas(8).replace(/\n/g, '\r\n'))).toBe(true)
+    // Texto comum longo não é tratado como código direto: só a sugestão
+    expect(pareceCodigo(linhas(11))).toBe(false)
   })
 
   test('uma linha só nunca é código', () => {

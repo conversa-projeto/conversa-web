@@ -148,11 +148,9 @@ const SINAL_FORTE = /[{};]|=>|\w\([^)]*\)|<\/[a-zA-Z][\w-]*>|^\s*(def|function|c
 const COMANDO_TERMINAL = /^\s*(\$\s+)?(cd|ls|npm|npx|node|docker|git|sudo|apt|curl|chmod|mkdir|rm|cp|mv|psql)\s/
 
 // Texto colado que parece código: duas ou mais linhas, metade delas com cara
-// de código e algum sinal forte (ou um desenho ASCII, ou comandos de terminal).
-// Mais de 10 linhas também é sugerido como código.
+// de código e algum sinal forte (ou um desenho ASCII, ou comandos de terminal)
 export function pareceCodigo(texto: string): boolean {
   if (/^`{3}/m.test(texto)) return false
-  if (texto.trim().split('\n').length > 10) return true
   const linhas = texto.split('\n').filter((linha) => linha.trim())
   if (linhas.length < 2) return false
   const desenho = linhas.filter((linha) => DESENHO_ASCII.test(linha)).length
@@ -161,6 +159,13 @@ export function pareceCodigo(texto: string): boolean {
   if (comandos / linhas.length >= 0.5) return true
   const comCara = linhas.filter((linha) => LINHA_CODIGO.test(linha) || COMANDO_TERMINAL.test(linha)).length
   return comCara >= 2 && comCara / linhas.length >= 0.5 && SINAL_FORTE.test(texto)
+}
+
+// Texto colado longo demais para uma mensagem comum: sugere inserir como código.
+// Vale também com blocos ``` dentro (Markdown, texto de outro chat): a cerca
+// externa fica maior que as de dentro (cercaCodigo).
+export function textoLongo(texto: string): boolean {
+  return texto.trim().split('\n').length > 10
 }
 
 export function ehDesenhoAscii(texto: string): boolean {

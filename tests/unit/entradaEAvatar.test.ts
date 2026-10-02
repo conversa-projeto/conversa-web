@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MessageInput from '@/components/MessageInput.vue'
+import CodigoModal from '@/components/CodigoModal.vue'
 import CallBar from '@/components/CallBar.vue'
 import ProfileSettingsModal from '@/components/ProfileSettingsModal.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -95,16 +96,102 @@ describe('colar texto', () => {
     return campo
   }
 
-  test('mais de 10 linhas viram bloco de código', async () => {
-    const texto = Array.from({ length: 11 }, (_, i) => `Linha ${i + 1} do texto.`).join('\n')
-    const { evento, caixa, restaurar } = colar(montarCampo(), texto)
+  const textoLongo = Array.from({ length: 11 }, (_, i) => `const linha${i + 1} = ${i + 1};`).join('\n') + '\n'
+
+  async function janelaCodigo(campo: VueWrapper) {
+    await aguardar(50)
+    return campo.findComponent(CodigoModal)
+  }
+
+  test('mais de 10 linhas abrem a janela de código já preenchida, com a linguagem', async () => {
+    const campo = montarCampo()
+    const { evento, caixa, restaurar } = colar(campo, textoLongo)
     try {
       expect(evento.defaultPrevented).toBe(true)
-      await aguardar(50)
-      expect(caixa.value).toMatch(/^```\w+\nLinha 1 do texto\.\n[\s\S]*Linha 11 do texto\.\n```$/)
+      const janela = await janelaCodigo(campo)
+      expect(janela.exists()).toBe(true)
+      expect(janela.props('codigoInicial')).toBe(textoLongo.trimEnd())
+      expect(janela.props('linguagemInicial')).toBe('javascript')
+      expect(janela.text()).toContain('const linha11 = 11;')
+      expect((janela.find('select').element as HTMLSelectElement).value).toBe('javascript')
+      // Nada vai para a caixa enquanto a janela decide
+      expect(caixa.value).toBe('')
     } finally {
       restaurar()
     }
+  })
+
+  test('Enviar na janela manda o bloco de código', async () => {
+    rota('PUT', '/mensagem', { id: 50 })
+    // Depois do envio a lista de conversas é atualizada
+    rota('GET', '/conversas', [])
+    const campo = montarCampo()
+    const { restaurar } = colar(campo, textoLongo)
+    try {
+      const janela = await janelaCodigo(campo)
+      await janela.findAll('button').find((b) => b.text() === 'Enviar')!.trigger('click')
+      await aguardar(30)
+      const [envio] = pedidosDe('PUT', '/mensagem')
+      expect(envio!.corpo.conteudos[0].conteudo).toBe('```javascript\n' + textoLongo.trimEnd() + '\n```')
+      expect(campo.findComponent(CodigoModal).exists()).toBe(false)
+    } finally {
+      restaurar()
+    }
+  })
+
+  test('texto longo com blocos ``` dentro também abre a janela; a cerca de fora é maior', async () => {
+    rota('PUT', '/mensagem', { id: 51 })
+    rota('GET', '/conversas', [])
+    const markdown = '# Guia\n\nExemplo:\n```js\nconst a = 1\n```\n' + Array.from({ length: 160 }, (_, i) => `Passo ${i}.`).join('\n')
+    const campo = montarCampo()
+    const { restaurar } = colar(campo, markdown)
+    try {
+      const janela = await janelaCodigo(campo)
+      expect(janela.exists()).toBe(true)
+      expect(janela.props('linguagemInicial')).toBe('markdown')
+      await janela.findAll('button').find((b) => b.text() === 'Enviar')!.trigger('click')
+      await aguardar(30)
+      const enviado: string = pedidosDe('PUT', '/mensagem')[0]!.corpo.conteudos[0].conteudo
+      expect(enviado.startsWith('````markdown\n')).toBe(true)
+      expect(enviado.endsWith('\n````')).toBe(true)
+      expect(enviado).toContain('```js\nconst a = 1\n```')
+    } finally {
+      restaurar()
+    }
+  })
+
+  test('Cancelar cola o texto como estava (era só sugestão)', async () => {
+    const campo = montarCampo()
+    const { caixa, restaurar } = colar(campo, textoLongo)
+    try {
+      const janela = await janelaCodigo(campo)
+      await janela.findAll('button').find((b) => b.text() === 'Cancelar')!.trigger('click')
+      await aguardar()
+      expect(campo.findComponent(CodigoModal).exists()).toBe(false)
+      expect(caixa.value).toBe(textoLongo.trimEnd())
+    } finally {
+      restaurar()
+    }
+  })
+
+  test('código curto colado vira bloco direto, sem janela', async () => {
+    const { evento, caixa, restaurar } = colar(montarCampo(), 'function soma(a, b) {\n  return a + b;\n}')
+    try {
+      expect(evento.defaultPrevented).toBe(true)
+      await aguardar(50)
+      expect(caixa.value).toMatch(/^```\w+\nfunction soma\(a, b\) \{\n  return a \+ b;\n\}\n```$/)
+    } finally {
+      restaurar()
+    }
+  })
+
+  test('abrir a janela pelo menu de anexo começa vazia', async () => {
+    const campo = montarCampo()
+    await campo.find('button[title="Anexar"]').trigger('click')
+    await campo.findAll('button').find((b) => b.text() === 'Código')!.trigger('click')
+    const janela = await janelaCodigo(campo)
+    expect(janela.props('codigoInicial')).toBeUndefined()
+    expect(janela.props('linguagemInicial')).toBeUndefined()
   })
 
   test('texto comum curto é colado normalmente', () => {

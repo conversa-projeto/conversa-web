@@ -66,15 +66,25 @@ import { shell } from '@codemirror/legacy-modes/mode/shell'
 import { csharp } from '@codemirror/legacy-modes/mode/clike'
 import { pascal } from '@codemirror/legacy-modes/mode/pascal'
 
+// Texto longo colado na mensagem chega pronto, com a linguagem detectada
+const props = defineProps<{
+  codigoInicial?: string
+  linguagemInicial?: string
+}>()
+
 const emit = defineEmits<{
   inserir: [payload: { linguagem: string; codigo: string }]
   close: []
 }>()
 
-const linguagens = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal', 'markdown', 'mermaid']
-const linguagem = ref('texto')
+const LINGUAGENS = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal', 'markdown', 'mermaid']
+// A linguagem detectada no texto colado pode não estar na lista
+const linguagens = props.linguagemInicial && !LINGUAGENS.includes(props.linguagemInicial)
+  ? [...LINGUAGENS, props.linguagemInicial]
+  : LINGUAGENS
+const linguagem = ref(props.linguagemInicial || 'texto')
 const editorContainer = ref<HTMLElement>()
-const codigo = ref('')
+const codigo = ref(props.codigoInicial || '')
 const temCodigo = computed(() => codigo.value.trim().length > 0)
 
 const { isDark } = useTheme()
@@ -142,7 +152,7 @@ onMounted(() => {
   })
 
   const state = EditorState.create({
-    doc: '',
+    doc: codigo.value,
     extensions: [
       basicSetup,
       themeCompartment.of(getThemeExtension()),

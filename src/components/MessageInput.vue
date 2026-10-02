@@ -201,8 +201,10 @@
     <!-- Codigo Modal -->
     <CodigoModal
       v-if="mostrarCodigo"
+      :codigo-inicial="codigoColado?.codigo"
+      :linguagem-inicial="codigoColado?.linguagem"
       @inserir="onInserirCodigo"
-      @close="mostrarCodigo = false"
+      @close="fecharCodigo"
     />
 
     <!-- Agendar Modal -->
@@ -222,7 +224,7 @@ import { dividirMencoes, extrairMencoesCruas, textoParaEnvio, type MencaoInserid
 import { useChatStore } from '../stores/chat'
 import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
 import { substituirAtalhoAntesDoCursor, substituirAtalhoNoFim } from '../utils/emojiAtalhos'
-import { cercaCodigo, ehDesenhoAscii, pareceCodigo } from '../utils/codeBlocks'
+import { cercaCodigo, ehDesenhoAscii, pareceCodigo, textoLongo } from '../utils/codeBlocks'
 import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { useFilaArquivos } from '../composables/useFilaArquivos'
@@ -408,6 +410,7 @@ function onInserirCodigo(payload: { linguagem: string; codigo: string }) {
   const cerca = cercaCodigo(payload.codigo)
   const bloco = cerca + payload.linguagem + '\n' + payload.codigo + '\n' + cerca
   mostrarCodigo.value = false
+  codigoColado.value = null
   textoMensagem.value = bloco
   nextTick(() => enviarMensagem())
 }
@@ -747,6 +750,11 @@ function aoColarNoChat(event: ClipboardEvent) {
   if (!items || items.length === 0) return
 
   const texto = event.clipboardData?.getData('text/plain') || ''
+  if (textoLongo(texto)) {
+    event.preventDefault()
+    void sugerirCodigo(texto)
+    return
+  }
   if (pareceCodigo(texto)) {
     event.preventDefault()
     void colarComoCodigo(texto)
@@ -765,6 +773,30 @@ function aoColarNoChat(event: ClipboardEvent) {
     fila.arquivosFila.value = [...fila.arquivosFila.value, novoItem]
     return
   }
+}
+
+// Texto longo colado abre a janela de código já preenchida. Cancelar cola o
+// texto como estava: a janela é só uma sugestão.
+const codigoColado = ref<{ codigo: string; linguagem: string } | null>(null)
+
+async function sugerirCodigo(texto: string) {
+  const codigo = texto.replace(/\n+$/, '')
+  // Com blocos ``` dentro, o texto é Markdown (mostrado formatado na mensagem)
+  const linguagem = /^`{3}/m.test(codigo)
+    ? 'markdown'
+    : ehDesenhoAscii(codigo) ? 'texto' : await detectarLinguagem(codigo).catch(() => 'texto')
+  codigoColado.value = { codigo, linguagem }
+  mostrarCodigo.value = true
+}
+
+function fecharCodigo() {
+  mostrarCodigo.value = false
+  const colado = codigoColado.value
+  codigoColado.value = null
+  const el = textareaMsg.value
+  if (!colado || !el) return
+  el.focus()
+  document.execCommand('insertText', false, colado.codigo)
 }
 
 // Código colado vai entre crases, com a linguagem detectada. Entra primeiro

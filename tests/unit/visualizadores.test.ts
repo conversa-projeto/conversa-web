@@ -11,7 +11,7 @@ import { conteudo } from './fabrica'
 
 const montados: VueWrapper[] = []
 function montar<T>(componente: T, opcoes: object) {
-  const w = mount(componente as never, { attachTo: document.body, ...opcoes })
+  const w = mount(componente as never, { attachTo: document.body, ...opcoes }) as unknown as VueWrapper
   montados.push(w)
   return w
 }
@@ -124,6 +124,65 @@ describe('arquivo no chat', () => {
   test('arquivo ainda sendo enviado (local) não tem Abrir nem Download', () => {
     const tela = montar(MessageContent, { props: props('pagina.html', { localUrl: 'blob:x' }) })
     expect(tela.findAll('button').filter((b) => ['Abrir', 'Download'].includes(b.text()))).toEqual([])
+  })
+})
+
+describe('código longo na mensagem', () => {
+  // happy-dom não calcula layout: o teste diz as alturas e avisa as mudanças
+  let avisar: ((entradas: { target: Element }[]) => void) | null
+  const observados: Element[] = []
+  const observadorOriginal = globalThis.ResizeObserver
+  beforeEach(() => {
+    observados.length = 0
+    globalThis.ResizeObserver = class {
+      constructor(retorno: (entradas: { target: Element }[]) => void) { avisar = retorno }
+      observe(el: Element) { observados.push(el) }
+      unobserve() {}
+      disconnect() {}
+    } as never
+  })
+  afterEach(() => { globalThis.ResizeObserver = observadorOriginal })
+
+  const alturas = (el: Element, total: number, visivel: number) => {
+    Object.defineProperty(el, 'scrollHeight', { value: total, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { value: visivel, configurable: true })
+  }
+  const codigo = Array.from({ length: 40 }, (_, i) => `linha ${i}`).join('\n')
+
+  test('bloco que nasce escondido ganha o botão de expandir quando aparece', async () => {
+    const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Texto, '```ts\n' + codigo + '\n```'), mensagemId: 1, getAnexoUrl: () => '' } })
+    const bloco = tela.find('pre[data-bloco-codigo]')
+    // Escondido ao montar: altura 0, sem botão
+    expect(tela.text()).not.toContain('Expandir código')
+    expect(observados).toContain(bloco.element)
+    alturas(bloco.element, 800, 240)
+    avisar!([{ target: bloco.element }])
+    await tela.vm.$nextTick()
+    expect(tela.text()).toContain('Expandir código')
+    expect(bloco.classes()).toContain('max-h-60')
+    await tela.findAll('button').find((b) => b.text() === 'Expandir código')!.trigger('click')
+    expect(bloco.classes()).not.toContain('max-h-60')
+    expect(tela.text()).toContain('Recolher código')
+  })
+
+  test('conteúdo que cresce depois (aviso vindo do filho) também conta', async () => {
+    const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Texto, '```ts\n' + codigo + '\n```'), mensagemId: 1, getAnexoUrl: () => '' } })
+    const bloco = tela.find('pre[data-bloco-codigo]')
+    const filho = bloco.find('code').element
+    expect(observados).toContain(filho)
+    alturas(bloco.element, 900, 240)
+    avisar!([{ target: filho }])
+    await tela.vm.$nextTick()
+    expect(tela.text()).toContain('Expandir código')
+  })
+
+  test('código curto não ganha botão', async () => {
+    const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Texto, '```ts\nconst a = 1\n```'), mensagemId: 1, getAnexoUrl: () => '' } })
+    const bloco = tela.find('pre[data-bloco-codigo]')
+    alturas(bloco.element, 40, 40)
+    avisar!([{ target: bloco.element }])
+    await tela.vm.$nextTick()
+    expect(tela.text()).not.toContain('Expandir código')
   })
 })
 

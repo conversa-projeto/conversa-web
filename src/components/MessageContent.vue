@@ -48,6 +48,7 @@
               <div
                 v-if="mostrarVisual(seg, segIdx)"
                 :ref="(el) => medirCodigo(el as Element | null, chaveBloco(seg, segIdx))"
+                data-bloco-codigo
                 :class="[
                   CLASSES_MARKDOWN,
                   codigoSemBorda ? '' : (codigosLongos.has(chaveBloco(seg, segIdx)) ? 'border border-b-0 border-surface-200' : 'rounded-b border border-surface-200'),
@@ -58,6 +59,7 @@
               <pre
                 v-else
                 :ref="(el) => medirCodigo(el as Element | null, chaveBloco(seg, segIdx))"
+                data-bloco-codigo
                 class="whitespace-pre-wrap break-words bg-surface-50 p-3 text-xs leading-relaxed text-surface-800"
                 :class="[
                   codigoSemBorda ? '' : (codigosLongos.has(chaveBloco(seg, segIdx)) ? 'border border-b-0 border-surface-200' : 'rounded-b border border-surface-200'),
@@ -249,7 +251,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, inject, reactive, ref, watch } from 'vue'
+import { defineAsyncComponent, inject, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
 import { classeTextoMensagem, isVideoConteudo, normalizarExtensaoArquivo, parseLinks, parseTextSegments, formatarUrl } from '../utils/formatters'
@@ -319,10 +321,35 @@ const { codigosCopiados, copiarCodigo, highlightCodigo } = useCodeHighlight()
 const codigosLongos = reactive(new Set<string>())
 const codigosExpandidos = reactive(new Set<string>())
 
-function medirCodigo(el: Element | null, chave: string) {
-  if (!el || codigosLongos.has(chave) || codigosExpandidos.has(chave)) return
+function verificarCodigoLongo(el: Element, chave: string) {
+  if (codigosLongos.has(chave) || codigosExpandidos.has(chave)) return
   if (el.scrollHeight > el.clientHeight + 1) codigosLongos.add(chave)
 }
+
+// Mede de novo quando o tamanho muda: medido só ao montar, o bloco que nasce
+// escondido (mensagem chegando com outra seção aberta) ou antes do layout
+// assentar dava altura 0 e ficava cortado sem o botão de expandir.
+const chavesObservadas = new Map<Element, string>()
+const observadorCodigo = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver((entradas) => {
+  for (const { target } of entradas) {
+    const bloco = target.closest('[data-bloco-codigo]') ?? target
+    const chave = chavesObservadas.get(bloco)
+    if (chave) verificarCodigoLongo(bloco, chave)
+  }
+})
+
+function medirCodigo(el: Element | null, chave: string) {
+  if (!el) return
+  if (chavesObservadas.get(el) !== chave) {
+    chavesObservadas.set(el, chave)
+    observadorCodigo?.observe(el)
+    // O conteúdo cresce dentro da altura máxima sem mudar o tamanho do bloco
+    if (el.firstElementChild) observadorCodigo?.observe(el.firstElementChild)
+  }
+  verificarCodigoLongo(el, chave)
+}
+
+onBeforeUnmount(() => observadorCodigo?.disconnect())
 
 function alternarCodigo(chave: string) {
   if (codigosExpandidos.has(chave)) codigosExpandidos.delete(chave)
