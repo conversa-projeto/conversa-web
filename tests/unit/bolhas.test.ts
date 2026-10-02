@@ -9,6 +9,8 @@ import BolhaReferencia from '@/components/BolhaReferencia.vue'
 import BolhaTextoCurto from '@/components/BolhaTextoCurto.vue'
 import BolhaPadrao from '@/components/BolhaPadrao.vue'
 import BolhaChamada from '@/components/BolhaChamada.vue'
+import BolhaExcluida from '@/components/BolhaExcluida.vue'
+import MensagemAcoes from '@/components/MensagemAcoes.vue'
 import { TipoConteudo, TipoMensagemReferencia, type Mensagem } from '@/types/api'
 import { comReferencia, conteudo, mensagem, texto } from './fabrica'
 
@@ -117,5 +119,59 @@ describe('status, agendamento e reações', () => {
     expect(tela.text()).toContain('Bruno')
     await botao.trigger('click')
     expect(tela.emitted('reagir')).toEqual([[9, '👍']])
+  })
+})
+
+describe('mensagem excluída', () => {
+  const excluida = (extras: Partial<Mensagem> = {}) => mensagem({ id: 40, remetente: 'Bruno', excluida_em: new Date(), conteudos: [texto('conteúdo secreto')], ...extras })
+
+  test('usa a bolha de excluída: sem o conteúdo, sem ações e sem reações', () => {
+    const tela = bolha(excluida({ reacoes: [{ emoji: '👍', quantidade: 1, reagiu: false, usuarios: [] }] }))
+    expect(tela.findComponent(BolhaExcluida).exists()).toBe(true)
+    expect(tela.text()).toContain('Mensagem excluída')
+    expect(tela.text()).not.toContain('conteúdo secreto')
+    expect(tela.findComponent(MensagemAcoes).exists()).toBe(false)
+    expect(tela.find('button.reacao-btn').exists()).toBe(false)
+  })
+
+  test('clique mostra o conteúdo e outro clique oculta; teclado também', async () => {
+    const tela = bolha(excluida())
+    const corpo = tela.findComponent(BolhaExcluida)
+    expect(corpo.attributes('title')).toBe('Clique para ver o conteúdo')
+    await corpo.trigger('click')
+    expect(tela.text()).toContain('conteúdo secreto')
+    expect(tela.text()).toContain('Mensagem excluída')
+    expect(corpo.attributes('title')).toBe('Clique para ocultar o conteúdo')
+    expect(corpo.attributes('aria-expanded')).toBe('true')
+    await corpo.trigger('click')
+    expect(tela.text()).not.toContain('conteúdo secreto')
+    await corpo.trigger('keydown', { key: 'Enter' })
+    expect(tela.text()).toContain('conteúdo secreto')
+    await corpo.trigger('keydown', { key: ' ' })
+    expect(tela.text()).not.toContain('conteúdo secreto')
+  })
+
+  test('com o conteúdo à mostra, clicar nos controles dele (ex.: baixar arquivo) não oculta', async () => {
+    const tela = bolha(excluida({ conteudos: [conteudo(TipoConteudo.Arquivo, 'arq-1', { nome: 'contrato.xlsx' })] }))
+    const corpo = tela.findComponent(BolhaExcluida)
+    await corpo.trigger('click')
+    const download = tela.findAll('button').find((b) => b.text() === 'Download')!
+    await download.trigger('click')
+    expect(tela.text()).toContain('contrato.xlsx')
+    expect(tela.emitted('download')).toEqual([['arq-1', 'contrato.xlsx']])
+  })
+
+  test('em grupo mostra quem enviou; a minha continua com os tiques de entrega', () => {
+    expect(bolha(excluida(), { isGroup: true }).text()).toContain('Bruno')
+    const minha = bolha(excluida({ remetente: 'Eu', visualizada: true }), { isOwn: true })
+    expect(minha.find('svg.text-primary-500').exists()).toBe(true)
+  })
+
+  test('a resposta a uma mensagem excluída não mostra o conteúdo citado', () => {
+    const resposta = mensagem({ conteudos: [texto('concordo')], mensagem_referencia: { tipo: TipoMensagemReferencia.Resposta, mensagem: { id: 99, remetente: 'Bruno', excluida_em: new Date(), conteudos: [texto('o que foi dito')] } } })
+    const tela = bolha(resposta)
+    expect(tela.text()).toContain('Mensagem excluída')
+    expect(tela.text()).not.toContain('o que foi dito')
+    expect(tela.text()).toContain('concordo')
   })
 })

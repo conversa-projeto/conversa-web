@@ -23,7 +23,7 @@
         @contextmenu.prevent="onContextMenu"
       >
         <MensagemAcoes
-          v-if="mensagem.id > 0 && !ehChamada"
+          v-if="mensagem.id > 0 && !ehChamada && !ehExcluida"
           ref="acoesRef"
           :mensagem="mensagem"
           :is-own="isOwn"
@@ -112,7 +112,7 @@
 
       <!-- Reações existentes abaixo da bolha -->
       <div
-        v-if="mensagem.reacoes && mensagem.reacoes.length > 0"
+        v-if="mensagem.reacoes && mensagem.reacoes.length > 0 && !ehExcluida"
         class="mt-0.5 flex flex-wrap gap-1 px-1"
         :class="isOwn ? 'mr-[19px] justify-end self-end pr-0' : 'justify-start self-start pl-0'"
       >
@@ -172,6 +172,7 @@ import BolhaTextoCurto from './BolhaTextoCurto.vue'
 import BolhaEmoji from './BolhaEmoji.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
 import BolhaChamada from './BolhaChamada.vue'
+import BolhaExcluida from './BolhaExcluida.vue'
 import DetalheStatusMensagem from './DetalheStatusMensagem.vue'
 import { copiarImagem, type AlvoCopia } from '../utils/copiarImagem'
 
@@ -262,6 +263,7 @@ function formatarHoraReacao(d: Date): string {
 const tipoExibicao = computed(() => classificarMensagem(props.mensagem))
 
 const componenteMap = {
+  [TipoExibicaoMensagem.Excluida]: BolhaExcluida,
   [TipoExibicaoMensagem.Chamada]: BolhaChamada,
   [TipoExibicaoMensagem.Imagem]: BolhaImagem,
   [TipoExibicaoMensagem.Codigo]: BolhaCodigo,
@@ -272,6 +274,8 @@ const componenteMap = {
 } as const
 
 const ehChamada = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Chamada)
+// Excluída não tem ações nem reações: só o status e o conteúdo ao segurar
+const ehExcluida = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Excluida)
 
 const agora = useAgora(() => props.mensagem.visivel_em)
 

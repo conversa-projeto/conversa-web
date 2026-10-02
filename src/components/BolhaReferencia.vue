@@ -26,9 +26,12 @@
         </span>
       </span>
 
+      <!-- Citada foi excluída: não mostra o conteúdo (ele aparece segurando sobre a original) -->
+      <p v-if="referencia.excluida_em" class="text-xs italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem excluída</p>
+
       <!-- Referência aninhada (recursiva) -->
       <ReferenciaRecursiva
-        v-if="referenciaAninhada?.mensagem"
+        v-if="!referencia.excluida_em && referenciaAninhada?.mensagem"
         :referencia="referenciaAninhada"
         :is-own="isOwn"
         :get-anexo-url="getAnexoUrl"
@@ -40,7 +43,7 @@
       />
 
       <MessageContent
-        v-for="conteudo in conteudosRef"
+        v-for="conteudo in referencia.excluida_em ? [] : conteudosRef"
         :key="`ref-${mensagem.id}-${conteudo.ordem}`"
         :conteudo="conteudo"
         :mensagem-id="referencia.id"

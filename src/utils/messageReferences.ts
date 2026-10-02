@@ -8,6 +8,8 @@ export interface MensagemReferenciaResumo {
   inserida?: Date
   conteudo_resumo: string
   conversa_id?: number
+  /** A citada foi excluída pelo autor: o resumo não mostra o conteúdo */
+  excluida_em?: Date | null
   mensagem_referencia?: MensagemReferencia | null
 }
 
@@ -29,8 +31,9 @@ export function obterReferenciaPrincipal(mensagem: Mensagem): MensagemReferencia
       id: referencia.mensagem.id,
       remetente: referencia.mensagem.remetente || 'Resposta',
       inserida: referencia.mensagem.inserida,
-      conteudo_resumo: resumoConteudos(referencia.mensagem.conteudos || []),
+      conteudo_resumo: referencia.mensagem.excluida_em ? 'Mensagem excluída' : resumoConteudos(referencia.mensagem.conteudos || []),
       conversa_id: referencia.mensagem.conversa_id,
+      excluida_em: referencia.mensagem.excluida_em,
       mensagem_referencia: referencia.mensagem.mensagem_referencia
     }
   }

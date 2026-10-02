@@ -18,6 +18,9 @@
       </svg>
     </button>
 
+    <!-- Menu e seletor vão para o body: a lista de mensagens isola o empilhamento
+         (.chat-pattern), e dentro dela ficavam por trás da caixa de mensagem -->
+    <Teleport to="body">
     <div
       v-if="menuAberto && !pickerAberto"
       ref="menuRef"
@@ -98,7 +101,7 @@
       </button>
       <button
         v-if="isOwn && podeExcluir"
-        class="flex w-full items-center gap-2 border-t border-surface-200 px-3 py-1.5 text-left text-sm text-danger-600 transition hover:bg-danger-50 dark:hover:bg-danger-900"
+        class="flex w-full items-center gap-2 border-t border-surface-200 px-3 py-1.5 text-left text-sm text-danger-600 transition hover:bg-danger-500/10 dark:text-danger-400 dark:hover:bg-danger-500/15"
         @click="acaoExcluir"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
@@ -111,6 +114,7 @@
     <!-- Emoji Picker popup -->
     <div
       v-if="pickerAberto"
+      ref="pickerRef"
       class="fixed z-50"
       :style="pickerStyle"
     >
@@ -120,6 +124,7 @@
         @close="fecharPicker"
       />
     </div>
+    </Teleport>
   </div>
 </template>
 
@@ -131,7 +136,6 @@ import type { Mensagem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import EmojiPicker from './EmojiPicker.vue'
 import { emojiNome } from '../utils/emojiNomes'
-import { useAgora } from '../composables/useAgora'
 import type { AlvoCopia } from '../utils/copiarImagem'
 
 const props = defineProps<{
@@ -165,6 +169,7 @@ const menuAberto = ref(false)
 const pickerAberto = ref(false)
 const containerRef = ref<HTMLElement>()
 const menuRef = ref<HTMLElement>()
+const pickerRef = ref<HTMLElement>()
 const menuStyle = ref<CSSProperties>({})
 const pickerStyle = ref<CSSProperties>({})
 
@@ -233,8 +238,10 @@ function abrirMenu() {
   // Recalcular após render com a altura real do menu
   nextTick(() => {
     if (menuRef.value) {
-      const realHeight = menuRef.value.offsetHeight
-      menuStyle.value = calcularPosicao(MENU_LARGURA, realHeight)
+      // Largura real também: com a estimada, na minha mensagem (alinhada pela
+      // direita do botão) o menu ficava longe da bolha
+      const { offsetWidth, offsetHeight } = menuRef.value
+      menuStyle.value = calcularPosicao(offsetWidth || MENU_LARGURA, offsetHeight)
     }
   })
 }
@@ -286,16 +293,10 @@ function acaoExcluir() {
   emit('excluir', props.mensagem)
 }
 
-// Regra de visibilidade do botao "Excluir":
-// - So mensagens agendadas podem ser excluidas (visivel_em != null).
-// - Somente enquanto a mensagem NAO amadureceu (visivel_em > agora).
-//   Apos o momento de amadurecimento, o botao some.
-const agora = useAgora(() => props.mensagem.visivel_em)
-const podeExcluir = computed(() => {
-  const visivelEm = props.mensagem.visivel_em
-  if (!visivelEm) return false
-  return new Date(visivelEm).getTime() > agora.value
-})
+// "Excluir": o autor exclui a própria mensagem a qualquer momento. Ela
+// continua na conversa, marcada como excluída (a agendada que ainda não saiu
+// é apagada de vez).
+const podeExcluir = computed(() => !props.mensagem.excluida_em)
 
 function acaoReagir(emoji: string) {
   fecharMenu()
@@ -317,7 +318,9 @@ function acaoReagirPicker(emoji: string) {
 }
 
 function fecharMenuExterno(e: MouseEvent) {
-  if (containerRef.value && !containerRef.value.contains(e.target as Node)) {
+  const alvo = e.target as Node
+  const dentro = [containerRef.value, menuRef.value, pickerRef.value].some((el) => el?.contains(alvo))
+  if (containerRef.value && !dentro) {
     fecharMenu()
   }
 }

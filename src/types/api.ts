@@ -149,6 +149,8 @@ export interface MensagemReferencia {
     conversa_id?: number
     remetente?: string
     inserida?: Date
+    /** Excluída pelo autor: o conteúdo continua, mas aparece como excluída */
+    excluida_em?: Date | null
     conteudos: ConteudoMensagem[]
     mensagem_referencia?: MensagemReferencia | null
   } | null
@@ -180,6 +182,11 @@ export interface Mensagem {
    * depois que visivel_em <= now). Null = mensagem normal.
    */
   visivel_em: Date | null
+  /**
+   * Quando o autor excluiu. A mensagem continua na conversa, marcada como
+   * excluída; o conteúdo aparece enquanto alguém segura sobre ela.
+   */
+  excluida_em?: Date | null
   recebida: boolean
   visualizada: boolean
   reproduzida: boolean
@@ -305,6 +312,7 @@ export interface MensagemStatusItem {
   recebida: boolean
   visualizada: boolean
   reproduzida: boolean
+  excluida_em: Date | null
 }
 
 export interface EventoSocket {

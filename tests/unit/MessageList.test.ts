@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MessageList from '@/components/MessageList.vue'
 import MessageBubble from '@/components/MessageBubble.vue'
+import BolhaExcluida from '@/components/BolhaExcluida.vue'
 import { useChatStore } from '@/stores/chat'
 import { TipoConversa, TipoMensagemReferencia, type Mensagem } from '@/types/api'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
@@ -171,50 +172,69 @@ describe('ações nas mensagens', () => {
     expect(tela.emitted('open-message')).toHaveLength(1)
   })
 
-  test('excluir pede confirmação (texto diferente para agendada) e mostra erro do servidor', async () => {
-    const confirmar = mock((_texto?: string) => true)
-    const avisos: string[] = []
-    const confirmOriginal = window.confirm
-    const alertOriginal = window.alert
-    window.confirm = confirmar
-    window.alert = (texto?: string) => void avisos.push(texto ?? '')
-    try {
-      rota('DELETE', '/mensagem', {})
-      const futura = new Date(Date.now() + 3600_000)
-      await abrir([msg(1, EU, dia(1)), msg(2, EU, dia(1), { visivel_em: futura })])
-      bolhas()[1]!.vm.$emit('excluir', chat.mensagensAtivas[1]!)
-      await aguardar(5)
-      expect(confirmar.mock.calls[0]![0]).toBe('Cancelar esta mensagem agendada?')
-      expect(pedidosDe('DELETE', '/mensagem')[0]!.consulta).toEqual({ id: '2' })
-      confirmar.mockImplementation(() => false)
-      bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
-      await aguardar(5)
-      expect(confirmar.mock.calls[1]![0]).toBe('Excluir esta mensagem? Esta ação não pode ser desfeita.')
-      expect(pedidosDe('DELETE', '/mensagem')).toHaveLength(1)
-      confirmar.mockImplementation(() => true)
-      rota('DELETE', '/mensagem', erro(403, 'Só o autor exclui'))
-      bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
-      await aguardar(5)
-      expect(avisos).toEqual(['Só o autor exclui'])
-    } finally {
-      window.confirm = confirmOriginal
-      window.alert = alertOriginal
-    }
+  // Diálogo do app (DialogoConfirmacao), aberto no body
+  const dialogoAberto = () => document.querySelector('[role="alertdialog"]')
+  async function responder(textoBotao: string) {
+    ;[...dialogoAberto()!.querySelectorAll('button')].find((b) => b.textContent!.trim() === textoBotao)!.click()
+    await aguardar(10)
+  }
+
+  test('excluir pede confirmação na janela do app (texto diferente para agendada) e mostra erro do servidor', async () => {
+    rota('DELETE', '/mensagem', {})
+    const futura = new Date(Date.now() + 3600_000)
+    await abrir([msg(1, EU, dia(1)), msg(2, EU, dia(1), { visivel_em: futura })])
+    bolhas()[1]!.vm.$emit('excluir', chat.mensagensAtivas[1]!)
+    await aguardar(5)
+    expect(dialogoAberto()!.textContent).toContain('Cancelar mensagem agendada')
+    expect([...dialogoAberto()!.querySelectorAll('button')].map((b) => b.textContent!.trim())).toEqual(['Voltar', 'Cancelar envio'])
+    await responder('Cancelar envio')
+    expect(pedidosDe('DELETE', '/mensagem')[0]!.consulta).toEqual({ id: '2' })
+    expect(dialogoAberto()).toBeNull()
+    bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
+    await aguardar(5)
+    expect(dialogoAberto()!.textContent).toContain('Ela continua na conversa, marcada como excluída.')
+    await responder('Cancelar')
+    expect(pedidosDe('DELETE', '/mensagem')).toHaveLength(1)
+    rota('DELETE', '/mensagem', erro(403, 'Só o autor exclui'))
+    bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
+    await aguardar(5)
+    await responder('Excluir')
+    expect(dialogoAberto()!.textContent).toContain('Não foi possível excluir')
+    expect(dialogoAberto()!.textContent).toContain('Só o autor exclui')
+    expect([...dialogoAberto()!.querySelectorAll('button')].map((b) => b.textContent!.trim())).toEqual(['OK'])
+    await responder('OK')
+    expect(dialogoAberto()).toBeNull()
+  })
+
+  test('excluída continua na lista, como excluída; a agendada que não saiu some', async () => {
+    const excluidaEm = new Date().toISOString()
+    rota('DELETE', '/mensagem', (pedido: { consulta: { id: string } }) => pedido.consulta.id === '1'
+      ? { id: 1, conversa_id: 1, excluida_em: excluidaEm }
+      : { id: 2, conteudo: {} })
+    // Depois de excluir, a lista de conversas é recarregada (prévia "Mensagem excluída")
+    rota('GET', '/conversas', [{ id: 1, descricao: 'Bruno', tipo: TipoConversa.Direta, inserida: new Date().toISOString() }])
+    const futura = new Date(Date.now() + 3600_000)
+    await abrir([msg(1, EU, dia(1)), msg(2, EU, dia(1), { visivel_em: futura })])
+    bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
+    await aguardar(5)
+    await responder('Excluir')
+    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([1, 2])
+    expect(chat.mensagensAtivas[0]!.excluida_em).toEqual(new Date(excluidaEm))
+    expect(tela.findComponent(BolhaExcluida).exists()).toBe(true)
+    expect(pedidosDe('GET', '/conversas')).toHaveLength(1)
+    bolhas()[1]!.vm.$emit('excluir', chat.mensagensAtivas[1]!)
+    await aguardar(5)
+    await responder('Cancelar envio')
+    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([1])
   })
 
   test('baixar anexo indisponível avisa o erro', async () => {
     rota('GET', '/anexo', erro(404, 'Anexo não encontrado'))
-    const avisos: string[] = []
-    const alertOriginal = window.alert
-    window.alert = (texto?: string) => void avisos.push(texto ?? '')
-    try {
-      await abrir([msg(1, 2, dia(1))])
-      bolhas()[0]!.vm.$emit('download', 'sumiu', 'a.txt')
-      await aguardar(10)
-      expect(avisos).toEqual(['Anexo não encontrado'])
-    } finally {
-      window.alert = alertOriginal
-    }
+    await abrir([msg(1, 2, dia(1))])
+    bolhas()[0]!.vm.$emit('download', 'sumiu', 'a.txt')
+    await aguardar(10)
+    expect(dialogoAberto()!.textContent).toContain('Não foi possível baixar')
+    expect(dialogoAberto()!.textContent).toContain('Anexo não encontrado')
   })
 
   test('baixar um anexo salva com o nome do arquivo', async () => {

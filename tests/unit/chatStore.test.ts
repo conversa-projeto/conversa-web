@@ -85,7 +85,19 @@ describe('conversas e mensagens', () => {
     expect(await chat.carregarContextoMensagem(1, 99)).toBe(false)
   })
 
-  test('excluir remove de qualquer conversa em memória', async () => {
+  test('excluir marca a mensagem em qualquer conversa em memória e atualiza a prévia', async () => {
+    rota('DELETE', '/mensagem', { id: 5, conversa_id: 1, excluida_em: '2026-10-02T10:00:00.000Z' })
+    rota('GET', '/conversas', [])
+    const chat = novaStore()
+    chat.definirMensagens(1, [mensagem({ id: 5 }), mensagem({ id: 6 })])
+    await chat.excluirMensagem(5)
+    chat.conversaAtivaId = 1
+    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([5, 6])
+    expect(chat.mensagensAtivas[0]!.excluida_em).toEqual(new Date('2026-10-02T10:00:00.000Z'))
+    expect(pedidosDe('GET', '/conversas')).toHaveLength(1)
+  })
+
+  test('agendada que não saiu (resposta sem excluida_em) some de qualquer conversa em memória', async () => {
     rota('DELETE', '/mensagem', {})
     const chat = novaStore()
     chat.definirMensagens(1, [mensagem({ id: 5 }), mensagem({ id: 6 })])
@@ -485,10 +497,20 @@ describe('tempo real (WebSocket)', () => {
     const { chat, socket } = await conectado()
     chat.definirMensagens(1, [mensagem({ id: 30, remetente_id: EU })])
     chat.conversaAtivaId = 1
-    rota('GET', '/mensagem/status', [{ conversa_id: 1, mensagem_id: 30, recebida: true, visualizada: true, reproduzida: false }])
+    rota('GET', '/mensagem/status', [{ conversa_id: 1, mensagem_id: 30, recebida: true, visualizada: true, reproduzida: false, excluida_em: null }])
     socket.receber({ tipo: 3, grupo: 1, mensagens: '30' })
     await aguardar()
     expect(simples(chat.mensagensAtivas[0])).toMatchObject({ recebida: true, visualizada: true })
+  })
+
+  test('exclusão feita pelo autor chega como status: a mensagem passa a excluída', async () => {
+    const { chat, socket } = await conectado()
+    chat.definirMensagens(1, [mensagem({ id: 31, remetente_id: 2 })])
+    chat.conversaAtivaId = 1
+    rota('GET', '/mensagem/status', [{ conversa_id: 1, mensagem_id: 31, recebida: true, visualizada: false, reproduzida: false, excluida_em: '2026-10-02T09:00:00.000Z' }])
+    socket.receber({ tipo: 3, grupo: 1, mensagens: '31' })
+    await aguardar()
+    expect(chat.mensagensAtivas[0]!.excluida_em).toEqual(new Date('2026-10-02T09:00:00.000Z'))
   })
 
   test('evento de chamada vai para quem a tela registrou', async () => {

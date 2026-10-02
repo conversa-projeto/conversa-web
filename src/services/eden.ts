@@ -22,6 +22,7 @@ const CAMPOS_DATA = new Set([
   'recebida',
   'visualizada',
   'reproduzida',
+  'excluida_em',
   'reagido_em',
   'online_em',
   'ate',

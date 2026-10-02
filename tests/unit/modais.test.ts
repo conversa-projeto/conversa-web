@@ -13,6 +13,9 @@ import SipIncomingCallModal from '@/components/SipIncomingCallModal.vue'
 import SipDialerModal from '@/components/SipDialerModal.vue'
 import ImagePreviewModal from '@/components/ImagePreviewModal.vue'
 import CodigoModal from '@/components/CodigoModal.vue'
+import DialogoConfirmacao from '@/components/DialogoConfirmacao.vue'
+import { useDialogo } from '@/composables/useDialogo'
+import { defineComponent, h, nextTick } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useCallStore } from '@/stores/call'
 import { useSipStore } from '@/stores/sip'
@@ -502,5 +505,82 @@ describe('inserir código', () => {
     await botao(tela, 'Cancelar').trigger('click')
     await tela.find('div.fixed').trigger('click')
     expect(tela.emitted('close')).toHaveLength(2)
+  })
+})
+
+describe('diálogo de confirmação do app', () => {
+  // O diálogo de verdade com o composable, como a lista de mensagens usa
+  function montarDialogo() {
+    const dialogo = useDialogo()
+    const Tela = defineComponent({ setup: () => () => h(DialogoConfirmacao, { dialogo: dialogo.aberto.value, onResponder: dialogo.responderDialogo }) })
+    montar(Tela)
+    return dialogo
+  }
+  const aberto = () => document.querySelector('[role="alertdialog"]')
+  const botoes = () => [...aberto()!.querySelectorAll('button')]
+  const clicar = (texto: string) => botoes().find((b) => b.textContent!.trim() === texto)!.click()
+
+  test('confirmar: título, texto e botões; o principal responde sim e fecha', async () => {
+    const dialogo = montarDialogo()
+    const resposta = dialogo.confirmar({ titulo: 'Excluir mensagem', mensagem: 'Ela continua na conversa.', textoConfirmar: 'Excluir', perigo: true })
+    await nextTick()
+    expect(aberto()!.textContent).toContain('Excluir mensagem')
+    expect(aberto()!.textContent).toContain('Ela continua na conversa.')
+    expect(botoes().map((b) => b.textContent!.trim())).toEqual(['Cancelar', 'Excluir'])
+    expect(botoes()[1]!.className).toContain('bg-danger-600')
+    clicar('Excluir')
+    expect(await resposta).toBe(true)
+    await nextTick()
+    expect(aberto()).toBeNull()
+  })
+
+  test('ação destrutiva começa com o foco em Cancelar; comum, no botão principal', async () => {
+    const dialogo = montarDialogo()
+    void dialogo.confirmar({ titulo: 'x', mensagem: 'y', perigo: true })
+    await nextTick(); await nextTick()
+    expect(document.activeElement!.textContent!.trim()).toBe('Cancelar')
+    dialogo.responderDialogo(false)
+    void dialogo.confirmar({ titulo: 'x', mensagem: 'y', textoConfirmar: 'Seguir' })
+    await nextTick(); await nextTick()
+    expect(document.activeElement!.textContent!.trim()).toBe('Seguir')
+  })
+
+  test('Cancelar, Esc e clique fora respondem não', async () => {
+    const dialogo = montarDialogo()
+    for (const desistir of [
+      () => clicar('Cancelar'),
+      () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })),
+      () => (document.querySelector('.fixed.inset-0') as HTMLElement).click(),
+    ]) {
+      const resposta = dialogo.confirmar({ titulo: 'x', mensagem: 'y' })
+      await nextTick()
+      desistir()
+      expect(await resposta).toBe(false)
+      await nextTick()
+      expect(aberto()).toBeNull()
+    }
+    // Esc com o diálogo fechado não faz nada
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+  })
+
+  test('aviso só tem OK; outro diálogo aberto por cima responde não ao anterior', async () => {
+    const dialogo = montarDialogo()
+    const primeiro = dialogo.confirmar({ titulo: 'Primeiro', mensagem: 'a' })
+    const aviso = dialogo.avisar({ titulo: 'Erro', mensagem: 'Falhou' })
+    expect(await primeiro).toBe(false)
+    await nextTick()
+    expect(botoes().map((b) => b.textContent!.trim())).toEqual(['OK'])
+    expect(aberto()!.textContent).toContain('Falhou')
+    clicar('OK')
+    await aviso
+    await nextTick()
+    expect(aberto()).toBeNull()
+  })
+
+  test('texto do botão de desistir pode mudar', async () => {
+    const dialogo = montarDialogo()
+    void dialogo.confirmar({ titulo: 'x', mensagem: 'y', textoConfirmar: 'Cancelar envio', textoCancelar: 'Voltar' })
+    await nextTick()
+    expect(botoes().map((b) => b.textContent!.trim())).toEqual(['Voltar', 'Cancelar envio'])
   })
 })

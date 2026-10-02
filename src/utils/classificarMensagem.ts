@@ -4,6 +4,7 @@ import { obterReferenciaPrincipal } from './messageReferences'
 import { isMensagemSoEmoji } from './formatters'
 
 export const TipoExibicaoMensagem = {
+  Excluida: 'excluida',
   Chamada: 'chamada',
   Imagem: 'imagem',
   Codigo: 'codigo',
@@ -18,6 +19,11 @@ export function classificarMensagem(mensagem: Mensagem): TipoExibicaoMensagem {
   const conteudos = mensagem.conteudos
   const temReferencia = !!mensagem.mensagem_referencia
   const conteudoUnico = conteudos.length === 1 ? conteudos[0] : null
+
+  // Excluída vem antes de tudo: o conteúdo só aparece segurando sobre ela
+  if (mensagem.excluida_em) {
+    return TipoExibicaoMensagem.Excluida
+  }
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Chamada) {
     return TipoExibicaoMensagem.Chamada

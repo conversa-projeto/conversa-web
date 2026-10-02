@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { DOMWrapper, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MensagemAcoes from '@/components/MensagemAcoes.vue'
 import EmojiPicker from '@/components/EmojiPicker.vue'
@@ -25,7 +25,7 @@ function montar<T>(componente: T, opcoes: object = {}) {
   montados.push(w)
   return w
 }
-const botao = (tela: VueWrapper, textoBotao: string) => tela.findAll('button').find((b) => b.text() === textoBotao)!
+const botao = (tela: VueWrapper | DOMWrapper<Element>, textoBotao: string) => tela.findAll('button').find((b) => b.text() === textoBotao)!
 const contato = (id: number, nome: string, extras: Partial<Contato> = {}): Contato => ({ id, nome, login: nome.toLowerCase(), email: `${nome.toLowerCase()}@t`, ...extras } as Contato)
 const conversa = (id: number, extras: Partial<Conversa> = {}): Conversa => ({ id, descricao: `Conversa ${id}`, tipo: TipoConversa.Direta, inserida: new Date(), ...extras } as Conversa)
 
@@ -45,19 +45,34 @@ describe('ações da mensagem', () => {
   async function abrir(tela: VueWrapper) {
     await tela.find('button').trigger('click')
   }
+  // O menu e o seletor vão para o body (Teleport), fora do componente
+  const corpo = () => new DOMWrapper(document.body)
 
   test('abrir o menu avisa; cada ação fecha o menu e emite com a mensagem', async () => {
     const tela = acoes()
     await abrir(tela)
     expect(tela.emitted('menu-toggle')).toEqual([[true]])
     for (const acao of ['Responder', 'Encaminhar', 'Copiar']) {
-      await botao(tela, acao).trigger('click')
-      expect(tela.text()).not.toContain(acao)
+      await botao(corpo(), acao).trigger('click')
+      expect(corpo().text()).not.toContain(acao)
       await abrir(tela)
     }
     expect((tela.emitted('reply') as unknown[][])[0]![0]).toMatchObject({ id: 5 })
     expect((tela.emitted('forward') as unknown[][])[0]![0]).toMatchObject({ id: 5 })
     expect(tela.emitted('copiar')![0]).toEqual([expect.objectContaining({ id: 5 }), null])
+  })
+
+  test('o menu vai para o body, fora da lista (que isola o empilhamento e o deixava por trás da caixa de mensagem)', async () => {
+    const tela = acoes()
+    await abrir(tela)
+    const menu = corpo().find('div.fixed')
+    expect(menu.element.parentElement).toBe(document.body)
+    expect(tela.element.contains(menu.element)).toBe(false)
+    // Clicar dentro do menu (fora dos botões) não fecha
+    await menu.trigger('click')
+    menu.element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await tela.vm.$nextTick()
+    expect(corpo().find('div.fixed').exists()).toBe(true)
   })
 
   test('clicar de novo no botão fecha', async () => {
@@ -70,10 +85,10 @@ describe('ações da mensagem', () => {
   test('emoji rápido reage; o seletor completo também', async () => {
     const tela = acoes()
     await abrir(tela)
-    await tela.findAll('.grid-cols-4 button').find((b) => b.text() === '👍')!.trigger('click')
+    await corpo().findAll('.grid-cols-4 button').find((b) => b.text() === '👍')!.trigger('click')
     expect(tela.emitted('reagir')).toEqual([['👍']])
     await abrir(tela)
-    await tela.find('button[title="Mais emojis"]').trigger('click')
+    await corpo().find('button[title="Mais emojis"]').trigger('click')
     expect(tela.findComponent(EmojiPicker).exists()).toBe(true)
     tela.findComponent(EmojiPicker).vm.$emit('selecionar', '🎉')
     await tela.vm.$nextTick()
@@ -84,33 +99,38 @@ describe('ações da mensagem', () => {
   test('fechar o seletor volta ao menu', async () => {
     const tela = acoes()
     await abrir(tela)
-    await tela.find('button[title="Mais emojis"]').trigger('click')
+    await corpo().find('button[title="Mais emojis"]').trigger('click')
     tela.findComponent(EmojiPicker).vm.$emit('close')
     await tela.vm.$nextTick()
-    expect(tela.text()).toContain('Responder')
+    expect(corpo().text()).toContain('Responder')
   })
 
   test('Responder no privado só em grupo e para mensagem de outra pessoa', async () => {
     const grupo = acoes({ isGroup: true })
     await abrir(grupo)
-    await botao(grupo, 'Responder no privado').trigger('click')
+    await botao(corpo(), 'Responder no privado').trigger('click')
     expect(grupo.emitted('responder-privado')).toHaveLength(1)
     const minha = acoes({ isGroup: true, isOwn: true })
     await abrir(minha)
-    expect(minha.text()).not.toContain('Responder no privado')
+    expect(corpo().text()).not.toContain('Responder no privado')
   })
 
-  test('Excluir só na minha mensagem agendada que ainda não saiu', async () => {
-    const agendada = acoes({ isOwn: true, mensagem: mensagem({ id: 5, visivel_em: new Date(Date.now() + 60_000) }) })
-    await abrir(agendada)
-    await botao(agendada, 'Excluir').trigger('click')
-    expect(agendada.emitted('excluir')).toHaveLength(1)
-    const saiu = acoes({ isOwn: true, mensagem: mensagem({ id: 6, visivel_em: new Date(Date.now() - 1000) }) })
-    await abrir(saiu)
-    expect(saiu.text()).not.toContain('Excluir')
-    const normal = acoes({ isOwn: true })
-    await abrir(normal)
-    expect(normal.text()).not.toContain('Excluir')
+  test('Excluir em qualquer mensagem minha, a qualquer momento; nunca na dos outros', async () => {
+    for (const extras of [{}, { visivel_em: new Date(Date.now() + 60_000) }, { inserida: new Date(2020, 0, 1) }]) {
+      const minha = acoes({ isOwn: true, mensagem: mensagem({ id: 5, ...extras }) })
+      await abrir(minha)
+      await botao(corpo(), 'Excluir').trigger('click')
+      expect(minha.emitted('excluir')).toHaveLength(1)
+    }
+    const deOutro = acoes({ isOwn: false })
+    await abrir(deOutro)
+    expect(corpo().text()).not.toContain('Excluir')
+  })
+
+  test('já excluída não oferece Excluir de novo', async () => {
+    const tela = acoes({ isOwn: true, mensagem: mensagem({ id: 5, excluida_em: new Date() }) })
+    await abrir(tela)
+    expect(corpo().text()).not.toContain('Excluir')
   })
 
   test('abrir um menu fecha o de outra mensagem; clique fora também fecha', async () => {
@@ -118,11 +138,13 @@ describe('ações da mensagem', () => {
     const b = montar(MensagemAcoes, { props: { mensagem: mensagem({ id: 6 }) } })
     await abrir(a)
     await abrir(b)
-    expect(a.text()).not.toContain('Responder')
-    expect(b.text()).toContain('Responder')
+    // Só um menu aberto na página: o da segunda
+    expect(corpo().findAll('div.fixed').filter((m) => m.text().includes('Responder'))).toHaveLength(1)
+    expect(a.emitted('menu-toggle')).toEqual([[true], [false]])
+    expect(b.emitted('menu-toggle')).toEqual([[true]])
     document.body.click()
     await b.vm.$nextTick()
-    expect(b.text()).not.toContain('Responder')
+    expect(corpo().text()).not.toContain('Responder')
   })
 
   test('pelo clique direito, Copiar leva o conteúdo clicado', async () => {
@@ -130,22 +152,8 @@ describe('ações da mensagem', () => {
     const alvo = { tipo: 'imagem', identificador: 'img-1' }
     ;(tela.vm as unknown as { abrirViaContextMenu: (a: unknown) => void }).abrirViaContextMenu(alvo)
     await tela.vm.$nextTick()
-    await botao(tela, 'Copiar').trigger('click')
+    await botao(corpo(), 'Copiar').trigger('click')
     expect(tela.emitted('copiar')![0]![1]).toEqual(alvo)
-  })
-
-  test('agendada sai na hora: o Excluir some no minuto marcado, sem esperar o ciclo de 30 s', async () => {
-    const relogio = relogioFalso()
-    try {
-      const tela = acoes({ isOwn: true, mensagem: mensagem({ id: 7, visivel_em: new Date(Date.now() + 5000) }) })
-      await abrir(tela)
-      expect(tela.text()).toContain('Excluir')
-      relogio.avancar(5000)
-      await tela.vm.$nextTick()
-      expect(tela.text()).not.toContain('Excluir')
-    } finally {
-      relogio.restaurar()
-    }
   })
 
   test('menu e seletor não saem da tela: minha mensagem alinha pela direita, e sobem quando não cabem embaixo', async () => {
@@ -154,17 +162,17 @@ describe('ações da mensagem', () => {
     const alto = window.innerHeight
     el.getBoundingClientRect = () => ({ top: alto - 20, bottom: alto - 10, left: 5, right: 100, width: 95, height: 10, x: 5, y: 0, toJSON: () => ({}) })
     await abrir(tela)
-    expect(parseFloat((tela.find('div.fixed').element as HTMLElement).style.left)).toBe(8)
+    expect(parseFloat((corpo().find('div.fixed').element as HTMLElement).style.left)).toBe(8)
     // O seletor tem altura fixa (310): não cabe embaixo, abre acima do botão
-    await tela.find('button[title="Mais emojis"]').trigger('click')
-    expect(parseFloat((tela.find('div.fixed').element as HTMLElement).style.top)).toBe(alto - 20 - 310 - 4)
+    await corpo().find('button[title="Mais emojis"]').trigger('click')
+    expect(parseFloat((corpo().find('div.fixed').element as HTMLElement).style.top)).toBe(alto - 20 - 310 - 4)
   })
 
   test('mensagem de outra pessoa alinha pela esquerda, limitada à largura da tela', async () => {
     const tela = acoes()
     ;(tela.element as HTMLElement).getBoundingClientRect = () => ({ top: 10, bottom: 30, left: window.innerWidth - 50, right: window.innerWidth, width: 50, height: 20, x: 0, y: 10, toJSON: () => ({}) })
     await abrir(tela)
-    const estilo = (tela.find('div.fixed').element as HTMLElement).style
+    const estilo = (corpo().find('div.fixed').element as HTMLElement).style
     expect(parseFloat(estilo.left)).toBe(window.innerWidth - 200 - 8)
     expect(parseFloat(estilo.top)).toBe(34)
   })
@@ -182,7 +190,7 @@ describe('ações da mensagem', () => {
     await abrir(tela)
     lista.dispatchEvent(new Event('scroll'))
     await tela.vm.$nextTick()
-    expect(tela.text()).not.toContain('Responder')
+    expect(corpo().text()).not.toContain('Responder')
     expect((tela.find('div.absolute').element as HTMLElement).style.top).toBe('128px')
   })
 })
@@ -387,6 +395,15 @@ describe('detalhe do status da mensagem', () => {
     expect(tela.text()).toContain('Visualizada por (1)Bruno10:15')
     expect(tela.text()).toContain('Recebida por (1)Carla10:15')
     expect(tela.text()).toContain('Aguardando (1)Davi')
+  })
+
+  test('excluída mostra quando foi excluída, na conversa direta e no grupo', async () => {
+    rota('GET', '/mensagem/status/detalhe', [{ usuario_id: 2, nome: 'Bruno', recebida: hoje.toISOString(), visualizada: null, reproduzida: null }])
+    const direta = montar(DetalheStatusMensagem, { props: { mensagem: mensagem({ inserida: hoje, excluida_em: hoje, conteudos: [texto('x')] }), isGroup: false } })
+    const grupo = montar(DetalheStatusMensagem, { props: { mensagem: mensagem({ inserida: hoje, excluida_em: hoje, conteudos: [texto('x')] }), isGroup: true } })
+    await aguardar(10)
+    expect(direta.findAll('li').map((li) => li.text()).at(-1)).toBe('Excluída10:15')
+    expect(grupo.text()).toContain('Excluída10:15')
   })
 
   test('erro ao carregar avisa', async () => {

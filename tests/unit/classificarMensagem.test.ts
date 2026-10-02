@@ -4,6 +4,13 @@ import { classificarMensagem, TipoExibicaoMensagem } from '@/utils/classificarMe
 import { comReferencia, conteudo, mensagem, texto } from './fabrica'
 
 describe('classificarMensagem', () => {
+  test('excluída vem antes de qualquer outro tipo', () => {
+    for (const conteudos of [[conteudo(TipoConteudo.Chamada)], [conteudo(TipoConteudo.Imagem)], [texto('```ts\nx\n```')], [texto('oi')]]) {
+      expect(classificarMensagem(mensagem({ conteudos, excluida_em: new Date() }))).toBe(TipoExibicaoMensagem.Excluida)
+    }
+    expect(classificarMensagem(mensagem({ conteudos: [texto('oi')], excluida_em: null }))).toBe(TipoExibicaoMensagem.TextoCurto)
+  })
+
   test('chamada', () => {
     expect(classificarMensagem(mensagem({ conteudos: [conteudo(TipoConteudo.Chamada)] }))).toBe(TipoExibicaoMensagem.Chamada)
   })

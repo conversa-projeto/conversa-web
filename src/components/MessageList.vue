@@ -101,6 +101,8 @@
         </svg>
       </button>
     </div>
+
+    <DialogoConfirmacao :dialogo="dialogo.aberto.value" @responder="dialogo.responderDialogo" />
   </div>
 </template>
 
@@ -112,6 +114,8 @@ import { formatarDiaSeparador } from '../utils/formatters'
 import { useScrollManager } from '../composables/useScrollManager'
 import { useAttachments } from '../composables/useAttachments'
 import MessageBubble from './MessageBubble.vue'
+import DialogoConfirmacao from './DialogoConfirmacao.vue'
+import { useDialogo } from '../composables/useDialogo'
 import { TipoConversa } from '../types/api'
 import type { Mensagem } from '../types/api'
 
@@ -166,16 +170,19 @@ watch(usuarioNoFimDoChat, (val) => {
   emit('at-bottom-changed', val)
 }, { immediate: true })
 
+// Confirmação e avisos com a janela do app, no lugar das do navegador
+const dialogo = useDialogo()
+
 async function excluirMensagem(msg: Mensagem) {
   const agendada = !!msg.visivel_em && new Date(msg.visivel_em).getTime() > Date.now()
-  const confirmacao = agendada
-    ? 'Cancelar esta mensagem agendada?'
-    : 'Excluir esta mensagem? Esta ação não pode ser desfeita.'
-  if (!window.confirm(confirmacao)) return
+  const confirmado = await dialogo.confirmar(agendada
+    ? { titulo: 'Cancelar mensagem agendada', mensagem: 'Ela não será enviada.', textoConfirmar: 'Cancelar envio', textoCancelar: 'Voltar', perigo: true }
+    : { titulo: 'Excluir mensagem', mensagem: 'Ela continua na conversa, marcada como excluída.', textoConfirmar: 'Excluir', perigo: true })
+  if (!confirmado) return
   try {
     await chat.excluirMensagem(msg.id)
   } catch (e) {
-    window.alert(e instanceof Error ? e.message : 'Erro ao excluir mensagem')
+    void dialogo.avisar({ titulo: 'Não foi possível excluir', mensagem: e instanceof Error ? e.message : 'Erro ao excluir mensagem' })
   }
 }
 
@@ -198,7 +205,7 @@ const { anexoUrl, renovarAnexoUrl, abrirAnexo, limparAnexos } = useAttachments()
 
 function baixarAnexo(identificador: string, nome: string) {
   abrirAnexo(identificador, nome).catch((e) => {
-    window.alert(e instanceof Error ? e.message : 'Erro ao baixar o anexo')
+    void dialogo.avisar({ titulo: 'Não foi possível baixar', mensagem: e instanceof Error ? e.message : 'Erro ao baixar o anexo' })
   })
 }
 

@@ -535,15 +535,22 @@ export const useChatStore = defineStore('chat', () => {
     await enviarMensagemComConteudos('', [{ blob, nomeArquivo, mimeType, isAudio }])
   }
 
+  // Excluir marca a mensagem, que continua na conversa. Só a agendada que
+  // ainda não saiu é apagada de vez (a resposta vem sem excluida_em).
   async function excluirMensagem(mensagemId: number) {
-    await api.deletarMensagem(mensagemId)
-    // Remove localmente de todas as conversas (no caso de cache em outra)
+    const resposta = await api.deletarMensagem(mensagemId)
+    const excluidaEm = 'excluida_em' in resposta ? resposta.excluida_em : null
     for (const cid of Object.keys(mensagensPorConversa.value)) {
       const lista = mensagensPorConversa.value[Number(cid)]
-      if (lista?.some(m => m.id === mensagemId)) {
+      if (!lista?.some(m => m.id === mensagemId)) continue
+      if (excluidaEm) {
+        lista.forEach((m) => { if (m.id === mensagemId) m.excluida_em = excluidaEm })
+      } else {
         mensagensPorConversa.value[Number(cid)] = lista.filter(m => m.id !== mensagemId)
       }
     }
+    // A prévia da conversa na lista passa a dizer "Mensagem excluída"
+    if (excluidaEm) await carregarConversas()
   }
   async function carregarContextoMensagem(conversaId: number, mensagemId: number, previas = 30, seguintes = 30) {
     let bloco = await api.getMensagens(conversaId, mensagemId, previas, seguintes)
@@ -944,6 +951,7 @@ export const useChatStore = defineStore('chat', () => {
       mensagem.recebida = item.recebida
       mensagem.visualizada = item.visualizada
       mensagem.reproduzida = item.reproduzida
+      mensagem.excluida_em = item.excluida_em
     }
   }
 
