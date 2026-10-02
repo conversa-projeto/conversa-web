@@ -525,6 +525,17 @@ describe('qualidade da chamada', () => {
     expect(video!.parametros.encodings[0]!.maxBitrate).toBe(500_000)
   })
 
+  test('vídeo publicado em codec que o MediaMTX grava: H264, depois VP9 (VP8 por último)', async () => {
+    mediamtx()
+    const call = await receber(TipoChamada.Video)
+    await atender(call)
+    const publicacao = conexoes.find((c) => c.transceivers.some((t) => t.direction === 'sendrecv'))!
+    const [audio, video] = publicacao.transceivers
+    expect(video!.codecsPreferidos).toEqual(['video/H264', 'video/VP9', 'video/VP8', 'video/AV1'])
+    // O áudio (Opus) já é gravável: fica como está
+    expect(audio!.codecsPreferidos).toBeNull()
+  })
+
   test('mudar a qualidade durante a chamada reabre o microfone na transmissão', async () => {
     mediamtx()
     const call = await receber(TipoChamada.Video)

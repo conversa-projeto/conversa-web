@@ -49,8 +49,14 @@ function obterTela() {
 
 export const conexoes: ConexaoFalsa[] = []
 
+// Codecs de vídeo do navegador falso, na ordem padrão (VP8 primeiro, como o Chrome)
+export const codecsVideo = ['video/VP8', 'video/H264', 'video/AV1', 'video/VP9'].map((mimeType) => ({ mimeType, clockRate: 90000 }))
+
 class TransceiverFalso {
   direction: string
+  // Ordem pedida em setCodecPreferences (null = nunca pedida)
+  codecsPreferidos: string[] | null = null
+  setCodecPreferences(codecs: { mimeType: string }[]) { this.codecsPreferidos = codecs.map((c) => c.mimeType) }
   enviando: TrilhaFalsa | null
   parametros: { encodings: Record<string, unknown>[]; degradationPreference?: string } = { encodings: [{}] }
   receiver: { track: { kind: string } }
@@ -148,6 +154,7 @@ export function instalarWebrtcFalso() {
   conexoes.length = 0
   audiosTocando.length = 0
   Object.assign(globalThis, { MediaStream: MidiaFalsa, RTCPeerConnection: ConexaoFalsa, AudioContext: ContextoAudioFalso, Audio: AudioFalso })
+  Object.assign(globalThis, { RTCRtpSender: { getCapabilities: (tipo: string) => (tipo === 'video' ? { codecs: codecsVideo } : null) } })
   Object.defineProperty(navigator, 'mediaDevices', {
     value: { getUserMedia: obterMidia, getDisplayMedia: obterTela },
     configurable: true,

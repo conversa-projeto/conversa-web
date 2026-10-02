@@ -334,6 +334,24 @@ export const useCallStore = defineStore('call', () => {
     streamTela.value?.getVideoTracks().forEach(t => { t.contentHint = dica })
   }
 
+  // As chamadas são gravadas no MediaMTX, que não grava VP8 (o padrão do
+  // navegador). O vídeo sai em H264 ou, sem ele, em VP9; os demais ficam por
+  // último, para a chamada funcionar mesmo sem gravar.
+  const CODECS_GRAVAVEIS = ['video/H264', 'video/VP9']
+
+  function preferirCodecsGravaveis(pc: RTCPeerConnection) {
+    const codecs = RTCRtpSender.getCapabilities?.('video')?.codecs
+    if (!codecs) return
+    const prioridade = (mime: string) => {
+      const indice = CODECS_GRAVAVEIS.indexOf(mime)
+      return indice === -1 ? CODECS_GRAVAVEIS.length : indice
+    }
+    const ordenados = [...codecs].sort((a, b) => prioridade(a.mimeType) - prioridade(b.mimeType))
+    for (const transceiver of pc.getTransceivers()) {
+      if (transceiver.sender.track?.kind === 'video') transceiver.setCodecPreferences?.(ordenados)
+    }
+  }
+
   // --- WHIP: publicar stream local para um peer ---
 
   async function publicarLocalNaSala(): Promise<RTCPeerConnection> {
@@ -348,6 +366,7 @@ export const useCallStore = defineStore('call', () => {
     const ativa = (lista: MediaStreamTrack[]) => lista.find(t => t.readyState === 'live') || lista[0]
     const trilhas = [ativa(streamLocal.value.getAudioTracks()), ativa(streamLocal.value.getVideoTracks())]
     trilhas.forEach(t => { if (t) pc.addTrack(t, streamLocal.value!) })
+    preferirCodecsGravaveis(pc)
 
     const offer = await pc.createOffer()
     await pc.setLocalDescription(configChamada.value.qualidadeAudio === 'musica'
