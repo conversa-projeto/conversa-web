@@ -3,6 +3,11 @@ import { DOMWrapper, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import MensagemAcoes from '@/components/MensagemAcoes.vue'
 import EmojiPicker from '@/components/EmojiPicker.vue'
+import FigurinhaLottie from '@/components/FigurinhaLottie.vue'
+import BolhaFigurinha from '@/components/BolhaFigurinha.vue'
+import { PACOTES_FIGURINHAS } from '@/utils/figurinhas'
+import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import MencaoDropdown from '@/components/MencaoDropdown.vue'
 import MencaoLink from '@/components/MencaoLink.vue'
 import SeletorOpcoes from '@/components/SeletorOpcoes.vue'
@@ -553,5 +558,39 @@ describe('fila de arquivos para enviar', () => {
     expect(tela.find('button[title="Ouvir"]').exists()).toBe(true)
     await tela.setProps({ arquivos: [] })
     expect(tela.text()).toBe('')
+  })
+})
+
+describe('figurinhas', () => {
+  test('o seletor abre nos emojis; a aba de figurinhas só aparece onde se pode enviar', async () => {
+    expect(montar(EmojiPicker).text()).not.toContain('Figurinhas')
+    const tela = montar(EmojiPicker, { props: { comFigurinhas: true } })
+    expect(tela.text()).toContain('Populares')
+    await botao(tela, 'Figurinhas').trigger('click')
+    expect(tela.text()).not.toContain('Populares')
+    expect(tela.findAllComponents(FigurinhaLottie).length).toBeGreaterThan(0)
+    await tela.find('button[title="Coração"]').trigger('click')
+    expect(tela.emitted('figurinha')).toEqual([['basico/coracao']])
+  })
+
+  test('cada figurinha do catálogo tem a animação gerada, e cada animação está no catálogo', () => {
+    const pasta = join(import.meta.dir, '..', '..', 'public', 'figurinhas')
+    const geradas = readdirSync(pasta).flatMap((pacote) => readdirSync(join(pasta, pacote)).map((arquivo) => `${pacote}/${arquivo.replace(/\.json$/, '')}`))
+    const catalogo = PACOTES_FIGURINHAS.flatMap((pacote) => pacote.figurinhas.map((f) => f.id))
+    expect(catalogo.sort()).toEqual(geradas.sort())
+    for (const id of catalogo) expect(id).toMatch(/^[a-z0-9-]{1,40}\/[a-z0-9-]{1,40}$/)
+  })
+
+  test('figurinha que não carrega mostra o nome no lugar', async () => {
+    rota('GET', '/figurinhas/basico/nao-existe.json', erro(404, 'x'))
+    const tela = montar(FigurinhaLottie, { props: { id: 'basico/nao-existe' } })
+    await aguardar(20)
+    expect(tela.text()).toBe('Figurinha')
+  })
+
+  test('na bolha, mostra a figurinha da mensagem', () => {
+    const m = mensagem({ conteudos: [{ ...conteudo(TipoConteudo.Figurinha), conteudo: 'basico/estrela' }] })
+    const tela = montar(BolhaFigurinha, { props: { mensagem: m, isOwn: false, isGroup: false, getAnexoUrl: () => '' } })
+    expect(tela.findComponent(FigurinhaLottie).props('id')).toBe('basico/estrela')
   })
 })

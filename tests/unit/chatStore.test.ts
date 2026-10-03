@@ -127,6 +127,18 @@ describe('enviar', () => {
     expect(pedidos.find((p) => p.metodo === 'PUT')!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'olá' }] })
   })
 
+  test('figurinha vai sozinha, com o identificador, e aparece na hora', async () => {
+    rota('PUT', '/mensagem', { id: 98 })
+    rota('GET', '/conversas', [conversaApi(1)])
+    const chat = novaStore()
+    chat.conversaAtivaId = 1
+    const envio = chat.enviarFigurinha('basico/festa')
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ enviando: true, conteudos: [{ tipo: 7, conteudo: 'basico/festa' }] })
+    await envio
+    expect(pedidos.find((p) => p.metodo === 'PUT')!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 7, conteudo: 'basico/festa' }] })
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ id: 98, enviando: false, conteudos: [{ tipo: 7, conteudo: 'basico/festa' }] })
+  })
+
   test('falha no envio tira a mensagem otimista e repassa o erro', async () => {
     rota('PUT', '/mensagem', erro(403, 'Acesso negado!'))
     const chat = novaStore()

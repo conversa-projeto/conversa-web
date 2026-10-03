@@ -68,7 +68,8 @@
     </div>
 
     <!-- Video area -->
-    <div class="flex-1 min-h-0 overflow-hidden p-2">
+    <div class="relative flex flex-1 min-h-0">
+    <div class="flex-1 min-w-0 min-h-0 overflow-hidden p-2">
       <!-- Conference layout: 1 big + sidebar -->
       <template v-if="videoDestaque !== null">
         <div class="flex h-full gap-2">
@@ -82,7 +83,10 @@
                 >
                   <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
                 </div>
-                <video v-else ref="videoLocal" autoplay playsinline muted class="h-full w-full object-contain"></video>
+                <template v-else>
+                  <video ref="videoLocal" autoplay playsinline muted class="h-full w-full object-contain"></video>
+                  <PonteiroTela v-if="call.compartilhandoTela && auth.user" :alvo="auth.user.id" :capturar="false" />
+                </template>
                 <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-1.5">
                   <span class="text-xs text-white">{{ auth.user?.nome }} (voc&ecirc;)</span>
                 </div>
@@ -96,7 +100,10 @@
                     >
                       <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
                     </div>
-                    <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
+                    <template v-else>
+                      <video v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
+                      <PonteiroTela v-if="call.telasRemotas.has(userId)" :alvo="userId" :capturar="call.ponteiroAtivo" />
+                    </template>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-1.5">
                       <span class="text-xs text-white">{{ peer.usuarioNome }}</span>
                     </div>
@@ -207,7 +214,10 @@
               >
                 <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
-              <video v-else ref="videoLocal" autoplay playsinline muted class="h-full w-full object-cover"></video>
+              <template v-else>
+                <video ref="videoLocal" autoplay playsinline muted class="h-full w-full object-cover"></video>
+                <PonteiroTela v-if="call.compartilhandoTela && auth.user" :alvo="auth.user.id" :capturar="false" />
+              </template>
             </template>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
               <span class="text-[10px] text-white">{{ auth.user?.nome }} (voc&ecirc;)</span>
@@ -228,13 +238,24 @@
             >
               <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
-            <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-cover"></video>
+            <template v-else>
+              <video v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-cover"></video>
+              <PonteiroTela v-if="call.telasRemotas.has(userId)" :alvo="userId" :capturar="call.ponteiroAtivo" />
+            </template>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
               <span class="text-[10px] text-white">{{ peer.usuarioNome }}</span>
             </div>
           </div>
         </div>
       </template>
+    </div>
+
+    <!-- Chat da chamada: ao lado do vídeo; no celular, por cima -->
+    <ChatChamada
+      v-if="chatAberto && !flutuante"
+      class="absolute inset-0 z-20 sm:static sm:w-72 sm:shrink-0"
+      @close="chatAberto = false"
+    />
     </div>
 
     <!-- Error message -->
@@ -269,6 +290,32 @@
         @click="toggleCompartilharTela"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
+      </CallControlButton>
+
+      <div v-if="!flutuante" class="relative">
+        <CallControlButton
+          variant="secondary"
+          :active="chatAberto"
+          title="Chat da chamada"
+          @click="chatAberto = !chatAberto"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
+        </CallControlButton>
+        <span
+          v-if="!chatAberto && chatNaoLidas > 0"
+          class="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[10px] font-bold text-white"
+        >{{ chatNaoLidas }}</span>
+      </div>
+
+      <!-- Ponteiro sobre a tela que outro participante compartilha -->
+      <CallControlButton
+        v-if="call.telasRemotas.size > 0"
+        variant="secondary"
+        :active="call.ponteiroAtivo"
+        :title="call.ponteiroAtivo ? 'Desligar ponteiro' : 'Apontar na tela compartilhada'"
+        @click="call.alternarPonteiro()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59" /></svg>
       </CallControlButton>
 
       <CallControlButton
@@ -370,10 +417,13 @@
 import { computed, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useCallStore } from './stores/call'
+import { useChatStore } from './stores/chat'
 import { vSrcObject } from './directives/vSrcObject'
 import { iniciaisUsuario } from './utils/formatters'
 import { useDraggable } from './composables/useDraggable'
 import CallControlButton from './components/CallControlButton.vue'
+import PonteiroTela from './components/PonteiroTela.vue'
+import ChatChamada from './components/ChatChamada.vue'
 
 const props = withDefaults(defineProps<{
   fecharAoEncerrar?: boolean
@@ -391,11 +441,18 @@ const drag = useDraggable()
 
 const auth = useAuthStore()
 const call = useCallStore()
+const chat = useChatStore()
 
 const containerRef = ref<HTMLElement | null>(null)
 const videoLocal = ref<HTMLVideoElement | null>(null)
 const videoLocalSidebar = ref<HTMLVideoElement | null>(null)
 const modalAdicionarUsuario = ref(false)
+const chatAberto = ref(false)
+// Mensagens do chat da chamada que chegaram com o painel fechado
+const chatNaoLidas = computed(() => {
+  const id = call.conversaChatId
+  return id ? chat.conversas.find((c) => c.id === id)?.mensagens_sem_visualizar ?? 0 : 0
+})
 const usuariosParaAdicionar = ref<number[]>([])
 const videoDestaque = ref<number | 'local' | null>(null)
 

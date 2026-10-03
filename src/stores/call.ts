@@ -4,10 +4,24 @@ import { useAuthStore } from './auth'
 import { useChatStore } from './chat'
 import * as api from '../services/conversaApi'
 import { TipoChamada, StatusUsuarioChamada, TipoEventoSocket } from '../types/api'
-import type { Chamada, EventoChamadaSocket } from '../types/api'
+import type { Chamada, EventoChamadaSocket, SinalChamada } from '../types/api'
 import { BITRATE_AUDIO, BITRATE_VIDEO, DIMENSOES_VIDEO, useConfigChamada, type ConfigChamada } from '../composables/useConfigChamada'
 
 export type EstadoChamada = 'inativo' | 'chamando' | 'recebendo' | 'ativa' | 'encerrando'
+
+// Ponteiro de outro participante sobre a tela compartilhada por alvo
+export interface PonteiroRemoto {
+  usuarioId: number
+  nome: string
+  alvo: number
+  x: number
+  y: number
+}
+
+// Ponteiro parado some depois disto, caso o aviso de saída se perca
+const PONTEIRO_SOME_MS = 5000
+// Intervalo mínimo entre dois envios da posição do ponteiro
+const PONTEIRO_INTERVALO_MS = 40
 
 export interface PeerConexao {
   usuarioId: number
@@ -677,6 +691,7 @@ export const useCallStore = defineStore('call', () => {
 
     peers.value.delete(usuarioId)
     notificarPeers()
+    esquecerTelaDe(usuarioId)
   }
 
   // Refaz a assinatura de um participante: usado quando ele republica a
@@ -825,6 +840,7 @@ export const useCallStore = defineStore('call', () => {
     erroMsg.value = ''
     videoAtivadoPor.value = null
     telaUnicaSolicitada.value = null
+    limparTelasCompartilhadas()
     if (videoAtivadoTimeout !== null) {
       window.clearTimeout(videoAtivadoTimeout)
       videoAtivadoTimeout = null
@@ -1328,12 +1344,157 @@ export const useCallStore = defineStore('call', () => {
     }
   }
 
+  // --- Tela compartilhada e ponteiro remoto ---
+  //
+  // A tela compartilhada vai no lugar da câmera, então quem assiste não sabe
+  // que a imagem é uma tela: quem compartilha avisa pelo sinal da chamada. Com
+  // o ponteiro ligado, quem assiste manda a posição do mouse sobre a imagem
+  // (de 0 a 1), e todos que veem aquela tela, inclusive quem compartilha,
+  // desenham o ponteiro dentro do app.
+
+  // Participantes que estão compartilhando a tela agora
+  const telasRemotas = ref<Set<number>>(new Set())
+  const ponteiros = ref<Map<number, PonteiroRemoto>>(new Map())
+  // Ligado por quem assiste, no botão da chamada
+  const ponteiroAtivo = ref(false)
+  const timersPonteiro = new Map<number, number>()
+  let ponteiroPendente: Extract<SinalChamada, { acao: 'ponteiro' }> | null = null
+  let timerEnvioPonteiro: number | null = null
+
+  function enviarSinal(dados: SinalChamada) {
+    if (!chamada.value) return
+    useChatStore().enviarSinalChamada(chamada.value.id, dados)
+  }
+
+  function anunciarTela() {
+    enviarSinal({ acao: 'tela', ativa: compartilhandoTela.value })
+  }
+
+  // Começou ou parou de compartilhar, ou a chamada começou já compartilhando
+  watch([compartilhandoTela, () => chamada.value?.id], ([ativa, id], [antes]) => {
+    if (id && (ativa || antes)) anunciarTela()
+  })
+
+  watch(() => telasRemotas.value.size, (total) => {
+    if (total === 0) ponteiroAtivo.value = false
+  })
+
+  function alternarPonteiro() {
+    ponteiroAtivo.value = !ponteiroAtivo.value && telasRemotas.value.size > 0
+  }
+
+  // Posição do mouse sobre a tela de alvo (null quando sai dela). Envia no
+  // máximo uma a cada PONTEIRO_INTERVALO_MS; a última sempre vai.
+  function moverPonteiro(alvo: number, x: number | null, y: number | null) {
+    ponteiroPendente = { acao: 'ponteiro', alvo, x, y }
+    if (timerEnvioPonteiro !== null) return
+    enviarSinal(ponteiroPendente)
+    ponteiroPendente = null
+    timerEnvioPonteiro = window.setTimeout(() => {
+      timerEnvioPonteiro = null
+      if (ponteiroPendente) {
+        const { alvo: a, x: px, y: py } = ponteiroPendente
+        moverPonteiro(a, px, py)
+      }
+    }, PONTEIRO_INTERVALO_MS)
+  }
+
+  function removerPonteiro(usuarioId: number) {
+    const timer = timersPonteiro.get(usuarioId)
+    if (timer !== undefined) window.clearTimeout(timer)
+    timersPonteiro.delete(usuarioId)
+    if (!ponteiros.value.has(usuarioId)) return
+    const novo = new Map(ponteiros.value)
+    novo.delete(usuarioId)
+    ponteiros.value = novo
+  }
+
+  function tratarSinal(usuarioId: number, dados: SinalChamada) {
+    if (dados.acao === 'tela') {
+      const novo = new Set(telasRemotas.value)
+      if (dados.ativa) {
+        novo.add(usuarioId)
+      } else {
+        novo.delete(usuarioId)
+        for (const ponteiro of ponteiros.value.values()) {
+          if (ponteiro.alvo === usuarioId) removerPonteiro(ponteiro.usuarioId)
+        }
+      }
+      telasRemotas.value = novo
+      return
+    }
+
+    if (dados.acao === 'chat') {
+      definirChatChamada(dados.conversa_id)
+      return
+    }
+
+    if (dados.x === null || dados.y === null) {
+      removerPonteiro(usuarioId)
+      return
+    }
+    const nome = peers.value.get(usuarioId)?.usuarioNome
+      || chamada.value?.usuarios.find(u => Number(u.usuario_id) === usuarioId)?.usuario_nome
+      || 'Participante'
+    const novo = new Map(ponteiros.value)
+    novo.set(usuarioId, { usuarioId, nome, alvo: dados.alvo, x: dados.x, y: dados.y })
+    ponteiros.value = novo
+    const timer = timersPonteiro.get(usuarioId)
+    if (timer !== undefined) window.clearTimeout(timer)
+    timersPonteiro.set(usuarioId, window.setTimeout(() => removerPonteiro(usuarioId), PONTEIRO_SOME_MS))
+  }
+
+  // Participante saiu: some a tela dele e o ponteiro que ele movia
+  function esquecerTelaDe(usuarioId: number) {
+    removerPonteiro(usuarioId)
+    if (telasRemotas.value.has(usuarioId)) tratarSinal(usuarioId, { acao: 'tela', ativa: false })
+  }
+
+  function limparTelasCompartilhadas() {
+    for (const timer of timersPonteiro.values()) window.clearTimeout(timer)
+    timersPonteiro.clear()
+    if (timerEnvioPonteiro !== null) window.clearTimeout(timerEnvioPonteiro)
+    timerEnvioPonteiro = null
+    ponteiroPendente = null
+    telasRemotas.value = new Set()
+    ponteiros.value = new Map()
+    ponteiroAtivo.value = false
+  }
+
+  // --- Chat da chamada ---
+  //
+  // Um grupo com quem está na chamada, criado só quando alguém envia a
+  // primeira mensagem por ele. Quem entra depois passa a fazer parte.
+
+  const conversaChatId = computed(() => chamada.value?.conversa_chat_id ?? null)
+
+  function definirChatChamada(conversaId: number) {
+    if (chamada.value && chamada.value.conversa_chat_id !== conversaId) {
+      chamada.value = { ...chamada.value, conversa_chat_id: conversaId }
+    }
+  }
+
+  async function garantirChatChamada(): Promise<number> {
+    if (conversaChatId.value) return conversaChatId.value
+    if (!chamada.value) throw new Error('Nenhuma chamada em andamento')
+    const { conversa_id } = await api.chamadaChat(chamada.value.id)
+    definirChatChamada(conversa_id)
+    return conversa_id
+  }
+
   // --- Handler de eventos WebSocket ---
 
   async function tratarEventoChamada(evento: EventoChamadaSocket) {
     const meuUsuarioId = getAuthUserId()
     if (meuUsuarioId === null) return
     const eventoUsuarioId = normalizeUserId(evento.usuario_id)
+    // Sinal chega dezenas de vezes por segundo com o ponteiro: fora do log
+    if (evento.tipo === TipoEventoSocket.SinalChamada) {
+      if (chamada.value?.id === evento.chamada_id && eventoUsuarioId !== null && eventoUsuarioId !== meuUsuarioId && evento.dados) {
+        tratarSinal(eventoUsuarioId, evento.dados)
+      }
+      return
+    }
     console.log('[CALL] Evento recebido:', evento.tipo, 'chamada_id:', evento.chamada_id, 'usuario_id:', evento.usuario_id, 'estado atual:', estado.value)
 
     switch (evento.tipo) {
@@ -1428,10 +1589,13 @@ export const useCallStore = defineStore('call', () => {
         }
 
         if (chamada.value?.id === evento.chamada_id && estado.value === 'ativa') {
+          // Quem acabou de entrar precisa saber que esta tela é compartilhada
+          if (compartilhandoTela.value) anunciarTela()
           await sincronizarPeersComRetentativas()
         }
         break
       }
+
 
       case TipoEventoSocket.UsuarioSaiu: {
         if (chamada.value?.id === evento.chamada_id) {
@@ -1549,6 +1713,13 @@ export const useCallStore = defineStore('call', () => {
     responderUpgradeVideo,
     tratarEventoChamada,
     verificarChamadasPendentes,
-    encerrarChamada
+    encerrarChamada,
+    telasRemotas,
+    ponteiros,
+    ponteiroAtivo,
+    alternarPonteiro,
+    moverPonteiro,
+    conversaChatId,
+    garantirChatChamada
   }
 })

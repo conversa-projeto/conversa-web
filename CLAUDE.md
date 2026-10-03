@@ -94,6 +94,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 | Tipo | Componente | Quando |
 |------|-----------|--------|
 | `Imagem` | `BolhaImagem.vue` | Mensagem com apenas uma imagem, sem referência |
+| `Figurinha` | `BolhaFigurinha.vue` | Mensagem com apenas uma figurinha (Lottie), sem referência |
 | `Codigo` | `BolhaCodigo.vue` | Mensagem com apenas blocos de código, sem referência |
 | `Emoji` | `BolhaEmoji.vue` | Mensagem com apenas emojis, sem referência |
 | `ComReferencia` | `BolhaReferencia.vue` | Mensagem que responde ou encaminha outra |
@@ -181,6 +182,9 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Anexos**: upload com deduplicação SHA-256, preview de imagem, visualizador de imagem fullscreen, player de áudio
 - **Code blocks**: destaque de sintaxe com highlight.js, modal com CodeMirror
 - **Chamadas WebRTC**: áudio e vídeo, multi-participante (mesh), compartilhamento de tela, janela flutuante, popup externo
+- **Ponteiro remoto**: quem assiste aponta na tela compartilhada; posição repassada pelo WebSocket (sinal da chamada, tipo 57)
+- **Chat da chamada**: grupo criado na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`)
+- **Figurinhas**: animações Lottie em `public/figurinhas`, geradas por `scripts/gerar-figurinhas.ts`; a mensagem leva só `pacote/nome` (conteúdo tipo 7)
 - **Telefonia SIP**: registro, discador, chamadas PSTN via sip.js
 - **Push notifications**: Firebase Cloud Messaging
 - **Tema**: dark/light mode com CSS variables

@@ -13,6 +13,8 @@ export const TipoConteudo = {
   Audio: 4,
   GravacaoAudio: 5,
   Chamada: 6,
+  // O conteúdo é o identificador pacote/nome (utils/figurinhas.ts)
+  Figurinha: 7,
 } as const
 export type TipoConteudo = (typeof TipoConteudo)[keyof typeof TipoConteudo]
 
@@ -35,6 +37,7 @@ export const TipoEventoSocket = {
   UsuarioEntrou: 54,
   UsuarioSaiu: 55,
   VideoAtivado: 56,
+  SinalChamada: 57,
   StatusUsuario: 60,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
@@ -243,6 +246,8 @@ export interface Chamada {
   status: StatusChamada
   criado_em: Date
   criado_por: number
+  // Grupo do chat da chamada, criado na primeira mensagem enviada por ele
+  conversa_chat_id: number | null
   usuarios: ChamadaUsuario[]
 }
 
@@ -292,10 +297,22 @@ export interface ChamadaHistoricoItem {
 }
 
 export interface EventoChamadaSocket {
-  tipo: 51 | 52 | 53 | 54 | 55 | 56
+  tipo: 51 | 52 | 53 | 54 | 55 | 56 | 57
   chamada_id: number
   usuario_id: number
+  dados?: SinalChamada
 }
+
+/**
+ * Sinal entre os participantes de uma chamada, repassado pelo servidor sem
+ * gravar: quem está compartilhando a tela e o ponteiro sobre ela (x e y de 0 a
+ * 1 sobre a imagem; null quando o ponteiro sai). O servidor avisa quando o
+ * chat da chamada é criado.
+ */
+export type SinalChamada =
+  | { acao: 'tela'; ativa: boolean }
+  | { acao: 'ponteiro'; alvo: number; x: number | null; y: number | null }
+  | { acao: 'chat'; conversa_id: number }
 
 // Status de uma mensagem para cada destinatário (horários ou null)
 export interface StatusDestinatario {

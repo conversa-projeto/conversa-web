@@ -498,6 +498,98 @@ describe('compartilhar a tela', () => {
   })
 })
 
+describe('ponteiro na tela compartilhada', () => {
+  async function emChamada() {
+    mediamtx()
+    const call = await receber(TipoChamada.Video)
+    await atender(call)
+    const sinais: unknown[] = []
+    useChatStore().enviarSinalChamada = (chamadaId, dados) => { sinais.push({ chamadaId, ...dados }) }
+    return { call, sinais }
+  }
+
+  test('avisa os outros ao compartilhar e ao parar; repete para quem entra depois', async () => {
+    const { call, sinais } = await emChamada()
+    await call.compartilharTela()
+    expect(sinais).toEqual([{ chamadaId: 1, acao: 'tela', ativa: true }])
+    rota('POST', `/webrtc/call-1-u-${CARLA}/whep`, new Response('v=0\r\nm=audio\r\nm=video'))
+    rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou, [[CARLA, 'Carla', StatusUsuarioChamada.Entrou]]))
+    await relogio.rodar(call.tratarEventoChamada({ tipo: 54, chamada_id: 1, usuario_id: CARLA }))
+    expect(sinais).toHaveLength(2)
+    expect(sinais[1]).toEqual({ chamadaId: 1, acao: 'tela', ativa: true })
+    await call.pararCompartilhamento()
+    expect(sinais.at(-1)).toEqual({ chamadaId: 1, acao: 'tela', ativa: false })
+  })
+
+  test('ponteiro de outro aparece com o nome, some quando sai e quando a tela para', async () => {
+    const { call } = await emChamada()
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    expect(call.telasRemotas.has(ANA)).toBe(true)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'ponteiro', alvo: EU, x: 0.5, y: 0.25 } })
+    expect(call.ponteiros.get(ANA)).toEqual({ usuarioId: ANA, nome: 'Ana', alvo: EU, x: 0.5, y: 0.25 })
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'ponteiro', alvo: EU, x: null, y: null } })
+    expect(call.ponteiros.size).toBe(0)
+
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'ponteiro', alvo: ANA, x: 0.1, y: 0.1 } })
+    expect(call.ponteiros.size).toBe(1)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: false } })
+    expect(call.telasRemotas.size).toBe(0)
+    expect(call.ponteiros.size).toBe(0)
+  })
+
+  test('ponteiro parado some sozinho; sinal de outra chamada é ignorado', async () => {
+    const { call } = await emChamada()
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'ponteiro', alvo: EU, x: 0.5, y: 0.5 } })
+    relogio.avancar(5000)
+    expect(call.ponteiros.size).toBe(0)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 99, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    expect(call.telasRemotas.size).toBe(0)
+  })
+
+  test('o botão só liga com tela de outro, e desliga quando ela para; a posição vai no máximo a cada 40 ms', async () => {
+    const { call, sinais } = await emChamada()
+    call.alternarPonteiro()
+    expect(call.ponteiroAtivo).toBe(false)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    call.alternarPonteiro()
+    expect(call.ponteiroAtivo).toBe(true)
+
+    call.moverPonteiro(ANA, 0.1, 0.1)
+    call.moverPonteiro(ANA, 0.2, 0.2)
+    call.moverPonteiro(ANA, 0.3, 0.3)
+    expect(sinais).toEqual([{ chamadaId: 1, acao: 'ponteiro', alvo: ANA, x: 0.1, y: 0.1 }])
+    relogio.avancar(40)
+    expect(sinais.at(-1)).toEqual({ chamadaId: 1, acao: 'ponteiro', alvo: ANA, x: 0.3, y: 0.3 })
+    expect(sinais).toHaveLength(2)
+
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: false } })
+    await aguardar()
+    expect(call.ponteiroAtivo).toBe(false)
+  })
+})
+
+describe('chat da chamada', () => {
+  test('não existe até ser pedido; pedir cria uma vez e guarda o grupo', async () => {
+    mediamtx()
+    const call = await receber(TipoChamada.Video)
+    await atender(call)
+    expect(call.conversaChatId).toBeNull()
+    rota('PUT', '/chamada/chat', { conversa_id: 40 })
+    expect(await call.garantirChatChamada()).toBe(40)
+    expect(await call.garantirChatChamada()).toBe(40)
+    expect(pedidosDe('PUT', '/chamada/chat')).toHaveLength(1)
+    expect(pedidosDe('PUT', '/chamada/chat')[0]!.corpo).toEqual({ id: 1 })
+  })
+
+  test('criado por outro participante: o aviso do servidor traz o grupo', async () => {
+    mediamtx()
+    const call = await receber(TipoChamada.Video)
+    await atender(call)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'chat', conversa_id: 41 } })
+    expect(call.conversaChatId).toBe(41)
+  })
+})
+
 describe('qualidade da chamada', () => {
   test('a configuração vai para a câmera e o microfone pedidos', async () => {
     const { config } = useConfigChamada()

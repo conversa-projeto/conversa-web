@@ -230,6 +230,11 @@ export function chamadaDados(chamadaId: number): Promise<Chamada> {
   return dados(api().chamada.dados.get({ query: { id: chamadaId } }))
 }
 
+// Grupo do chat da chamada; criado na primeira vez que alguém pede
+export function chamadaChat(chamadaId: number): Promise<{ conversa_id: number }> {
+  return dados(api().chamada.chat.put({ id: chamadaId }))
+}
+
 export function chamadaAdicionarUsuario(chamadaId: number, usuarioId: number): Promise<{ id: number }> {
   return dados(api().chamada.usuario.put({ chamada_id: chamadaId, usuario_id: usuarioId }))
 }

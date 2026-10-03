@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { TipoConversa, TipoConteudo, TipoEventoSocket, TipoMensagemReferencia } from '../types/api'
-import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem } from '../types/api'
+import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem, SinalChamada } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
@@ -368,14 +368,14 @@ export const useChatStore = defineStore('chat', () => {
     await encaminharMensagemParaConversa(origem, conversa.id)
   }
 
-  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: Date | null = null) {
+  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: Date | null = null, figurinha: string | null = null) {
 
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
     }
 
     const textoLimpo = texto.trim()
-    if (!textoLimpo && arquivos.length === 0 && !mensagemRespondendo.value) {
+    if (!textoLimpo && arquivos.length === 0 && !figurinha && !mensagemRespondendo.value) {
       return
     }
 
@@ -412,6 +412,12 @@ export const useChatStore = defineStore('chat', () => {
         tipo: TipoConteudo.Texto,
         conteudo: textoLimpo
       })
+      ordem += 1
+    }
+
+    if (figurinha) {
+      conteudosOptimistas.push({ ordem, tipo: TipoConteudo.Figurinha, conteudo: figurinha })
+      conteudosApi.push({ ordem, tipo: TipoConteudo.Figurinha, conteudo: figurinha })
       ordem += 1
     }
 
@@ -529,6 +535,11 @@ export const useChatStore = defineStore('chat', () => {
 
   async function enviarTexto(texto: string, visivelEm: Date | null = null) {
     await enviarMensagemComConteudos(texto, [], visivelEm)
+  }
+
+  // Figurinha vai sozinha, como no envio pelo seletor (ou como resposta)
+  async function enviarFigurinha(figurinha: string) {
+    await enviarMensagemComConteudos('', [], null, figurinha)
   }
 
   async function enviarArquivo(blob: Blob, nomeArquivo: string, mimeType = '', isAudio = false) {
@@ -720,6 +731,12 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // Sinal para os outros participantes da chamada; com o socket fora, se perde
+  function enviarSinalChamada(chamadaId: number, dados: SinalChamada) {
+    if (socket?.readyState !== WebSocket.OPEN) return
+    socket.send(JSON.stringify({ tipo: TipoEventoSocket.SinalChamada, chamada_id: chamadaId, dados }))
+  }
+
   function desconectarWebSocket(resetTentativas = true) {
     if (reconnectTimer) {
       window.clearTimeout(reconnectTimer)
@@ -815,7 +832,7 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
-    if (evento.tipo && evento.tipo >= TipoEventoSocket.ChamadaRecebida && evento.tipo <= TipoEventoSocket.VideoAtivado && _tratarEventoChamada) {
+    if (evento.tipo && evento.tipo >= TipoEventoSocket.ChamadaRecebida && evento.tipo <= TipoEventoSocket.SinalChamada && _tratarEventoChamada) {
       _tratarEventoChamada(evento as EventoChamadaSocket)
       return
     }
@@ -894,6 +911,7 @@ export const useChatStore = defineStore('chat', () => {
           else if (c.tipo === TipoConteudo.Imagem) texto = 'Imagem'
           else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
           else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
+          else if (c.tipo === TipoConteudo.Figurinha) texto = 'Figurinha'
           else texto = 'Arquivo'
         }
 
@@ -1236,6 +1254,7 @@ export const useChatStore = defineStore('chat', () => {
     renomearGrupo,
     enviarTexto,
     enviarArquivo,
+    enviarFigurinha,
     excluirMensagem,
     enviarMensagemComConteudos,
     buscarNaConversa,
@@ -1245,6 +1264,7 @@ export const useChatStore = defineStore('chat', () => {
     pararPolling,
     conectarWebSocket,
     desconectarWebSocket,
+    enviarSinalChamada,
     encerrarTempoReal,
     marcarMensagensComoVisualizadas,
     digitandoPorConversa,

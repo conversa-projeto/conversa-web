@@ -19,6 +19,12 @@ describe('classificarMensagem', () => {
     expect(classificarMensagem(mensagem({ conteudos: [conteudo(TipoConteudo.Imagem)] }))).toBe(TipoExibicaoMensagem.Imagem)
   })
 
+  test('uma figurinha sem referência; com referência vai para a bolha de referência', () => {
+    const figurinha = { ...conteudo(TipoConteudo.Figurinha), conteudo: 'basico/coracao' }
+    expect(classificarMensagem(mensagem({ conteudos: [figurinha] }))).toBe(TipoExibicaoMensagem.Figurinha)
+    expect(classificarMensagem(mensagem({ conteudos: [figurinha], ...comReferencia([texto('oi')]) }))).toBe(TipoExibicaoMensagem.ComReferencia)
+  })
+
   test('imagem com referência não é bolha de imagem', () => {
     const m = mensagem({ conteudos: [conteudo(TipoConteudo.Imagem)], ...comReferencia([texto('oi')]) })
     expect(classificarMensagem(m)).toBe(TipoExibicaoMensagem.ComReferencia)

@@ -107,7 +107,9 @@
             <EmojiPicker
               v-if="mostrarEmoji"
               direcao="cima"
+              com-figurinhas
               @selecionar="inserirEmoji"
+              @figurinha="enviarFigurinha"
               @close="mostrarEmoji = false"
             />
           </div>
@@ -421,6 +423,20 @@ function inserirEmoji(emoji: string) {
   textoMensagem.value = `${textoMensagem.value}${emoji}`
   mostrarEmoji.value = false
   focarTextarea(textoMensagem.value.length)
+}
+
+// Figurinha vai na hora, sozinha; o texto digitado continua no campo
+async function enviarFigurinha(figurinha: string) {
+  mostrarEmoji.value = false
+  erro.value = ''
+  try {
+    const envio = chat.enviarFigurinha(figurinha)
+    await nextTick()
+    emit('message-sent')
+    await envio
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao enviar a figurinha'
+  }
 }
 
 // --- Audio recording ---

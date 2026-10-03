@@ -7,6 +7,7 @@ export const TipoExibicaoMensagem = {
   Excluida: 'excluida',
   Chamada: 'chamada',
   Imagem: 'imagem',
+  Figurinha: 'figurinha',
   Codigo: 'codigo',
   ComReferencia: 'com-referencia',
   Emoji: 'emoji',
@@ -31,6 +32,10 @@ export function classificarMensagem(mensagem: Mensagem): TipoExibicaoMensagem {
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Imagem && !temReferencia) {
     return TipoExibicaoMensagem.Imagem
+  }
+
+  if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Figurinha && !temReferencia) {
+    return TipoExibicaoMensagem.Figurinha
   }
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Texto && !temReferencia) {

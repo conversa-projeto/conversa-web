@@ -43,6 +43,10 @@ export default defineConfig(({ command }) => ({
             return 'markdown'
           }
 
+          if (id.includes('node_modules/lottie-web')) {
+            return 'lottie'
+          }
+
           if (id.includes('node_modules/hash-wasm')) {
             return 'vendor-utils'
           }

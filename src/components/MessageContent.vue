@@ -256,6 +256,11 @@
     >
       <template #status><slot name="audio-status" /></template>
     </AudioPlayerGravacao>
+    <FigurinhaLottie
+      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Figurinha)"
+      :id="conteudo.conteudo"
+      :tamanho="120"
+    />
     <TranscricaoAudio
       v-if="(ehTipo(conteudo.tipo, TipoConteudo.Audio) || ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)) && !conteudo.localUrl && conteudo.conteudo"
       :identificador="conteudo.conteudo"
@@ -280,6 +285,7 @@ import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
 import TranscricaoAudio from './TranscricaoAudio.vue'
+import FigurinhaLottie from './FigurinhaLottie.vue'
 
 // Carregado só ao abrir um PDF: é ele que traz o pdf.js
 const VisualizadorPdf = defineAsyncComponent(() => import('./VisualizadorPdf.vue'))
