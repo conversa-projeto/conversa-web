@@ -158,14 +158,29 @@
           </div>
         </div>
         <template v-else>
-          <div class="w-[420px] max-w-full">
+          <!-- Prévia: o primeiro quadro com o play; o vídeo toca no visualizador das imagens -->
+          <div
+            class="relative h-[236px] w-[420px] max-w-full overflow-hidden rounded border border-surface-200 bg-black"
+            :class="conteudo.localUrl ? '' : 'cursor-pointer'"
+            :title="conteudo.localUrl ? undefined : 'Reproduzir vídeo'"
+            @click="!conteudo.localUrl && emit('open-image', conteudo.conteudo, conteudo.nome || 'Vídeo')"
+          >
             <video
-              controls
+              v-if="previaVideo(conteudo)"
+              :src="previaVideo(conteudo)"
+              muted
+              playsinline
               preload="metadata"
-              :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
-              class="h-[236px] w-full rounded border border-surface-200 bg-black object-contain"
+              class="pointer-events-none h-full w-full object-contain"
               @error="onImagemErro(conteudo)"
             />
+            <span class="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span class="flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="ml-1 h-7 w-7">
+                  <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z" />
+                </svg>
+              </span>
+            </span>
           </div>
           <button
             v-if="!conteudo.localUrl"
@@ -272,6 +287,13 @@ const VisualizadorHtml = defineAsyncComponent(() => import('./VisualizadorHtml.v
 
 const { conexaoLenta } = useConexao()
 const renovarAnexoUrl = inject<(id: string) => Promise<void>>('renovarAnexoUrl')
+
+// Endereço da prévia do vídeo: "#t=0.1" faz o navegador mostrar o primeiro
+// quadro em vez de uma tela preta. Vazio enquanto o endereço não chegou.
+function previaVideo(conteudo: ConteudoMensagem) {
+  const url = conteudo.localUrl || props.getAnexoUrl(conteudo.conteudo)
+  return url ? `${url}#t=0.1` : ''
+}
 
 function onImagemErro(conteudo: ConteudoMensagem) {
   if (!conteudo.localUrl && conteudo.conteudo && renovarAnexoUrl) {

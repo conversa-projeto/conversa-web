@@ -88,7 +88,7 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { useTheme } from '../composables/useTheme'
 import { useAttachments } from '../composables/useAttachments'
-import { useImageViewer } from '../composables/useImageViewer'
+import { galeriaDasMensagens, useImageViewer } from '../composables/useImageViewer'
 import { useImagePreview } from '../composables/useImagePreview'
 import ChatHeader from './ChatHeader.vue'
 import MessageList from './MessageList.vue'
@@ -97,7 +97,6 @@ import UploadIndicador from './UploadIndicador.vue'
 import ImageViewerModal from './ImageViewerModal.vue'
 import ImagePreviewModal from './ImagePreviewModal.vue'
 import ForwardMessageModal from './ForwardMessageModal.vue'
-import { TipoConteudo } from '../types/api'
 import type { Contato, Mensagem } from '../types/api'
 
 const props = defineProps<{ conversaId: number }>()
@@ -118,23 +117,8 @@ const alturaInput = ref(0)
 // Anexos e imagem
 const { garantirAnexoUrl, anexosUrl } = useAttachments()
 
-const galeriaImagens = computed(() => {
-  const imagens: { identificador: string; nome: string; legenda?: string }[] = []
-  for (const mensagem of chat.mensagensAtivas) {
-    // Texto enviado junto da imagem, mostrado no visualizador
-    const legenda = mensagem.conteudos
-      .filter((c) => c.tipo === TipoConteudo.Texto)
-      .map((c) => c.conteudo.trim())
-      .filter(Boolean)
-      .join('\n')
-    for (const conteudo of mensagem.conteudos) {
-      if (conteudo.tipo === TipoConteudo.Imagem) {
-        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem', legenda })
-      }
-    }
-  }
-  return imagens
-})
+// Imagens e vídeos da conversa, navegáveis no visualizador
+const galeriaImagens = computed(() => galeriaDasMensagens(chat.mensagensAtivas))
 
 const {
   imagemTelaCheiaAberta,

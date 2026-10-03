@@ -171,7 +171,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { AnexoItem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import * as api from '../services/conversaApi'
-import { formatarTamanho } from '../utils/formatters'
+import { formatarTamanho, isVideoConteudo } from '../utils/formatters'
 
 const VisualizadorHtml = defineAsyncComponent(() => import('./VisualizadorHtml.vue'))
 
@@ -283,13 +283,18 @@ function marcarErro(anexoId: number) {
   erroCarregamento.value = new Set(erroCarregamento.value)
 }
 
+// Imagens e vídeos abrem no mesmo visualizador, navegáveis entre si
+function ehVideo(item: AnexoItem) {
+  return item.tipo === TipoConteudo.Arquivo && isVideoConteudo(item)
+}
+
 function abrirImagem(item: AnexoItem) {
-  const galeria = itens.value.filter(x => x.tipo === TipoConteudo.Imagem)
+  const galeria = itens.value.filter(x => x.tipo === TipoConteudo.Imagem || ehVideo(x))
   emit('open-image-gallery', item, galeria)
 }
 
 function abrirItem(item: AnexoItem) {
-  if (item.tipo === TipoConteudo.Imagem) {
+  if (item.tipo === TipoConteudo.Imagem || ehVideo(item)) {
     abrirImagem(item)
     return
   }

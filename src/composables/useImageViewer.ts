@@ -1,10 +1,43 @@
 import { ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
 import { copiarImagem } from '../utils/copiarImagem'
+import { isVideoConteudo } from '../utils/formatters'
+import { TipoConteudo, type Mensagem } from '../types/api'
+
+// Item do visualizador: imagem ou vídeo (que toca no mesmo visualizador)
+export interface ItemGaleria {
+  identificador: string
+  nome: string
+  legenda?: string
+  video?: boolean
+}
+
+// Imagens e vídeos das mensagens, na ordem da conversa, com o texto enviado
+// junto (mostrado no visualizador)
+export function galeriaDasMensagens(mensagens: Mensagem[]): ItemGaleria[] {
+  const itens: ItemGaleria[] = []
+  for (const mensagem of mensagens) {
+    // Excluída não entra: o conteúdo dela só aparece clicando na mensagem
+    if (mensagem.excluida_em) continue
+    const legenda = mensagem.conteudos
+      .filter((c) => c.tipo === TipoConteudo.Texto)
+      .map((c) => c.conteudo.trim())
+      .filter(Boolean)
+      .join('\n')
+    for (const conteudo of mensagem.conteudos) {
+      if (conteudo.tipo === TipoConteudo.Imagem) {
+        itens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem', legenda })
+      } else if (conteudo.tipo === TipoConteudo.Arquivo && isVideoConteudo(conteudo)) {
+        itens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Vídeo', legenda, video: true })
+      }
+    }
+  }
+  return itens
+}
 
 export function useImageViewer(
   garantirAnexoUrl: (id: string) => Promise<void>,
   anexosUrl: Ref<Record<string, string>>,
-  galeriaRef?: Ref<{ identificador: string; nome: string }[]>
+  galeriaRef?: Ref<ItemGaleria[]>
 ) {
   const imagemTelaCheiaAberta = ref(false)
   const imagemTelaCheiaUrl = ref('')
@@ -22,7 +55,13 @@ export function useImageViewer(
   let transicaoTimer = 0
 
   // Galeria alternativa — quando definida, substitui galeriaRef (ex.: fila de envio)
-  const galeriaOverride = ref<{ identificador: string; nome: string }[] | null>(null)
+  const galeriaOverride = ref<ItemGaleria[] | null>(null)
+
+  // Vídeo aberto: sem zoom e sem copiar (o player tem os próprios controles)
+  function atualEhVideo() {
+    const galeria = galeriaOverride.value ?? galeriaRef?.value ?? []
+    return !!galeria.find((i) => i.identificador === imagemAtualIdentificador.value)?.video
+  }
 
   function resetarZoom() {
     zoomImagemTelaCheia.value = 1
@@ -110,7 +149,7 @@ export function useImageViewer(
     url: string,
     nome: string,
     identificador: string,
-    galeria: { identificador: string; nome: string }[]
+    galeria: ItemGaleria[]
   ) {
     galeriaOverride.value = galeria
     imagemTelaCheiaUrl.value = url
@@ -144,8 +183,11 @@ export function useImageViewer(
   function aoTeclaGlobal(event: KeyboardEvent) {
     if (!imagemTelaCheiaAberta.value) return
     if (event.key === 'Escape') { fecharImagemTelaCheia(); return }
+    // Com o player do vídeo em foco, as setas avançam e voltam o vídeo
+    if (event.target instanceof HTMLMediaElement) return
     if (event.key === 'ArrowLeft') { void navegarGaleria(-1); return }
     if (event.key === 'ArrowRight') { void navegarGaleria(1); return }
+    if (atualEhVideo()) return
     if (event.key === '+' || event.key === '=') { ajustarZoomImagem(1); return }
     if (event.key === '-') { ajustarZoomImagem(-1); return }
     if ((event.ctrlKey || event.metaKey) && event.key === 'c') {

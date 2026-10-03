@@ -10,7 +10,22 @@
   >
     <div class="flex flex-1 items-center justify-center p-4" @click.self="emit('close')">
       <div class="relative" :style="!imagemCarregada ? { minHeight: '12rem', minWidth: '16rem' } : {}" @click.self="emit('close')">
+        <!-- Vídeo toca aqui mesmo, com os controles do navegador -->
+        <video
+          v-if="ehVideo"
+          :key="url"
+          :src="url"
+          controls
+          autoplay
+          playsinline
+          class="max-w-[92vw] bg-black object-contain"
+          :class="legenda ? 'max-h-[70vh]' : 'max-h-[85vh]'"
+          :aria-label="nome"
+          @loadeddata="imagemCarregada = true"
+          @error="imagemCarregada = true"
+        />
         <img
+          v-else
           :src="url"
           :alt="nome"
           class="max-w-[92vw] select-none object-contain"
@@ -51,7 +66,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
-            <span class="text-sm text-white/50">Carregando imagem</span>
+            <span class="text-sm text-white/50">{{ ehVideo ? 'Carregando vídeo' : 'Carregando imagem' }}</span>
           </div>
         </div>
       </div>
@@ -64,6 +79,8 @@
     >{{ legenda }}</p>
 
     <div class="relative z-10 mb-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+      <!-- Zoom e copiar só valem para imagem -->
+      <template v-if="!ehVideo">
       <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-out')">-</button>
       <span class="min-w-10 text-center text-xs text-white/70">{{ Math.round(zoom * 100) }}%</span>
       <button class="flex h-8 w-8 items-center justify-center rounded-full text-white text-lg hover:bg-white/15" @click="emit('zoom-in')">+</button>
@@ -78,6 +95,7 @@
           <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
         </svg>
       </button>
+      </template>
       <button class="rounded-full px-4 py-1.5 text-xs text-white hover:bg-white/15" @click="emit('close')">Fechar</button>
     </div>
 
@@ -110,8 +128,22 @@
           @click="emit('select-image', item.identificador, item.nome)"
         >
           <div class="h-full w-full overflow-hidden rounded">
+            <!-- Miniatura do vídeo: o primeiro quadro, com o símbolo de play -->
+            <template v-if="anexosUrl[item.identificador] && item.video">
+              <video
+                :src="`${anexosUrl[item.identificador]}#t=0.1`"
+                muted
+                preload="metadata"
+                class="pointer-events-none h-full w-full bg-black object-cover"
+              />
+              <span class="absolute inset-0 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5 text-white drop-shadow">
+                  <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z" />
+                </svg>
+              </span>
+            </template>
             <img
-              v-if="anexosUrl[item.identificador]"
+              v-else-if="anexosUrl[item.identificador]"
               :src="anexosUrl[item.identificador]"
               :alt="item.nome"
               class="h-full w-full object-cover"
@@ -144,6 +176,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
+import type { ItemGaleria } from '../composables/useImageViewer'
 
 const props = defineProps<{
   aberta: boolean
@@ -154,12 +187,14 @@ const props = defineProps<{
   translateY: number
   isDragging: boolean
   transicaoAtiva: boolean
-  galeria: { identificador: string; nome: string; legenda?: string }[]
+  galeria: ItemGaleria[]
   identificadorAtual: string
   anexosUrl: Record<string, string>
 }>()
 
-const legenda = computed(() => props.galeria.find((item) => item.identificador === props.identificadorAtual)?.legenda || '')
+const itemAtual = computed(() => props.galeria.find((item) => item.identificador === props.identificadorAtual))
+const legenda = computed(() => itemAtual.value?.legenda || '')
+const ehVideo = computed(() => !!itemAtual.value?.video)
 
 const imagemCarregada = ref(false)
 const menuContexto = ref<{ x: number; y: number } | null>(null)

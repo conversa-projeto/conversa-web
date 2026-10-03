@@ -55,6 +55,33 @@ describe('visualizador de imagem', () => {
     expect(tela.emitted('select-image')).toEqual([['b', 'b.png']])
   })
 
+  test('vídeo toca no mesmo visualizador, com controles; sem zoom nem copiar', async () => {
+    const galeria = [{ identificador: 'a', nome: 'a.png' }, { identificador: 'v', nome: 'festa.mp4', legenda: 'A festa', video: true }]
+    const tela = montar(ImageViewerModal, { props: { ...base, url: 'https://localhost/storage/v', nome: 'festa.mp4', identificadorAtual: 'v', galeria, anexosUrl: { a: 'https://localhost/storage/a', v: 'https://localhost/storage/v' } } })
+    const video = tela.find('.flex-1 video')
+    expect(video.exists()).toBe(true)
+    expect(video.attributes('src')).toBe('https://localhost/storage/v')
+    expect(video.attributes()).toHaveProperty('controls')
+    expect(video.attributes()).toHaveProperty('autoplay')
+    expect(tela.find('.flex-1 img').exists()).toBe(false)
+    expect(tela.text()).toContain('Carregando vídeo')
+    expect(tela.text()).toContain('A festa')
+    expect(tela.findAll('button').some((b) => b.text() === '+')).toBe(false)
+    expect(tela.find('button[title^="Copiar imagem"]').exists()).toBe(false)
+    expect(tela.findAll('button').some((b) => b.text() === 'Fechar')).toBe(true)
+    await video.trigger('loadeddata')
+    expect(tela.text()).not.toContain('Carregando vídeo')
+    // Na galeria, a miniatura do vídeo é o primeiro quadro com o play
+    const miniatura = tela.find('button[data-id="v"]')
+    expect(miniatura.find('video').attributes('src')).toBe('https://localhost/storage/v#t=0.1')
+    expect(miniatura.find('svg').exists()).toBe(true)
+    expect(tela.find('button[data-id="a"] img').exists()).toBe(true)
+    // Voltar para a imagem: zoom de volta
+    await tela.setProps({ identificadorAtual: 'a', url: 'https://localhost/storage/a', nome: 'a.png' })
+    expect(tela.find('.flex-1 img').exists()).toBe(true)
+    expect(tela.findAll('button').some((b) => b.text() === '+')).toBe(true)
+  })
+
   test('fechada, não mostra nada', () => {
     const tela = montar(ImageViewerModal, { props: { ...base, aberta: false, identificadorAtual: 'a', galeria: [] } })
     expect(tela.html()).not.toContain('img')
@@ -113,6 +140,24 @@ describe('arquivo no chat', () => {
     await tela.findAll('button').find((b) => b.text() === 'Abrir')!.trigger('click')
     await aguardar(20)
     expect(document.querySelector('iframe[sandbox="allow-scripts"]')).not.toBeNull()
+  })
+
+  test('vídeo aparece como prévia (primeiro quadro com play) e o clique abre no visualizador', async () => {
+    const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'festa.mp4' }), mensagemId: 1, getAnexoUrl: (id: string) => `https://localhost/storage/${id}` } })
+    const video = tela.find('video')
+    expect(video.attributes('src')).toBe('https://localhost/storage/vid-1#t=0.1')
+    expect(video.attributes()).not.toHaveProperty('controls')
+    await tela.find('[title="Reproduzir vídeo"]').trigger('click')
+    expect(tela.emitted('open-image')).toEqual([['vid-1', 'festa.mp4']])
+  })
+
+  test('vídeo sem endereço ainda: só o fundo com o play; enviando (local): não abre', async () => {
+    const semUrl = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'v.mp4' }), mensagemId: 1, getAnexoUrl: () => '' } })
+    expect(semUrl.find('video').exists()).toBe(false)
+    const local = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-2', { nome: 'v.webm', localUrl: 'blob:x' }), mensagemId: 1, getAnexoUrl: () => '' } })
+    expect(local.find('video').attributes('src')).toBe('blob:x#t=0.1')
+    await local.find('.bg-black').trigger('click')
+    expect(local.emitted('open-image')).toBeUndefined()
   })
 
   test('Download emite o identificador e o nome', async () => {
@@ -232,6 +277,22 @@ describe('tela de Anexos', () => {
     await tela.findAll('button').find((b) => b.text() === 'Imagens')!.trigger('click')
     await aguardar(10)
     expect(pedidosDe('GET', '/anexos').map((p) => [p.consulta.direcao, p.consulta.tipos])).toEqual([['', '2,3,4,5'], ['enviados', '2,3,4,5'], ['enviados', '2']])
+  })
+
+  test('vídeo abre no visualizador com as imagens e os vídeos, e não numa aba nova', async () => {
+    const abertos: string[] = []
+    const abrirOriginal = window.open
+    window.open = ((url: string) => void abertos.push(url)) as unknown as typeof window.open
+    try {
+      const tela = await montarLista([anexo(1, 'a.png', TipoConteudo.Imagem), anexo(2, 'festa.mp4'), anexo(3, 'b.txt')])
+      await tela.findAll('div.cursor-pointer').find((d) => d.text().includes('festa.mp4'))!.trigger('click')
+      const [[item, galeria]] = tela.emitted('open-image-gallery') as [[AnexoItem, AnexoItem[]]]
+      expect(item.anexo_id).toBe(2)
+      expect(galeria.map((g) => g.anexo_id)).toEqual([1, 2])
+      expect(abertos).toEqual([])
+    } finally {
+      window.open = abrirOriginal
+    }
   })
 
   test('imagem abre a galeria só com as imagens', async () => {

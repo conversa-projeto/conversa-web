@@ -252,13 +252,13 @@ import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useSipStore } from './stores/sip'
 import { useCallStore } from './stores/call'
-import { TipoConversa, TipoConteudo } from './types/api'
+import { TipoConversa } from './types/api'
 import type { Contato, EventoChamadaSocket, Mensagem, TipoChamada } from './types/api'
 import { useCallPopup } from './composables/useCallPopup'
-import { useImageViewer } from './composables/useImageViewer'
+import { galeriaDasMensagens, useImageViewer, type ItemGaleria } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
-import { inicialNome } from './utils/formatters'
+import { inicialNome, isVideoConteudo } from './utils/formatters'
 import { useDragAndDrop } from './composables/useDragAndDrop'
 import { useUploadProgress } from './composables/useUploadProgress'
 import { useHistoryNavigation } from './composables/useHistoryNavigation'
@@ -399,23 +399,8 @@ const {
   cleanup: cleanupCallPopup
 } = useCallPopup(erro)
 
-const galeriaImagens = computed(() => {
-  const imagens: { identificador: string; nome: string; legenda?: string }[] = []
-  for (const mensagem of chat.mensagensAtivas) {
-    // Texto enviado junto da imagem, mostrado no visualizador
-    const legenda = mensagem.conteudos
-      .filter((c) => c.tipo === TipoConteudo.Texto)
-      .map((c) => c.conteudo.trim())
-      .filter(Boolean)
-      .join('\n')
-    for (const conteudo of mensagem.conteudos) {
-      if (conteudo.tipo === TipoConteudo.Imagem) {
-        imagens.push({ identificador: conteudo.conteudo, nome: conteudo.nome || 'Imagem', legenda })
-      }
-    }
-  }
-  return imagens
-})
+// Imagens e vídeos da conversa, navegáveis no visualizador
+const galeriaImagens = computed(() => galeriaDasMensagens(chat.mensagensAtivas))
 
 const {
   imagemTelaCheiaAberta,
@@ -619,7 +604,7 @@ function aoMudarConversaAnexos(conversaId: number | null) {
 
 /** Abre o visualizador de imagens usando o mesmo fluxo do chat (galeria + blob cache). */
 function handleOpenAnexoImagem(item: import('./types/api').AnexoItem, galeria: import('./types/api').AnexoItem[]) {
-  const galeriaViewer = galeria.map(g => ({ identificador: g.identificador, nome: g.nome ?? '', url: g.url ?? '' }))
+  const galeriaViewer = galeria.map(g => ({ identificador: g.identificador, nome: g.nome ?? '', url: g.url ?? '', video: isVideoConteudo(g) }))
   handleOpenFilaImage(item.url ?? '', item.nome ?? '', item.identificador, galeriaViewer)
 }
 
@@ -808,7 +793,7 @@ function handleOpenFilaImage(
   url: string,
   nome: string,
   identificador: string,
-  galeria: { identificador: string; nome: string; url: string }[]
+  galeria: (ItemGaleria & { url: string })[]
 ) {
   // Injetar blob URLs no cache para que a navegação da galeria funcione
   for (const item of galeria) {

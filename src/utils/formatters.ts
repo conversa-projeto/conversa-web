@@ -89,12 +89,15 @@ export function resumoMensagem(item: Mensagem): string {
   return 'Arquivo'
 }
 
-export function normalizarExtensaoArquivo(conteudo: ConteudoMensagem): string {
+// Conteúdo de mensagem ou anexo da tela de Anexos: os dois têm nome e extensão
+type ArquivoComNome = { extensao?: string | null; nome?: string | null }
+
+export function normalizarExtensaoArquivo(conteudo: ArquivoComNome): string {
   const extBruta = conteudo.extensao || (conteudo.nome?.split('.').pop() || '')
   return extBruta.trim().toLowerCase().replace(/^\./, '')
 }
 
-export function isVideoConteudo(conteudo: ConteudoMensagem): boolean {
+export function isVideoConteudo(conteudo: ArquivoComNome): boolean {
   const ext = normalizarExtensaoArquivo(conteudo)
   return ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'mkv'].includes(ext)
 }

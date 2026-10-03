@@ -4,7 +4,9 @@ import { defineComponent, h, ref } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 import { nomeVariavelCor, useCoresPersonalizadas, GRUPOS_CORES } from '@/composables/useCoresPersonalizadas'
 import { useHistoryNavigation } from '@/composables/useHistoryNavigation'
-import { useImageViewer } from '@/composables/useImageViewer'
+import { galeriaDasMensagens, useImageViewer, type ItemGaleria } from '@/composables/useImageViewer'
+import { TipoConteudo } from '@/types/api'
+import { conteudo, mensagem, texto } from './fabrica'
 import { useFilaArquivos } from '@/composables/useFilaArquivos'
 import { useUploadProgress } from '@/composables/useUploadProgress'
 import { carregarMarkdown, ehLinguagemMarkdown } from '@/composables/useMarkdown'
@@ -134,8 +136,25 @@ describe('navegação pelo histórico do navegador', () => {
   })
 })
 
+describe('galeria do visualizador: imagens e vídeos da conversa', () => {
+  test('na ordem das mensagens, com o texto junto; vídeo marcado; outros arquivos e excluídas fora', () => {
+    const galeria = galeriaDasMensagens([
+      mensagem({ id: 1, conteudos: [conteudo(TipoConteudo.Imagem, 'img-1', { nome: 'praia.png' }), texto(' Olha ')] }),
+      mensagem({ id: 2, conteudos: [conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'festa.MP4' })] }),
+      mensagem({ id: 3, conteudos: [conteudo(TipoConteudo.Arquivo, 'doc-1', { nome: 'contrato.pdf' })] }),
+      mensagem({ id: 4, excluida_em: new Date(), conteudos: [conteudo(TipoConteudo.Imagem, 'img-x')] }),
+      mensagem({ id: 5, conteudos: [conteudo(TipoConteudo.Arquivo, 'vid-2', { extensao: 'webm' })] }),
+    ])
+    expect(galeria).toEqual([
+      { identificador: 'img-1', nome: 'praia.png', legenda: 'Olha' },
+      { identificador: 'vid-1', nome: 'festa.MP4', legenda: '', video: true },
+      { identificador: 'vid-2', nome: 'Vídeo', legenda: '', video: true },
+    ])
+  })
+})
+
 describe('visualizador de imagem (zoom, arrasto, galeria)', () => {
-  function criar(galeria = [{ identificador: 'a', nome: 'A' }, { identificador: 'b', nome: 'B' }]) {
+  function criar(galeria: ItemGaleria[] = [{ identificador: 'a', nome: 'A' }, { identificador: 'b', nome: 'B' }]) {
     const urls = ref<Record<string, string>>({})
     const garantir = async (id: string) => void (urls.value[id] = `https://localhost/storage/${id}`)
     let visor!: ReturnType<typeof useImageViewer>
@@ -198,6 +217,24 @@ describe('visualizador de imagem (zoom, arrasto, galeria)', () => {
     expect(visor.zoomImagemTelaCheia.value).toBe(1)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(visor.imagemTelaCheiaAberta.value).toBe(false)
+    host.unmount()
+  })
+
+  test('vídeo aberto: sem zoom; com o player em foco, as setas ficam para o vídeo', async () => {
+    const { visor, host } = criar([{ identificador: 'a', nome: 'A' }, { identificador: 'v', nome: 'V', video: true }, { identificador: 'c', nome: 'C' }])
+    await visor.abrirImagemTelaCheia('v', 'V')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '+' }))
+    expect(visor.zoomImagemTelaCheia.value).toBe(1)
+    const player = document.createElement('video')
+    document.body.appendChild(player)
+    player.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await aguardar()
+    expect(visor.imagemAtualIdentificador.value).toBe('v')
+    player.remove()
+    // Fora do player, as setas navegam entre imagens e vídeos
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    await aguardar()
+    expect(visor.imagemAtualIdentificador.value).toBe('c')
     host.unmount()
   })
 
