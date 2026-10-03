@@ -71,6 +71,10 @@ type RespostaEden<T> =
   | { data: null; error: { status: unknown; value: unknown } }
 
 function mensagemDoErro(valor: unknown, status: unknown): string {
+  // Página de erro do nginx (502/504 com a API fora do ar ou reiniciando)
+  if (typeof valor === 'string' && valor.trimStart().startsWith('<')) {
+    return 'Servidor indisponível'
+  }
   if (typeof valor === 'object' && valor !== null) {
     const { error, message } = valor as { error?: unknown; message?: unknown }
     if (typeof error === 'string') return error

@@ -47,6 +47,7 @@
           v-if="menuContexto"
           class="fixed z-50 min-w-40 rounded-lg border border-surface-200 bg-surface-base py-1 shadow-xl"
           :style="{ left: menuContexto.x + 'px', top: menuContexto.y + 'px' }"
+          @mousedown.stop
         >
           <button
             class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 hover:bg-surface-100"

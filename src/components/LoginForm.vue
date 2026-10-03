@@ -50,9 +50,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { useChatStore } from '../stores/chat'
-import { useCallStore } from '../stores/call'
-import type { EventoChamadaSocket } from '../types/api'
 
 const emit = defineEmits<{
   'login-success': []
@@ -60,8 +57,6 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
-const chat = useChatStore()
-const call = useCallStore()
 
 const inputUsuario = ref<HTMLInputElement | null>(null)
 const login = ref('')
@@ -78,12 +73,8 @@ async function fazerLogin() {
   carregandoLogin.value = true
 
   try {
+    // O App carrega o chat, o ramal e as chamadas quando o login é feito
     await auth.login(login.value.trim(), senha.value)
-    await chat.inicializar()
-    chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
-      void call.tratarEventoChamada(evento)
-    })
-    void call.verificarChamadasPendentes()
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission()
     }

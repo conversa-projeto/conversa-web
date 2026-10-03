@@ -469,25 +469,57 @@ onMounted(async () => {
   navigator.serviceWorker?.addEventListener('message', aoReceberMensagemServiceWorker)
   atualizarServiceWorkerNotificacoes()
   if (auth.isAuthenticated) {
-    try {
-      await chat.inicializar()
-      await sip.inicializarSessao(false)
-      void auth.resolverAvatarUrl()
-      chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
-        void call.tratarEventoChamada(evento)
-      })
-      void call.verificarChamadasPendentes()
-      // Deep link: se a URL inicial tem /chat/:id, abrir a conversa
-      // agora que o chat foi inicializado (conversas disponíveis).
-      await aplicarEstadoInicialUrl()
-    } catch (e) {
-      auth.logout()
-      if (!(e instanceof ErroNaoAutenticado)) {
-        erro.value = e instanceof Error ? e.message : 'Falha ao iniciar sessao'
-      }
-    }
+    await iniciarSessao()
   }
 })
+
+// Login feito: o LoginForm já saiu da tela quando o token chega, então é aqui
+// que a sessão começa
+watch(() => auth.isAuthenticated, (autenticado) => {
+  if (!autenticado) return
+  erro.value = ''
+  void iniciarSessao()
+})
+
+const ESPERA_NOVA_TENTATIVA_MS = 5000
+let timerNovaTentativa: number | null = null
+let erroInicioSessao = ''
+
+function cancelarNovaTentativa() {
+  if (timerNovaTentativa) {
+    window.clearTimeout(timerNovaTentativa)
+    timerNovaTentativa = null
+  }
+}
+
+// Carrega o chat, o ramal e as chamadas, ao abrir o app já logado e depois do
+// login. Só a sessão vencida (401) volta ao login: outra falha, como o
+// servidor ainda subindo depois de reiniciar, mantém o login e tenta de novo.
+async function iniciarSessao() {
+  cancelarNovaTentativa()
+  try {
+    await chat.inicializar()
+    await sip.inicializarSessao(false)
+    void auth.resolverAvatarUrl()
+    chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
+      void call.tratarEventoChamada(evento)
+    })
+    void call.verificarChamadasPendentes()
+    if (erro.value === erroInicioSessao) erro.value = ''
+    // Deep link: se a URL inicial tem /chat/:id, abrir a conversa
+    // agora que o chat foi inicializado (conversas disponíveis).
+    await aplicarEstadoInicialUrl()
+  } catch (e) {
+    if (e instanceof ErroNaoAutenticado) {
+      sair()
+      return
+    }
+    if (!auth.isAuthenticated) return
+    erroInicioSessao = `${e instanceof Error ? e.message : 'Falha ao iniciar sessão'} (tentando de novo...)`
+    erro.value = erroInicioSessao
+    timerNovaTentativa = window.setTimeout(() => { void iniciarSessao() }, ESPERA_NOVA_TENTATIVA_MS)
+  }
+}
 
 /**
  * Aplica o estado de navegação lido da URL ao montar a app.
@@ -616,6 +648,7 @@ async function abrirMensagemDoAnexo(conversaId: number, mensagemId: number) {
 }
 
 onUnmounted(() => {
+  cancelarNovaTentativa()
   window.removeEventListener('beforeunload', onBeforeUnload)
   navigator.serviceWorker?.removeEventListener('message', aoReceberMensagemServiceWorker)
   desregistrarPopstate()
@@ -632,6 +665,7 @@ function onLoginSuccess() {
 }
 
 function sair() {
+  cancelarNovaTentativa()
   cleanupCallPopup()
   call.encerrarChamada()
   chat.removerHandlerChamada()

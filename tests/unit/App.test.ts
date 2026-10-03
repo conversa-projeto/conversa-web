@@ -113,17 +113,43 @@ describe('com sessão', () => {
     expect(tela.text()).not.toContain('Token inválido')
   })
 
-  test('outra falha ao iniciar volta ao login e mostra o erro', async () => {
-    localStorage.setItem('conversa.token', 'token')
-    localStorage.setItem('conversa.user', JSON.stringify({ id: EU, nome: 'Eu' }))
-    setActivePinia(createPinia())
-    rota('GET', '/usuario/contatos', erro(500, 'Banco fora do ar'))
-    rota('GET', '/conversas', [])
+  test('outra falha ao iniciar mantém o login, mostra o erro e tenta de novo', async () => {
+    const relogio = relogioFalso()
+    try {
+      localStorage.setItem('conversa.token', 'token')
+      localStorage.setItem('conversa.user', JSON.stringify({ id: EU, nome: 'Eu' }))
+      setActivePinia(createPinia())
+      rota('GET', '/usuario/contatos', erro(500, 'Banco fora do ar'))
+      rota('GET', '/conversas', [])
+      tela = mount(App, { attachTo: document.body })
+      await aguardar(30)
+      expect(tela.findComponent(LoginForm).exists()).toBe(false)
+      expect(useAuthStore().isAuthenticated).toBe(true)
+      expect(tela.text()).toContain('Banco fora do ar')
+
+      rotasDaSessao()
+      relogio.avancar(5000)
+      await aguardar(40)
+      expect(pedidosDe('GET', '/usuario/contatos')).toHaveLength(2)
+      expect(tela.text()).not.toContain('Banco fora do ar')
+      expect(tela.text()).toContain('Selecione uma conversa.')
+    } finally {
+      useChatStore().encerrarTempoReal()
+      relogio.restaurar()
+    }
+  })
+
+  test('login pelo formulário carrega o chat e o ramal', async () => {
+    rota('POST', '/login', { id: EU, nome: 'Eu', email: 'e@t', telefone: null, token: 't', avatar_identificador: null, dispositivo: null })
+    rotasDaSessao()
     tela = mount(App, { attachTo: document.body })
-    await aguardar(30)
-    expect(tela.text()).toContain('Banco fora do ar')
-    await tela.find('.bg-danger-600 button').trigger('click')
-    expect(tela.text()).not.toContain('Banco fora do ar')
+    await tela.find('input[type="text"]').setValue('eu')
+    await tela.find('input[type="password"]').setValue('x')
+    await tela.find('form').trigger('submit')
+    await aguardar(40)
+    expect(pedidosDe('GET', '/conversas')).toHaveLength(1)
+    expect(pedidosDe('GET', '/sip').length).toBeGreaterThan(0)
+    useChatStore().encerrarTempoReal()
   })
 
   test('link direto /chat/1 abre a conversa', async () => {

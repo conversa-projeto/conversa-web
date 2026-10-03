@@ -32,12 +32,9 @@ describe('login', () => {
     relogio.restaurar()
   })
 
-  test('entra com o usuário sem espaços, carrega o chat e avisa quem montou', async () => {
+  test('entra com o usuário sem espaços e avisa quem montou, que carrega o chat', async () => {
     rota('POST', '/login', { id: 7, nome: 'Ana', email: 'a@t', telefone: null, token: 't', avatar_identificador: null, dispositivo: { id: 3 } })
     rota('PATCH', '/dispositivo', {})
-    rota('GET', '/usuario/contatos', [])
-    rota('GET', '/conversas', [])
-    rota('GET', '/chamadas/pendentes', [])
     const tela = montar(LoginForm)
     expect(document.activeElement).toBe(tela.find('input[type="text"]').element)
     await tela.find('input[type="text"]').setValue('  ana  ')
@@ -45,7 +42,7 @@ describe('login', () => {
     await tela.find('form').trigger('submit')
     await aguardar(10)
     expect(pedidosDe('POST', '/login')[0]!.corpo).toMatchObject({ login: 'ana', senha: 'segredo' })
-    expect(pedidosDe('GET', '/conversas')).toHaveLength(1)
+    expect(pedidosDe('GET', '/conversas')).toHaveLength(0)
     expect(tela.emitted('login-success')).toHaveLength(1)
     expect(useAuthStore().isAuthenticated).toBe(true)
   })
@@ -61,6 +58,17 @@ describe('login', () => {
     expect(tela.text()).toContain('Senha incorreta!')
     expect(botao(tela, 'Entrar').attributes('disabled')).toBeUndefined()
     expect(tela.emitted('login-success')).toBeUndefined()
+  })
+
+  test('servidor fora do ar (página do nginx) vira "Servidor indisponível"', async () => {
+    rota('POST', '/login', new Response('<html><title>502 Bad Gateway</title></html>', { status: 502, headers: { 'content-type': 'text/html' } }))
+    const tela = montar(LoginForm)
+    await tela.find('input[type="text"]').setValue('ana')
+    await tela.find('input[type="password"]').setValue('x')
+    await tela.find('form').trigger('submit')
+    await aguardar(10)
+    expect(tela.text()).toContain('Servidor indisponível')
+    expect(tela.text()).not.toContain('Bad Gateway')
   })
 
   test('Criar conta leva ao cadastro', async () => {
