@@ -27,7 +27,7 @@
       </span>
 
       <!-- Citada foi excluída: não mostra o conteúdo (ele aparece segurando sobre a original) -->
-      <p v-if="referencia.excluida_em" class="text-xs italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem excluída</p>
+      <p v-if="referencia.excluida_em" class="text-xs italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem oculta</p>
 
       <!-- Referência aninhada (recursiva) -->
       <ReferenciaRecursiva

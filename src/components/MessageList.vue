@@ -177,12 +177,12 @@ async function excluirMensagem(msg: Mensagem) {
   const agendada = !!msg.visivel_em && new Date(msg.visivel_em).getTime() > Date.now()
   const confirmado = await dialogo.confirmar(agendada
     ? { titulo: 'Cancelar mensagem agendada', mensagem: 'Ela não será enviada.', textoConfirmar: 'Cancelar envio', textoCancelar: 'Voltar', perigo: true }
-    : { titulo: 'Excluir mensagem', mensagem: 'Ela continua na conversa, marcada como excluída.', textoConfirmar: 'Excluir', perigo: true })
+    : { titulo: 'Ocultar mensagem', mensagem: 'Ela continua na conversa, marcada como oculta.', textoConfirmar: 'Ocultar', perigo: true })
   if (!confirmado) return
   try {
     await chat.excluirMensagem(msg.id)
   } catch (e) {
-    void dialogo.avisar({ titulo: 'Não foi possível excluir', mensagem: e instanceof Error ? e.message : 'Erro ao excluir mensagem' })
+    void dialogo.avisar({ titulo: 'Não foi possível ocultar', mensagem: e instanceof Error ? e.message : 'Erro ao ocultar mensagem' })
   }
 }
 

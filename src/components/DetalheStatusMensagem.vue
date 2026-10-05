@@ -14,7 +14,7 @@
     <!-- Grupo: quem viu, quem só recebeu e quem ainda não recebeu -->
     <div v-else class="max-h-64 space-y-2 overflow-y-auto">
       <p v-if="mensagem.excluida_em" class="flex items-center justify-between gap-3">
-        <span class="font-semibold text-danger-600 dark:text-danger-400">Excluída</span>
+        <span class="font-semibold text-danger-600 dark:text-danger-400">Oculta</span>
         <span class="text-surface-800">{{ quando(mensagem.excluida_em) }}</span>
       </p>
       <div v-for="secao in secoesGrupo" :key="secao.titulo">
@@ -62,7 +62,7 @@ const etapasDireta = computed(() => {
     { titulo: 'Visualizada', quando: quando(destino?.visualizada ?? null) },
   ]
   if (ehAudio.value) etapas.push({ titulo: 'Ouvida', quando: quando(destino?.reproduzida ?? null) })
-  if (props.mensagem.excluida_em) etapas.push({ titulo: 'Excluída', quando: quando(props.mensagem.excluida_em) })
+  if (props.mensagem.excluida_em) etapas.push({ titulo: 'Oculta', quando: quando(props.mensagem.excluida_em) })
   return etapas
 })
 

@@ -32,7 +32,7 @@ export function obterReferenciaPrincipal(mensagem: Mensagem): MensagemReferencia
       id: referencia.mensagem.id,
       remetente: referencia.mensagem.remetente || 'Resposta',
       inserida: referencia.mensagem.inserida,
-      conteudo_resumo: referencia.mensagem.excluida_em ? 'Mensagem excluída' : resumoConteudos(referencia.mensagem.conteudos || []),
+      conteudo_resumo: referencia.mensagem.excluida_em ? 'Mensagem oculta' : resumoConteudos(referencia.mensagem.conteudos || []),
       conversa_id: referencia.mensagem.conversa_id,
       excluida_em: referencia.mensagem.excluida_em,
       mensagem_referencia: referencia.mensagem.mensagem_referencia

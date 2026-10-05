@@ -128,7 +128,7 @@ describe('mensagem excluída', () => {
   test('usa a bolha de excluída: sem o conteúdo, sem ações e sem reações', () => {
     const tela = bolha(excluida({ reacoes: [{ emoji: '👍', quantidade: 1, reagiu: false, usuarios: [] }] }))
     expect(tela.findComponent(BolhaExcluida).exists()).toBe(true)
-    expect(tela.text()).toContain('Mensagem excluída')
+    expect(tela.text()).toContain('Mensagem oculta')
     expect(tela.text()).not.toContain('conteúdo secreto')
     expect(tela.findComponent(MensagemAcoes).exists()).toBe(false)
     expect(tela.find('button.reacao-btn').exists()).toBe(false)
@@ -140,7 +140,7 @@ describe('mensagem excluída', () => {
     expect(corpo.attributes('title')).toBe('Clique para ver o conteúdo')
     await corpo.trigger('click')
     expect(tela.text()).toContain('conteúdo secreto')
-    expect(tela.text()).toContain('Mensagem excluída')
+    expect(tela.text()).toContain('Mensagem oculta')
     expect(corpo.attributes('title')).toBe('Clique para ocultar o conteúdo')
     expect(corpo.attributes('aria-expanded')).toBe('true')
     await corpo.trigger('click')
@@ -170,7 +170,7 @@ describe('mensagem excluída', () => {
   test('a resposta a uma mensagem excluída não mostra o conteúdo citado', () => {
     const resposta = mensagem({ conteudos: [texto('concordo')], mensagem_referencia: { tipo: TipoMensagemReferencia.Resposta, mensagem: { id: 99, remetente: 'Bruno', excluida_em: new Date(), conteudos: [texto('o que foi dito')] } } })
     const tela = bolha(resposta)
-    expect(tela.text()).toContain('Mensagem excluída')
+    expect(tela.text()).toContain('Mensagem oculta')
     expect(tela.text()).not.toContain('o que foi dito')
     expect(tela.text()).toContain('concordo')
   })

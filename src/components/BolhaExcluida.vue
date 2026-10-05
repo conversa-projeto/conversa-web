@@ -19,7 +19,7 @@
 
     <!-- Revelada: o conteúdo original, ainda marcado como excluído -->
     <template v-if="revelada">
-      <p class="mb-0.5 text-[10px] italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem excluída</p>
+      <p class="mb-0.5 text-[10px] italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem oculta</p>
       <MessageContent
         v-for="conteudo in mensagem.conteudos"
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
@@ -40,7 +40,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
           <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>
-        Mensagem excluída
+        Mensagem oculta
       </span>
       <MensagemStatus
         :mensagem="mensagem"

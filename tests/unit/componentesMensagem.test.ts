@@ -124,18 +124,18 @@ describe('ações da mensagem', () => {
     for (const extras of [{}, { visivel_em: new Date(Date.now() + 60_000) }, { inserida: new Date(2020, 0, 1) }]) {
       const minha = acoes({ isOwn: true, mensagem: mensagem({ id: 5, ...extras }) })
       await abrir(minha)
-      await botao(corpo(), 'Excluir').trigger('click')
+      await botao(corpo(), 'Ocultar').trigger('click')
       expect(minha.emitted('excluir')).toHaveLength(1)
     }
     const deOutro = acoes({ isOwn: false })
     await abrir(deOutro)
-    expect(corpo().text()).not.toContain('Excluir')
+    expect(corpo().text()).not.toContain('Ocultar')
   })
 
   test('já excluída não oferece Excluir de novo', async () => {
     const tela = acoes({ isOwn: true, mensagem: mensagem({ id: 5, excluida_em: new Date() }) })
     await abrir(tela)
-    expect(corpo().text()).not.toContain('Excluir')
+    expect(corpo().text()).not.toContain('Ocultar')
   })
 
   test('abrir um menu fecha o de outra mensagem; clique fora também fecha', async () => {
@@ -407,8 +407,8 @@ describe('detalhe do status da mensagem', () => {
     const direta = montar(DetalheStatusMensagem, { props: { mensagem: mensagem({ inserida: hoje, excluida_em: hoje, conteudos: [texto('x')] }), isGroup: false } })
     const grupo = montar(DetalheStatusMensagem, { props: { mensagem: mensagem({ inserida: hoje, excluida_em: hoje, conteudos: [texto('x')] }), isGroup: true } })
     await aguardar(10)
-    expect(direta.findAll('li').map((li) => li.text()).at(-1)).toBe('Excluída10:15')
-    expect(grupo.text()).toContain('Excluída10:15')
+    expect(direta.findAll('li').map((li) => li.text()).at(-1)).toBe('Oculta10:15')
+    expect(grupo.text()).toContain('Oculta10:15')
   })
 
   test('erro ao carregar avisa', async () => {

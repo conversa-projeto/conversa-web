@@ -4,9 +4,9 @@ import { obterConteudosReferencia, obterReferenciaPrincipal, tituloReferencia } 
 import { comReferencia, conteudo, mensagem, texto } from './fabrica'
 
 describe('obterReferenciaPrincipal', () => {
-  test('citada excluída: o resumo diz "Mensagem excluída", sem o texto', () => {
+  test('citada excluída: o resumo diz "Mensagem oculta", sem o texto', () => {
     const m = mensagem({ mensagem_referencia: { tipo: TipoMensagemReferencia.Resposta, mensagem: { id: 9, remetente: 'Bruno', excluida_em: new Date(), conteudos: [conteudo(TipoConteudo.Texto, 'segredo')] } } })
-    expect(obterReferenciaPrincipal(m)).toMatchObject({ conteudo_resumo: 'Mensagem excluída', excluida_em: expect.any(Date) })
+    expect(obterReferenciaPrincipal(m)).toMatchObject({ conteudo_resumo: 'Mensagem oculta', excluida_em: expect.any(Date) })
   })
 
   test('sem referência devolve null', () => {

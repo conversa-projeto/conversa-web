@@ -560,7 +560,7 @@ export const useChatStore = defineStore('chat', () => {
         mensagensPorConversa.value[Number(cid)] = lista.filter(m => m.id !== mensagemId)
       }
     }
-    // A prévia da conversa na lista passa a dizer "Mensagem excluída"
+    // A prévia da conversa na lista passa a dizer "Mensagem oculta"
     if (excluidaEm) await carregarConversas()
   }
   async function carregarContextoMensagem(conversaId: number, mensagemId: number, previas = 30, seguintes = 30) {
