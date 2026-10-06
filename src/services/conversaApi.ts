@@ -1,4 +1,4 @@
-import type { AnexoItem, AnexoResponse, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
+import type { AnexoItem, AnexoResponse, Atividade, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
 import { api, dados } from './eden'
 
 // Chamadas da API pelo cliente Eden: caminho, corpo, consulta e resposta sao
@@ -214,8 +214,25 @@ export function chamadaEntrar(chamadaId: number): Promise<{ id: number }> {
   return dados(api().chamada.entrar.post({ id: chamadaId }))
 }
 
-export function chamadaRecusar(chamadaId: number): Promise<{ id: number }> {
-  return dados(api().chamada.recusar.post({ id: chamadaId }))
+// naoAtendeu: o app recusou sozinho a chamada que tocou sem resposta (vira
+// chamada perdida nas atividades)
+export function chamadaRecusar(chamadaId: number, naoAtendeu = false): Promise<{ id: number }> {
+  return dados(api().chamada.recusar.post({ id: chamadaId, ...(naoAtendeu ? { nao_atendeu: true } : {}) }))
+}
+
+// --- Atividades ---
+
+// Mais recentes primeiro; antes é o id da última atividade já carregada
+export function getAtividades(antes = 0, limite = 30): Promise<Atividade[]> {
+  return dados(api().atividades.get({ query: { antes, limite } }))
+}
+
+export function getAtividadesNovas(): Promise<{ quantidade: number }> {
+  return dados(api().atividades.novas.get())
+}
+
+export function marcarAtividadesVistas(): Promise<{ vistas_em: Date }> {
+  return dados(api().atividades.vistas.post())
 }
 
 export function chamadaSair(chamadaId: number): Promise<{ id: number }> {

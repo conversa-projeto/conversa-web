@@ -27,6 +27,7 @@
         :inicial-usuario="inicialUsuarioNav"
         :sip-disponivel="sip.sipDisponivel"
         :sip-status="sipStatusNav"
+        :atividades-novas="atividades.novas"
         @avatar-error="auth.resolverAvatarUrl()"
         @open-dialer="abrirDiscador = true"
       />
@@ -50,6 +51,13 @@
       />
 
       <!-- Anexos -->
+      <AtividadesPage
+        v-else-if="secaoAtiva === 'atividades'"
+        class="flex-1"
+        @open-message="abrirMensagemDoAnexo"
+        @open-conversa="abrirConversaPorId"
+      />
+
       <AnexosPage
         v-else-if="secaoAtiva === 'anexos'"
         :conversa-id-inicial="anexosConversaId"
@@ -252,6 +260,7 @@ import { useAuthStore } from './stores/auth'
 import { useChatStore } from './stores/chat'
 import { useSipStore } from './stores/sip'
 import { useCallStore } from './stores/call'
+import { useAtividadesStore } from './stores/atividades'
 import { TipoConversa } from './types/api'
 import type { Contato, EventoChamadaSocket, Mensagem, TipoChamada } from './types/api'
 import { useCallPopup } from './composables/useCallPopup'
@@ -288,6 +297,7 @@ import UploadIndicador from './components/UploadIndicador.vue'
 import NavBar from './components/NavBar.vue'
 import ChamadaHistorico from './components/ChamadaHistorico.vue'
 import AnexosPage from './components/AnexosPage.vue'
+import AtividadesPage from './components/AtividadesPage.vue'
 const SipDialerModal = defineAsyncComponent(() => import('./components/SipDialerModal.vue'))
 const SipIncomingCallModal = defineAsyncComponent(() => import('./components/SipIncomingCallModal.vue'))
 
@@ -295,6 +305,7 @@ const auth = useAuthStore()
 const chat = useChatStore()
 const sip = useSipStore()
 const call = useCallStore()
+const atividades = useAtividadesStore()
 const { temUploadAtivo } = useUploadProgress()
 
 function bloquearContextMenu(e: MouseEvent) {
@@ -671,6 +682,7 @@ function sair() {
   chat.removerHandlerChamada()
   chat.encerrarTempoReal()
   chat.conversaAtivaId = null
+  atividades.limpar()
   void sip.encerrar()
   auth.logout()
 }

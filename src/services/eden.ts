@@ -26,6 +26,7 @@ const CAMPOS_DATA = new Set([
   'reagido_em',
   'online_em',
   'ate',
+  'vistas_em',
 ])
 
 // ISO-8601 com fuso, como a API serializa as datas

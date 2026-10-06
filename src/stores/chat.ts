@@ -5,6 +5,7 @@ import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSo
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
+import { useAtividadesStore } from './atividades'
 import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
 import { resumirTexto } from '../utils/formatters'
 import { ordenarMensagens, primeiraMensagemSalva } from '../utils/ordemMensagens'
@@ -710,6 +711,8 @@ export const useChatStore = defineStore('chat', () => {
       )
       // Quem entrou ou saiu enquanto o socket estava fora não gerou aviso
       void carregarContatosOnline()
+      // Nem as atividades que chegaram nesse tempo
+      void useAtividadesStore().atualizarNovas()
       if (_tratarEventoChamada) {
         const callStore = useCallStore()
         void callStore.verificarChamadasPendentes()
@@ -824,6 +827,11 @@ export const useChatStore = defineStore('chat', () => {
 
     if (evento.tipo === TipoEventoSocket.ConversaAtualizada) {
       await carregarConversas()
+      return
+    }
+
+    if (evento.tipo === TipoEventoSocket.NovaAtividade) {
+      void useAtividadesStore().aoReceberAviso()
       return
     }
 

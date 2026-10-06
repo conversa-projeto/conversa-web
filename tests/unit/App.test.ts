@@ -10,6 +10,7 @@ import ChatSidebar from '@/components/ChatSidebar.vue'
 import MessageList from '@/components/MessageList.vue'
 import ChamadaHistorico from '@/components/ChamadaHistorico.vue'
 import AnexosPage from '@/components/AnexosPage.vue'
+import AtividadesPage from '@/components/AtividadesPage.vue'
 import ForwardMessageModal from '@/components/ForwardMessageModal.vue'
 import CallParticipantsModal from '@/components/CallParticipantsModal.vue'
 import ProfileSettingsModal from '@/components/ProfileSettingsModal.vue'
@@ -59,6 +60,7 @@ function rotasDaSessao() {
   rota('GET', '/sip', {})
   rota('GET', '/chamadas/pendentes', [])
   rota('GET', '/contatos/online', [])
+  rota('GET', '/atividades/novas', { quantidade: 0 })
   rota('GET', '/mensagens/novas', [])
   rota('GET', '/conversa/usuarios', [{ id: 1, usuario_id: EU, nome: 'Eu' }, { id: 2, usuario_id: 3, nome: 'Carla' }])
 }
@@ -166,7 +168,13 @@ describe('com sessão', () => {
     await aguardar(10)
     expect(tela!.findComponent(ChamadaHistorico).exists()).toBe(true)
     expect(window.location.pathname).toBe('/chamadas')
+    rota('GET', '/atividades', [])
+    rota('POST', '/atividades/vistas', { vistas_em: new Date().toISOString() })
     nav.vm.$emit('update:secaoAtiva', 'atividades')
+    await aguardar(10)
+    expect(tela!.findComponent(AtividadesPage).exists()).toBe(true)
+    expect(window.location.pathname).toBe('/atividades')
+    nav.vm.$emit('update:secaoAtiva', 'equipes')
     await aguardar()
     expect(tela!.text()).toContain('Em desenvolvimento')
     nav.vm.$emit('update:secaoAtiva', 'anexos')

@@ -39,6 +39,7 @@ export const TipoEventoSocket = {
   VideoAtivado: 56,
   SinalChamada: 57,
   StatusUsuario: 60,
+  NovaAtividade: 61,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -301,6 +302,37 @@ export interface EventoChamadaSocket {
   chamada_id: number
   usuario_id: number
   dados?: SinalChamada
+}
+
+/** O que aconteceu com o usuário: reagiram, responderam, mencionaram, chamada perdida */
+export const TipoAtividade = {
+  Reacao: 1,
+  Resposta: 2,
+  Mencao: 3,
+  ChamadaPerdida: 4,
+} as const
+export type TipoAtividade = (typeof TipoAtividade)[keyof typeof TipoAtividade]
+
+export interface Atividade {
+  id: number
+  tipo: TipoAtividade
+  criado_em: Date
+  /** Chegou depois da última vez que o usuário abriu as atividades */
+  nova: boolean
+  autor_id: number
+  autor_nome: string
+  autor_avatar_url: string | null
+  conversa_id: number | null
+  conversa_tipo: number | null
+  conversa_descricao: string | null
+  /** Reação: a mensagem do usuário; resposta e menção: a mensagem de quem fez */
+  mensagem_id: number | null
+  conteudo_tipo: number | null
+  /** Prévia de uma linha do texto da mensagem */
+  texto: string | null
+  chamada_id: number | null
+  chamada_tipo: number | null
+  emoji: string | null
 }
 
 /**

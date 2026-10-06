@@ -37,6 +37,10 @@
         <span class="relative">
           <component :is="item.icone" class="h-5 w-5" />
           <span
+            v-if="item.id === 'atividades' && atividadesNovas > 0"
+            class="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[9px] font-bold text-white"
+          >{{ atividadesNovas > 99 ? '99+' : atividadesNovas }}</span>
+          <span
             v-if="item.id === 'ramal' && sipStatus !== 'desconectado'"
             class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-surface-200"
             :class="{
@@ -87,6 +91,10 @@
       <span class="relative">
         <component :is="item.icone" class="h-5 w-5" />
         <span
+          v-if="item.id === 'atividades' && atividadesNovas > 0"
+          class="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[9px] font-bold text-white"
+        >{{ atividadesNovas > 99 ? '99+' : atividadesNovas }}</span>
+        <span
           v-if="item.id === 'ramal' && sipStatus !== 'desconectado'"
           class="absolute -right-1 -top-1 h-2 w-2 rounded-full border border-surface-200"
           :class="{
@@ -110,6 +118,8 @@ const props = defineProps<{
   inicialUsuario: string
   sipDisponivel: boolean
   sipStatus: 'conectado' | 'conectando' | 'erro' | 'desconectado'
+  // Atividades que chegaram desde a última vez que a tela foi aberta
+  atividadesNovas: number
 }>()
 
 const emit = defineEmits<{

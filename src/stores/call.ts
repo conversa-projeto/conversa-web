@@ -976,13 +976,14 @@ export const useCallStore = defineStore('call', () => {
     }
   }
 
-  async function recusarChamada() {
+  // naoAtendeu: tocou até o fim sem resposta (vira chamada perdida)
+  async function recusarChamada(naoAtendeu = false) {
     if (!chamada.value || estado.value !== 'recebendo') return
 
     cancelarTemporizadorToque()
 
     try {
-      await api.chamadaRecusar(chamada.value.id)
+      await api.chamadaRecusar(chamada.value.id, naoAtendeu)
     } finally {
       resetarEstado()
     }
@@ -1514,8 +1515,9 @@ export const useCallStore = defineStore('call', () => {
           return
         }
 
+        // Ocupado em outra chamada: não chegou a tocar, então é chamada perdida
         if (emChamada.value || estado.value === 'recebendo') {
-          try { await api.chamadaRecusar(evento.chamada_id) } catch { /* ignore */ }
+          try { await api.chamadaRecusar(evento.chamada_id, true) } catch { /* ignore */ }
           return
         }
 
@@ -1527,7 +1529,7 @@ export const useCallStore = defineStore('call', () => {
           cancelarTemporizadorToque()
           tempoToqueChamada = window.setTimeout(() => {
             if (estado.value === 'recebendo') {
-              void recusarChamada()
+              void recusarChamada(true)
             }
           }, 30000)
         } catch (e) {
@@ -1657,8 +1659,9 @@ export const useCallStore = defineStore('call', () => {
     if (!chamadaPendente) return
     const idadeMs = Date.now() - new Date(chamadaPendente.criado_em).getTime()
 
+    // Tocou enquanto o app estava fechado: chamada perdida
     if (idadeMs > 25000) {
-      try { await api.chamadaRecusar(chamadaPendente.id) } catch { /* ignore */ }
+      try { await api.chamadaRecusar(chamadaPendente.id, true) } catch { /* ignore */ }
       return
     }
 

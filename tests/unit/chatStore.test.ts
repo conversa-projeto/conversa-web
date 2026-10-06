@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
 import { useChatStore } from '@/stores/chat'
+import { useAtividadesStore } from '@/stores/atividades'
 import { TipoConteudo, TipoMensagemReferencia } from '@/types/api'
 import { aguardar, erro, pedidos, pedidosDe, rota, SocketFalso } from './apiFalsa'
 import { mensagem, texto } from './fabrica'
@@ -437,6 +438,17 @@ describe('tempo real (WebSocket)', () => {
     expect(socket.enviados).toEqual([{ tipo: 1, token: 'token' }])
     expect(chat.conectadoTempoReal).toBe(true)
     expect(chat.estaOnline(2)).toBe(true)
+  })
+
+  test('aviso de atividade nova atualiza o contador; ao conectar também lê', async () => {
+    rota('GET', '/atividades/novas', { quantidade: 1 })
+    const { socket } = await conectado()
+    const atividades = useAtividadesStore()
+    expect(atividades.novas).toBe(1)
+    rota('GET', '/atividades/novas', { quantidade: 3 })
+    socket.receber({ tipo: 61 })
+    await aguardar()
+    expect(atividades.novas).toBe(3)
   })
 
   test('online e offline pelos eventos', async () => {

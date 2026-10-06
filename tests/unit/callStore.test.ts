@@ -85,7 +85,8 @@ describe('receber chamada', () => {
     expect(call.estado).toBe('recebendo')
     relogio.avancar(1)
     await aguardar()
-    expect(pedidosDe('POST', '/chamada/recusar')).toHaveLength(1)
+    // Tocou sem resposta: vira chamada perdida nas atividades
+    expect(pedidosDe('POST', '/chamada/recusar').map((p) => p.corpo)).toEqual([{ id: 1, nao_atendeu: true }])
     expect(call.estado).toBe('inativo')
   })
 
@@ -93,7 +94,7 @@ describe('receber chamada', () => {
     const call = await receber(TipoChamada.Audio)
     rota('POST', '/chamada/recusar', { id: 9 })
     await call.tratarEventoChamada({ tipo: 51, chamada_id: 9, usuario_id: CARLA })
-    expect(pedidosDe('POST', '/chamada/recusar')[0]!.corpo).toEqual({ id: 9 })
+    expect(pedidosDe('POST', '/chamada/recusar')[0]!.corpo).toEqual({ id: 9, nao_atendeu: true })
     expect(call.chamada?.id).toBe(1)
   })
 
@@ -131,7 +132,7 @@ describe('receber chamada', () => {
     rota('GET', '/chamadas/pendentes', [{ id: 5, tipo: 1, status: 1, criado_em: new Date(Date.now() - 60_000).toISOString(), criado_por: ANA, conversa_id: 0 }])
     rota('POST', '/chamada/recusar', { id: 5 })
     await call.verificarChamadasPendentes()
-    expect(pedidosDe('POST', '/chamada/recusar')[0]!.corpo).toEqual({ id: 5 })
+    expect(pedidosDe('POST', '/chamada/recusar')[0]!.corpo).toEqual({ id: 5, nao_atendeu: true })
     expect(call.estado).toBe('inativo')
   })
 })
