@@ -512,6 +512,7 @@ async function iniciarSessao() {
     await chat.inicializar()
     await sip.inicializarSessao(false)
     void auth.resolverAvatarUrl()
+    void auth.carregarPermissoes().catch(() => { /* sem as telas restritas até o próximo início */ })
     chat.registrarHandlerChamada((evento: EventoChamadaSocket) => {
       void call.tratarEventoChamada(evento)
     })

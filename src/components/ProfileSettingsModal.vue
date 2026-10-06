@@ -312,6 +312,10 @@
 
           <ConfiguracaoChamadas v-else-if="props.abaAtiva === 'chamadas'" />
 
+          <ConfiguracaoSistema v-else-if="props.abaAtiva === 'sistema'" />
+
+          <ConfiguracaoAcessos v-else-if="props.abaAtiva === 'acessos'" />
+
           <div v-else class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-3">
@@ -377,13 +381,15 @@ import { computed, ref, watch } from 'vue'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import type { SipConfig } from '../types/api'
-import { TipoConteudo } from '../types/api'
+import { CodigoPermissao, TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import { useTheme } from '../composables/useTheme'
 import ConfiguracaoCores from './ConfiguracaoCores.vue'
 import ConfiguracaoChamadas from './ConfiguracaoChamadas.vue'
+import ConfiguracaoSistema from './ConfiguracaoSistema.vue'
+import ConfiguracaoAcessos from './ConfiguracaoAcessos.vue'
 
-type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas'
+type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos'
 
 type DispositivoMidiaItem = {
   id: string
@@ -422,7 +428,7 @@ const { isDark, toggle: toggleTheme } = useTheme()
 
 const auth = useAuthStore()
 
-const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
+const abasDeTodos: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'usuario', titulo: 'Usuario', descricao: 'Nome, email, avatar e senha' },
   { id: 'dispositivos', titulo: 'Dispositivos', descricao: 'Sessao atual e perifericos locais' },
   { id: 'permissoes', titulo: 'Permissoes', descricao: 'Notificacoes, microfone e camera' },
@@ -430,6 +436,23 @@ const abas: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'cores', titulo: 'Cores', descricao: 'Cores do sistema, salvas neste navegador' },
   { id: 'chamadas', titulo: 'Chamadas', descricao: 'Qualidade do áudio, vídeo e tela' },
 ]
+
+// Só aparecem para quem tem a permissão (o servidor confere de novo)
+const abas = computed(() => [
+  ...abasDeTodos,
+  ...(auth.temPermissao(CodigoPermissao.Parametros)
+    ? [{ id: 'sistema' as const, titulo: 'Sistema', descricao: 'Configurações que valem para todos' }]
+    : []),
+  ...(auth.temPermissao(CodigoPermissao.Permissoes)
+    ? [{ id: 'acessos' as const, titulo: 'Acessos', descricao: 'Quem pode mexer no sistema e nas permissões' }]
+    : []),
+])
+
+// Aba restrita sem a permissão (link direto, ou permissão retirada): volta ao
+// início, depois de saber as permissões
+watch([() => props.abaAtiva, abas, () => auth.permissoesCarregadas], () => {
+  if (auth.permissoesCarregadas && !abas.value.some((aba) => aba.id === props.abaAtiva)) emit('update:abaAtiva', 'usuario')
+}, { immediate: true })
 
 const subnivelMobile = ref<AbaId | null>(null)
 
@@ -487,7 +510,7 @@ const inicialUsuario = computed(() => {
   const nome = auth.user?.nome?.trim() || auth.user?.login?.trim() || 'U'
   return inicialNome(nome)
 })
-const abaAtual = computed(() => abas.find((aba) => aba.id === props.abaAtiva) || abas[0])
+const abaAtual = computed(() => abas.value.find((aba) => aba.id === props.abaAtiva) || abas.value[0])
 const dispositivoAtual = computed(() => detectarNavegador())
 
 watch(() => props.aberta, (aberta) => {

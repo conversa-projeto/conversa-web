@@ -38,7 +38,7 @@ describe('barra de navegação', () => {
 
   test('itens principais; Ramal só com SIP disponível', async () => {
     const tela = montar(NavBar, { props })
-    expect(desktop(tela).findAll('button').map((b) => b.text())).toEqual(['E', 'Chat', 'Atividades', 'Equipes', 'Chamadas', 'Anexos'])
+    expect(desktop(tela).findAll('button').map((b) => b.text())).toEqual(['E', 'Chat', 'Atividades', 'Chamadas', 'Anexos'])
     await tela.setProps({ sipDisponivel: true })
     expect(desktop(tela).text()).toContain('Ramal')
   })

@@ -1,4 +1,4 @@
-import type { AnexoItem, AnexoResponse, Atividade, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, AnexoResponse, Atividade, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
 import { api, dados } from './eden'
 
 // Chamadas da API pelo cliente Eden: caminho, corpo, consulta e resposta sao
@@ -218,6 +218,32 @@ export function chamadaEntrar(chamadaId: number): Promise<{ id: number }> {
 // chamada perdida nas atividades)
 export function chamadaRecusar(chamadaId: number, naoAtendeu = false): Promise<{ id: number }> {
   return dados(api().chamada.recusar.post({ id: chamadaId, ...(naoAtendeu ? { nao_atendeu: true } : {}) }))
+}
+
+// --- Permissões e parâmetros do sistema ---
+
+export function getMinhasPermissoes(): Promise<string[]> {
+  return dados(api().usuario.permissoes.get())
+}
+
+export function getPermissoes(): Promise<PermissoesSistema> {
+  return dados(api().permissoes.get())
+}
+
+export function concederPermissao(usuarioId: number, codigo: string): Promise<{ usuario_id: number; codigo: string }> {
+  return dados(api().permissao.usuario.put({ usuario_id: usuarioId, codigo }))
+}
+
+export function retirarPermissao(usuarioId: number, codigo: string): Promise<{ usuario_id: number; codigo: string }> {
+  return dados(api().permissao.usuario.delete(undefined, { query: { usuario_id: usuarioId, codigo } }))
+}
+
+export function getParametros(): Promise<ParametrosSistema> {
+  return dados(api().parametros.get())
+}
+
+export function alterarParametros(alteracao: AlteracaoParametros): Promise<ParametrosSistema> {
+  return dados(api().parametros.patch(alteracao))
 }
 
 // --- Atividades ---

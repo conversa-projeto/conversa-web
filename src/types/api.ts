@@ -304,6 +304,42 @@ export interface EventoChamadaSocket {
   dados?: SinalChamada
 }
 
+/** Permissões do sistema (tabela permissao no servidor) */
+export const CodigoPermissao = {
+  Parametros: 'parametros',
+  Permissoes: 'permissoes',
+} as const
+export type CodigoPermissao = (typeof CodigoPermissao)[keyof typeof CodigoPermissao]
+
+export interface PermissoesSistema {
+  permissoes: { codigo: string; descricao: string }[]
+  usuarios: { id: number; nome: string; login: string; permissoes: string[] }[]
+  /** Ninguém tem a permissão de Acessos: todos têm todas, até alguém receber */
+  modo_aberto: boolean
+}
+
+/** Parâmetros do sistema como a tela mostra: os segredos não vêm */
+export interface ParametrosSistema {
+  fcm_project_id: string
+  fcm_client_email: string
+  fcm_private_key_configurada: boolean
+  turn_forcar_relay: boolean
+  transcritor_url: string
+  transcritor_idioma: string
+  gravacao_dias: number
+  s3_bucket: string
+}
+
+export interface AlteracaoParametros {
+  fcm_project_id?: string
+  fcm_client_email?: string
+  fcm_private_key?: string
+  turn_forcar_relay?: boolean
+  transcritor_url?: string
+  transcritor_idioma?: string
+  gravacao_dias?: number
+}
+
 /** O que aconteceu com o usuário: reagiram, responderam, mencionaram, chamada perdida */
 export const TipoAtividade = {
   Reacao: 1,

@@ -186,6 +186,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Chat da chamada**: grupo criado na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`)
 - **Figurinhas**: animações Lottie em `public/figurinhas`, geradas por `scripts/gerar-figurinhas.ts`; a mensagem leva só `pacote/nome` (conteúdo tipo 7)
 - **Atividades**: reações, respostas, menções e chamadas perdidas do usuário, com contador de novas na barra; tabela `atividade` no backend, gravada quando o evento acontece (store `atividades`, aviso pelo WebSocket tipo 61)
+- **Permissões e configurações do sistema**: abas Sistema (parâmetros do servidor) e Acessos (quem tem cada permissão) nas Configurações, visíveis só com a permissão (`auth.temPermissao`); o servidor confere em cada rota
 - **Telefonia SIP**: registro, discador, chamadas PSTN via sip.js
 - **Push notifications**: Firebase Cloud Messaging
 - **Tema**: dark/light mode com CSS variables

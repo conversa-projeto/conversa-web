@@ -181,10 +181,26 @@ export const useAuthStore = defineStore('auth', () => {
     return response
   }
 
+  // Permissões do sistema do usuário logado: só mostram ou escondem as telas;
+  // quem confere de verdade é o servidor
+  const permissoes = ref<string[]>([])
+  const permissoesCarregadas = ref(false)
+
+  async function carregarPermissoes() {
+    permissoes.value = await api.getMinhasPermissoes()
+    permissoesCarregadas.value = true
+  }
+
+  function temPermissao(codigo: string) {
+    return permissoes.value.includes(codigo)
+  }
+
   function logout() {
     token.value = ''
     user.value = null
     avatarUrl.value = ''
+    permissoes.value = []
+    permissoesCarregadas.value = false
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
   }
@@ -216,6 +232,10 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     user,
     apiBase,
+    permissoes,
+    permissoesCarregadas,
+    carregarPermissoes,
+    temPermissao,
     dispositivoId,
     avatarUrl,
     isAuthenticated,
