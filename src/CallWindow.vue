@@ -253,8 +253,15 @@
     <!-- Chat da chamada: ao lado do vídeo; no celular, por cima -->
     <ChatChamada
       v-if="chatAberto && !flutuante"
-      class="absolute inset-0 z-20 sm:static sm:w-72 sm:shrink-0"
+      class="absolute inset-0 z-20 sm:static sm:shrink-0"
+      :class="fecharAoEncerrar ? 'sm:w-72' : 'sm:w-96 lg:w-[28rem]'"
+      :completo="!fecharAoEncerrar"
       @close="chatAberto = false"
+      @open-image="(id, nome) => emit('open-image', id, nome)"
+      @forward="(mensagem) => emit('forward', mensagem)"
+      @open-message="(conversaId, mensagemId) => emit('open-message', conversaId, mensagemId)"
+      @open-image-preview="(blob, nome, mime) => emit('open-image-preview', blob, nome, mime)"
+      @open-fila-image="(url, nome, identificador, galeria) => emit('open-fila-image', url, nome, identificador, galeria)"
     />
     </div>
 
@@ -266,6 +273,7 @@
     <!-- Controls -->
     <div class="flex items-center justify-center gap-2 border-t border-chamada-700 bg-chamada-800 px-4 py-3 shrink-0">
       <CallControlButton
+        variant="alternar"
         :active="!call.micMutado"
         title="Microfone"
         @click="call.alternarMicrofone()"
@@ -275,6 +283,7 @@
       </CallControlButton>
 
       <CallControlButton
+        variant="alternar"
         :active="!call.cameraMutada"
         title="C&acirc;mera"
         @click="call.alternarCamera()"
@@ -284,7 +293,7 @@
       </CallControlButton>
 
       <CallControlButton
-        variant="secondary"
+        variant="destaque"
         :active="call.compartilhandoTela"
         title="Compartilhar tela"
         @click="toggleCompartilharTela"
@@ -294,7 +303,7 @@
 
       <div v-if="!flutuante" class="relative">
         <CallControlButton
-          variant="secondary"
+          variant="destaque"
           :active="chatAberto"
           title="Chat da chamada"
           @click="chatAberto = !chatAberto"
@@ -310,7 +319,7 @@
       <!-- Ponteiro sobre a tela que outro participante compartilha -->
       <CallControlButton
         v-if="call.telasRemotas.size > 0"
-        variant="secondary"
+        variant="destaque"
         :active="call.ponteiroAtivo"
         :title="call.ponteiroAtivo ? 'Desligar ponteiro' : 'Apontar na tela compartilhada'"
         @click="call.alternarPonteiro()"
@@ -319,6 +328,7 @@
       </CallControlButton>
 
       <CallControlButton
+        variant="alternar"
         :active="!call.saidaAudioMutada"
         title="&Aacute;udio sa&iacute;da"
         @click="call.alternarSaidaAudio()"
@@ -424,6 +434,7 @@ import { useDraggable } from './composables/useDraggable'
 import CallControlButton from './components/CallControlButton.vue'
 import PonteiroTela from './components/PonteiroTela.vue'
 import ChatChamada from './components/ChatChamada.vue'
+import type { Mensagem } from './types/api'
 
 const props = withDefaults(defineProps<{
   fecharAoEncerrar?: boolean
@@ -435,6 +446,12 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'toggle-float': []
+  // Do chat da chamada: o App abre o visualizador, o encaminhamento e a prévia
+  'open-image': [identificador: string, nome: string]
+  forward: [mensagem: Mensagem]
+  'open-message': [conversaId: number, mensagemId: number]
+  'open-image-preview': [blob: Blob, nome: string, mime: string]
+  'open-fila-image': [url: string, nome: string, identificador: string, galeria: { identificador: string; nome: string; url: string }[]]
 }>()
 
 const drag = useDraggable()

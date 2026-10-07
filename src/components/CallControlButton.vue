@@ -41,7 +41,9 @@ import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
   icon?: string
-  variant?: 'danger' | 'primary' | 'secondary' | 'success' | 'ghost'
+  // alternar: microfone, câmera, som (desligado fica vermelho); destaque:
+  // tela, chat, ponteiro (ligado fica azul); secondary: ações, sempre neutro
+  variant?: 'danger' | 'primary' | 'secondary' | 'success' | 'ghost' | 'alternar' | 'destaque'
   size?: 'xs' | 'sm' | 'md' | 'lg'
   active?: boolean
   rounded?: boolean
@@ -82,11 +84,14 @@ const variantClasses = computed(() => {
   if (props.variant === 'ghost') {
     return 'bg-transparent text-white hover:bg-chamada-700/50'
   }
-  // Secondary / Gray (Active state toggles)
-  if (props.active) {
-    return 'bg-chamada-700 text-white hover:bg-chamada-600'
+  // Cores fixas da chamada: não mudam com o tema claro ou escuro do app
+  if (props.variant === 'alternar' && !props.active) {
+    return 'bg-danger-500 text-white hover:bg-danger-600'
   }
-  return 'bg-surface-600 text-surface-400 hover:bg-surface-500 hover:text-white'
+  if (props.variant === 'destaque' && props.active) {
+    return 'bg-primary-600 text-white hover:bg-primary-700'
+  }
+  return 'bg-chamada-700 text-white hover:bg-chamada-600'
 })
 </script>
 

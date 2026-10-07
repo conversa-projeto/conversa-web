@@ -337,7 +337,7 @@ describe('mensagens', () => {
     tela!.find('main').element.dispatchEvent(fora)
     expect(fora.defaultPrevented).toBe(true)
     const noCampo = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
-    tela!.find('textarea').element.dispatchEvent(noCampo)
+    tela!.find('[contenteditable="true"]').element.dispatchEvent(noCampo)
     expect(noCampo.defaultPrevented).toBe(false)
   })
 })

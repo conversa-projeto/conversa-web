@@ -114,7 +114,7 @@
         </div>
       </div>
       <!-- Imagem carregando / carregada -->
-      <div v-else class="relative inline-block overflow-hidden rounded border-2" :class="isOwn ? 'border-primary-600 dark:border-primary-700' : 'border-surface-base'" :style="!imagensCarregadas.has(conteudo.ordem) ? { minHeight: '10rem', minWidth: '14rem' } : {}">
+      <div v-else class="relative inline-block overflow-hidden rounded" :class="imagemSemMoldura ? '' : ['border-2', isOwn ? 'border-primary-600 dark:border-primary-700' : 'border-surface-base']" :style="!imagensCarregadas.has(conteudo.ordem) ? { minHeight: '10rem', minWidth: '14rem' } : {}">
         <img
           :src="conteudo.localUrl || getAnexoUrl(conteudo.conteudo)"
           alt="Imagem"
@@ -331,6 +331,8 @@ const props = defineProps<{
   reproduzida?: boolean
   isOwn?: boolean
   codigoSemBorda?: boolean
+  // Imagem sem a moldura: dentro de uma bolha colorida ela não precisa
+  imagemSemMoldura?: boolean
   mostrarGradienteImagem?: boolean
   getAnexoUrl: (identificador: string) => string
 }>()

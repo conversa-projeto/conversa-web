@@ -166,6 +166,11 @@
         <CallWindow
           :fechar-ao-encerrar="false"
           @toggle-float="chamadaFlutuante = true"
+          @open-image="handleOpenImage"
+          @forward="abrirModalEncaminhamento"
+          @open-message="abrirMensagemPesquisaGlobal"
+          @open-image-preview="abrirPreviewImagem"
+          @open-fila-image="handleOpenFilaImage"
         />
       </div>
 

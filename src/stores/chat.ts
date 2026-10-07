@@ -6,10 +6,18 @@ import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { useAtividadesStore } from './atividades'
+import { useEnquetesStore } from './enquetes'
 import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
 import { resumirTexto } from '../utils/formatters'
 import { ordenarMensagens, primeiraMensagemSalva } from '../utils/ordemMensagens'
 import { useUploadProgress } from '../composables/useUploadProgress'
+
+// Bloco do campo de mensagem: textos, arquivos e figurinhas na ordem em que
+// foram compostos
+export type BlocoMensagem =
+  | { texto: string }
+  | { figurinha: string }
+  | { arquivo: { blob: Blob; nomeArquivo: string; mimeType?: string; isAudio?: boolean; isGravacaoAudio?: boolean } }
 
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
@@ -369,14 +377,14 @@ export const useChatStore = defineStore('chat', () => {
     await encaminharMensagemParaConversa(origem, conversa.id)
   }
 
-  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: Date | null = null, figurinha: string | null = null) {
+  async function enviarMensagemComConteudos(texto: string, arquivos: ConteudoArquivoEntrada[] = [], visivelEm: Date | null = null, figurinha: string | null = null, blocos: BlocoMensagem[] | null = null) {
 
     if (!conversaAtivaId.value) {
       throw new Error('Nenhuma conversa ativa')
     }
 
     const textoLimpo = texto.trim()
-    if (!textoLimpo && arquivos.length === 0 && !figurinha && !mensagemRespondendo.value) {
+    if (!textoLimpo && arquivos.length === 0 && !figurinha && !blocos?.length && !mensagemRespondendo.value) {
       return
     }
 
@@ -424,7 +432,21 @@ export const useChatStore = defineStore('chat', () => {
 
     const arquivosInfo: Array<{ blob: Blob; nomeArquivo: string; extensao: string; tipo: TipoConteudo; ordem: number }> = []
 
-    for (const arq of arquivos) {
+    // Com blocos (editor avançado), textos e arquivos vão na ordem deles
+    for (const item of blocos ?? arquivos.map((arquivo) => ({ arquivo }))) {
+      if ('texto' in item) {
+        conteudosOptimistas.push({ ordem, tipo: TipoConteudo.Texto, conteudo: item.texto })
+        conteudosApi.push({ ordem, tipo: TipoConteudo.Texto, conteudo: item.texto })
+        ordem += 1
+        continue
+      }
+      if ('figurinha' in item) {
+        conteudosOptimistas.push({ ordem, tipo: TipoConteudo.Figurinha, conteudo: item.figurinha })
+        conteudosApi.push({ ordem, tipo: TipoConteudo.Figurinha, conteudo: item.figurinha })
+        ordem += 1
+        continue
+      }
+      const arq = item.arquivo
       const mimeType = arq.mimeType || ''
       const nomeArquivo = arq.nomeArquivo
       const extensao = (nomeArquivo.split('.').pop() || '').slice(0, 10)
@@ -536,6 +558,20 @@ export const useChatStore = defineStore('chat', () => {
 
   async function enviarTexto(texto: string, visivelEm: Date | null = null) {
     await enviarMensagemComConteudos(texto, [], visivelEm)
+  }
+
+  // Votação: o servidor cria a enquete e a mensagem que a leva
+  async function criarEnquete(pergunta: string, opcoes: string[], multipla: boolean) {
+    const conversaId = conversaAtivaId.value
+    if (!conversaId) throw new Error('Nenhuma conversa ativa')
+    await api.criarEnquete(conversaId, pergunta, opcoes, multipla)
+    await carregarMensagens(conversaId)
+    void carregarConversas()
+  }
+
+  // Campo de mensagem com texto, anexos e figurinhas intercalados numa mensagem só
+  async function enviarBlocos(blocos: BlocoMensagem[]) {
+    await enviarMensagemComConteudos('', [], null, null, blocos)
   }
 
   // Figurinha vai sozinha, como no envio pelo seletor (ou como resposta)
@@ -830,6 +866,11 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    if (evento.tipo === TipoEventoSocket.EnqueteAtualizada && (evento as Record<string, unknown>).enquete_id) {
+      useEnquetesStore().aoAtualizar(Number((evento as Record<string, unknown>).enquete_id))
+      return
+    }
+
     if (evento.tipo === TipoEventoSocket.NovaAtividade) {
       void useAtividadesStore().aoReceberAviso()
       return
@@ -920,6 +961,7 @@ export const useChatStore = defineStore('chat', () => {
           else if (c.tipo === TipoConteudo.GravacaoAudio) texto = 'Gravacao de audio'
           else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
           else if (c.tipo === TipoConteudo.Figurinha) texto = 'Figurinha'
+          else if (c.tipo === TipoConteudo.Enquete) texto = 'Votação'
           else texto = 'Arquivo'
         }
 
@@ -1263,6 +1305,8 @@ export const useChatStore = defineStore('chat', () => {
     enviarTexto,
     enviarArquivo,
     enviarFigurinha,
+    enviarBlocos,
+    criarEnquete,
     excluirMensagem,
     enviarMensagemComConteudos,
     buscarNaConversa,

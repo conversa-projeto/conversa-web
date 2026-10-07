@@ -15,6 +15,8 @@ export const TipoConteudo = {
   Chamada: 6,
   // O conteúdo é o identificador pacote/nome (utils/figurinhas.ts)
   Figurinha: 7,
+  // O conteúdo é o id da enquete (votação em grupo)
+  Enquete: 8,
 } as const
 export type TipoConteudo = (typeof TipoConteudo)[keyof typeof TipoConteudo]
 
@@ -40,6 +42,7 @@ export const TipoEventoSocket = {
   SinalChamada: 57,
   StatusUsuario: 60,
   NovaAtividade: 61,
+  EnqueteAtualizada: 62,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -302,6 +305,20 @@ export interface EventoChamadaSocket {
   chamada_id: number
   usuario_id: number
   dados?: SinalChamada
+}
+
+/** Votação em grupo: opções com quem votou em cada uma */
+export interface Enquete {
+  id: number
+  conversa_id: number
+  mensagem_id: number | null
+  pergunta: string
+  multipla: boolean
+  criado_por: number | null
+  opcoes: { id: number; texto: string; votantes: { id: number; nome: string }[] }[]
+  /** Pessoas que votaram (na múltipla escolha, cada uma conta uma vez) */
+  total_votantes: number
+  meus_votos: number[]
 }
 
 /** Permissões do sistema (tabela permissao no servidor) */

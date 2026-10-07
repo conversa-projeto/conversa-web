@@ -10,9 +10,10 @@
       {{ mensagem.remetente }}
     </p>
 
-    <div :class="mensagem.conteudos.length > 1 ? (isOwn ? 'divide-y divide-white/15' : 'divide-y divide-surface-400/30') : ''">
+    <div>
       <MessageContent
         v-for="conteudo in mensagem.conteudos"
+        imagem-sem-moldura
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
         :conteudo="conteudo"
         :mensagem-id="mensagem.id"

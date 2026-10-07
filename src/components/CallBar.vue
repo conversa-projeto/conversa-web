@@ -52,6 +52,7 @@
       <div class="ml-auto flex items-center gap-1.5">
         <CallControlButton
           size="xs"
+          variant="alternar"
           :active="!call.micMutado"
           title="Microfone"
           @click="call.alternarMicrofone()"
@@ -62,6 +63,7 @@
 
         <CallControlButton
           size="xs"
+          variant="alternar"
           :active="!call.saidaAudioMutada"
           title="Áudio saída"
           @click="call.alternarSaidaAudio()"

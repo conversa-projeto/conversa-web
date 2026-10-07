@@ -7,6 +7,8 @@ import { TipoChamada } from '@/types/api'
 import { instalarWebrtcFalso, MidiaFalsa, TrilhaFalsa } from './webrtcFalso'
 import { aguardar, pedidosDe, rota } from './apiFalsa'
 import { useChatStore } from '@/stores/chat'
+import MessageList from '@/components/MessageList.vue'
+import MessageInput from '@/components/MessageInput.vue'
 
 const ANA = 2
 const BRUNO = 3
@@ -31,9 +33,9 @@ function modoAtivo() {
   return ({ 'Todos os participantes lado a lado': 'grade', 'Um participante grande e os demais na lateral': 'destaque', 'Só um participante, ocupando toda a área': 'unica' } as Record<string, string>)[ativo?.attributes('title') ?? '']
 }
 
-async function montar(peers: PeerConexao[] = []) {
+async function montar(peers: PeerConexao[] = [], fecharAoEncerrar = false) {
   emChamadaDeVideo(peers)
-  janela = mount(CallWindow, { props: { fecharAoEncerrar: false }, attachTo: document.body })
+  janela = mount(CallWindow, { props: { fecharAoEncerrar }, attachTo: document.body })
   await flushPromises()
 }
 
@@ -189,8 +191,9 @@ describe('chat da chamada', () => {
     recebida: true, visualizada: remetente_id === 7, reproduzida: false, conteudos: [{ ordem: 1, tipo: 1, conteudo: texto }],
   })
 
-  test('a primeira mensagem cria o grupo, envia e mostra a conversa', async () => {
-    await montar([participante(ANA, 'Ana')])
+  // Na janela popup da chamada o painel é o simples
+  test('popup: a primeira mensagem cria o grupo, envia e mostra a conversa', async () => {
+    await montar([participante(ANA, 'Ana')], true)
     await janela.find('button[title="Chat da chamada"]').trigger('click')
     expect(janela.text()).toContain('ficam num grupo com quem está na chamada')
     expect(pedidosDe('GET', '/mensagens')).toHaveLength(0)
@@ -213,11 +216,62 @@ describe('chat da chamada', () => {
     expect(pedidosDe('POST', '/mensagem/visualizar').map((p) => p.corpo)).toEqual([{ conversa: 40, mensagem: 2 }])
   })
 
+  test('janela principal: abre o chat completo da conversa do grupo e, ao fechar, volta à conversa anterior', async () => {
+    const rolagemOriginal = Element.prototype.scrollIntoView
+    globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as never
+    Element.prototype.scrollIntoView = () => {}
+    rota('GET', '/mensagens', [mensagem(2, ANA, 'Ana', 'oi!')])
+    rota('GET', '/conversas', [])
+    rota('POST', '/mensagem/visualizar', { sucesso: true })
+    rota('GET', '/conversa/usuarios', [])
+    await montar([participante(ANA, 'Ana')])
+    call.chamada = { ...call.chamada!, conversa_chat_id: 40 }
+    const chat = useChatStore()
+    chat.conversas = [
+      { id: 5, descricao: 'Outra', tipo: 2, inserida: new Date() },
+      { id: 40, descricao: 'Chamada: Ana, Eu', tipo: 2, inserida: new Date() },
+    ]
+    chat.conversaAtivaId = 5
+
+    await janela.find('button[title="Chat da chamada"]').trigger('click')
+    await aguardar(20)
+    expect(chat.conversaAtivaId).toBe(40)
+    expect(janela.findComponent(MessageList).exists()).toBe(true)
+    expect(janela.findComponent(MessageInput).exists()).toBe(true)
+    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([2])
+
+    await janela.find('button[title="Fechar chat"]').trigger('click')
+    await aguardar(20)
+    expect(chat.conversaAtivaId).toBe(5)
+    Element.prototype.scrollIntoView = rolagemOriginal
+  })
+
   test('com o painel fechado, o botão mostra as não lidas do grupo', async () => {
     await montar([participante(ANA, 'Ana')])
     call.chamada = { ...call.chamada!, conversa_chat_id: 40 }
     useChatStore().conversas = [{ id: 40, descricao: 'Chamada: Ana, Eu', tipo: 2, inserida: new Date(), mensagens_sem_visualizar: 3 }]
     await flushPromises()
     expect(janela.find('button[title="Chat da chamada"]').element.parentElement!.textContent).toContain('3')
+  })
+})
+
+describe('cores dos botões', () => {
+  const botao = (titulo: string) => janela.find(`button[title="${titulo}"]`)
+
+  test('microfone desligado fica vermelho; ligado, neutro', async () => {
+    await montar([participante(ANA, 'Ana')])
+    expect(botao('Microfone').classes()).toContain('bg-chamada-700')
+    call.micMutado = true
+    await flushPromises()
+    expect(botao('Microfone').classes()).toContain('bg-danger-500')
+  })
+
+  test('compartilhar tela ligado fica azul; ações ficam sempre neutras', async () => {
+    await montar([participante(ANA, 'Ana')])
+    expect(botao('Compartilhar tela').classes()).toContain('bg-chamada-700')
+    call.compartilhandoTela = true
+    await flushPromises()
+    expect(botao('Compartilhar tela').classes()).toContain('bg-primary-600')
+    expect(botao('Minimizar').classes()).toContain('bg-chamada-700')
   })
 })

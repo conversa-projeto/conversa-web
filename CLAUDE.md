@@ -44,7 +44,7 @@ src/
 │   ├── MessageBubble.vue      # Dispatcher de bolhas (não tem visual próprio)
 │   ├── Bolha*.vue             # Componentes visuais por tipo de mensagem
 │   ├── MessageList.vue        # Lista de mensagens com scroll infinito
-│   ├── MessageInput.vue       # Input de mensagem com anexos
+│   ├── MessageInput.vue       # Campo de mensagem rico (texto com anexos, figurinhas e menções no meio)
 │   ├── MessageContent.vue     # Renderizador de conteúdo individual
 │   ├── MensagemStatus.vue     # Timestamp + indicadores de entrega
 │   ├── MensagemAcoes.vue      # Ações no hover (responder, encaminhar, copiar, reagir)
@@ -95,6 +95,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 |------|-----------|--------|
 | `Imagem` | `BolhaImagem.vue` | Mensagem com apenas uma imagem, sem referência |
 | `Figurinha` | `BolhaFigurinha.vue` | Mensagem com apenas uma figurinha (Lottie), sem referência |
+| `Enquete` | `BolhaEnquete.vue` | Votação de grupo (conteúdo tipo 8 com o id da enquete) |
 | `Codigo` | `BolhaCodigo.vue` | Mensagem com apenas blocos de código, sem referência |
 | `Emoji` | `BolhaEmoji.vue` | Mensagem com apenas emojis, sem referência |
 | `ComReferencia` | `BolhaReferencia.vue` | Mensagem que responde ou encaminha outra |
@@ -185,6 +186,9 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Ponteiro remoto**: quem assiste aponta na tela compartilhada; posição repassada pelo WebSocket (sinal da chamada, tipo 57)
 - **Chat da chamada**: grupo criado na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`)
 - **Figurinhas**: animações Lottie em `public/figurinhas`, geradas por `scripts/gerar-figurinhas.ts`; a mensagem leva só `pacote/nome` (conteúdo tipo 7)
+- **Votação em grupo**: opção Votação no "+" (só em grupos), escolha única ou múltipla; votos ficam nas tabelas `enquete*` do backend e chegam em tempo real (store `enquetes`, aviso pelo WebSocket tipo 62)
+- **Campo de mensagem rico**: o `MessageInput` é um `contenteditable`; imagem, vídeo, áudio, arquivo, figurinha e menção entram no ponto do cursor como peças que o Backspace apaga como um caractere (`utils/editorRico.ts`). No envio, os conteúdos vão na ordem do campo (`utils/blocosEditor.ts`, `chat.enviarBlocos`); só texto vai como antes. Figurinha e gravação com o campo vazio são enviadas na hora
+- **Chat da chamada completo**: na janela principal, o painel da chamada usa o `MessageList` e o `MessageInput` do chat (a conversa do grupo vira a ativa enquanto o painel está aberto)
 - **Atividades**: reações, respostas, menções e chamadas perdidas do usuário, com contador de novas na barra; tabela `atividade` no backend, gravada quando o evento acontece (store `atividades`, aviso pelo WebSocket tipo 61)
 - **Permissões e configurações do sistema**: abas Sistema (parâmetros do servidor) e Acessos (quem tem cada permissão) nas Configurações, visíveis só com a permissão (`auth.temPermissao`); o servidor confere em cada rota
 - **Telefonia SIP**: registro, discador, chamadas PSTN via sip.js

@@ -211,6 +211,40 @@ describe('enviar', () => {
     }
   })
 
+  test('editor avançado: texto e imagens vão na ordem dos blocos', async () => {
+    rota('GET', '/anexo/existe', { existe: false })
+    rota('PUT', '/anexo', { id: 3, upload_url: 'https://localhost/storage/upload', existe: false })
+    rota('PUT', '/mensagem', { id: 102 })
+    rota('GET', '/conversas', [])
+    class XhrFalso {
+      status = 200
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      open() {}
+      send() { this.onload?.() }
+    }
+    const original = globalThis.XMLHttpRequest
+    globalThis.XMLHttpRequest = XhrFalso as never
+    try {
+      const chat = novaStore()
+      chat.conversaAtivaId = 1
+      await chat.enviarBlocos([
+        { texto: 'Olha o erro:' },
+        { arquivo: { blob: new Blob(['png'], { type: 'image/png' }), nomeArquivo: 'imagem-1.png', mimeType: 'image/png' } },
+        { texto: 'e depois disso' },
+      ])
+      const conteudos = (pedidosDe('PUT', '/mensagem')[0]!.corpo.conteudos as { ordem: number; tipo: number; conteudo: string }[])
+        .slice().sort((a, b) => a.ordem - b.ordem)
+      expect(conteudos.map((c) => [c.ordem, c.tipo])).toEqual([[1, TipoConteudo.Texto], [2, TipoConteudo.Imagem], [3, TipoConteudo.Texto]])
+      expect(conteudos[0]!.conteudo).toBe('Olha o erro:')
+      expect(conteudos[2]!.conteudo).toBe('e depois disso')
+      expect(simples(chat.mensagensAtivas[0])!.conteudos.map((c: { tipo: number }) => c.tipo)).toEqual([TipoConteudo.Texto, TipoConteudo.Imagem, TipoConteudo.Texto])
+    } finally {
+      globalThis.XMLHttpRequest = original
+    }
+  })
+
   test('responder no privado abre a conversa direta e envia como encaminhada, com os conteúdos antes do texto', async () => {
     rota('GET', '/conversas', [conversaApi(8, { destinatario_id: 2 })])
     rota('GET', '/mensagens', [])

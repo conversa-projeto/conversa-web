@@ -56,9 +56,10 @@
       />
     </div>
 
-    <div class="px-2.5 pb-0.5 pt-1" :class="conteudosProprios.length > 1 ? (isOwn ? 'divide-y divide-white/15' : 'divide-y divide-surface-400/30') : ''">
+    <div class="px-2.5 pb-0.5 pt-1">
       <MessageContent
         v-for="conteudo in conteudosProprios"
+        imagem-sem-moldura
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
         :conteudo="conteudo"
         :mensagem-id="mensagem.id"

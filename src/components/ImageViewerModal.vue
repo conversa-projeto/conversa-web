@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="aberta"
-    class="fixed inset-0 z-30 flex flex-col items-center justify-center overflow-hidden bg-black/90"
+    class="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-black/90"
     @click.self="menuContexto ? (menuContexto = null) : emit('close')"
     @mousedown="fecharMenu"
     @mousemove="emit('drag-move', $event)"

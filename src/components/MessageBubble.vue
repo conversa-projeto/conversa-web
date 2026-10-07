@@ -171,6 +171,7 @@ import BolhaReferencia from './BolhaReferencia.vue'
 import BolhaTextoCurto from './BolhaTextoCurto.vue'
 import BolhaEmoji from './BolhaEmoji.vue'
 import BolhaFigurinha from './BolhaFigurinha.vue'
+import BolhaEnquete from './BolhaEnquete.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
 import BolhaChamada from './BolhaChamada.vue'
 import BolhaExcluida from './BolhaExcluida.vue'
@@ -268,6 +269,7 @@ const componenteMap = {
   [TipoExibicaoMensagem.Chamada]: BolhaChamada,
   [TipoExibicaoMensagem.Imagem]: BolhaImagem,
   [TipoExibicaoMensagem.Figurinha]: BolhaFigurinha,
+  [TipoExibicaoMensagem.Enquete]: BolhaEnquete,
   [TipoExibicaoMensagem.Codigo]: BolhaCodigo,
   [TipoExibicaoMensagem.ComReferencia]: BolhaReferencia,
   [TipoExibicaoMensagem.Emoji]: BolhaEmoji,

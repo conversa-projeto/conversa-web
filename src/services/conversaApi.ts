@@ -1,4 +1,4 @@
-import type { AlteracaoParametros, AnexoItem, AnexoResponse, Atividade, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, AnexoResponse, Atividade, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
 import { api, dados } from './eden'
 
 // Chamadas da API pelo cliente Eden: caminho, corpo, consulta e resposta sao
@@ -218,6 +218,21 @@ export function chamadaEntrar(chamadaId: number): Promise<{ id: number }> {
 // chamada perdida nas atividades)
 export function chamadaRecusar(chamadaId: number, naoAtendeu = false): Promise<{ id: number }> {
   return dados(api().chamada.recusar.post({ id: chamadaId, ...(naoAtendeu ? { nao_atendeu: true } : {}) }))
+}
+
+// --- Votação (enquete) em grupo ---
+
+export function criarEnquete(conversaId: number, pergunta: string, opcoes: string[], multipla: boolean) {
+  return dados(api().enquete.put({ conversa_id: conversaId, pergunta, opcoes, multipla }))
+}
+
+export function getEnquete(id: number): Promise<Enquete> {
+  return dados(api().enquete.get({ query: { id } }))
+}
+
+// O voto do usuário passa a ser exatamente estas opções (vazio tira o voto)
+export function votarEnquete(id: number, opcoes: number[]): Promise<Enquete> {
+  return dados(api().enquete.votar.post({ enquete_id: id, opcoes }))
 }
 
 // --- Permissões e parâmetros do sistema ---

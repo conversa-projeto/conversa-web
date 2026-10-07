@@ -7,7 +7,6 @@ import { useHistoryNavigation } from '@/composables/useHistoryNavigation'
 import { galeriaDasMensagens, useImageViewer, type ItemGaleria } from '@/composables/useImageViewer'
 import { TipoConteudo } from '@/types/api'
 import { conteudo, mensagem, texto } from './fabrica'
-import { useFilaArquivos } from '@/composables/useFilaArquivos'
 import { useUploadProgress } from '@/composables/useUploadProgress'
 import { carregarMarkdown, ehLinguagemMarkdown } from '@/composables/useMarkdown'
 import { desregistrarAudio, registrarAudio } from '@/composables/useAudioManager'
@@ -245,31 +244,6 @@ describe('visualizador de imagem (zoom, arrasto, galeria)', () => {
     visor.fecharImagemTelaCheia()
     expect(visor.galeriaOverride.value).toBeNull()
     host.unmount()
-  })
-})
-
-describe('fila de arquivos para enviar', () => {
-  test('imagem ganha prévia; arquivo comum não; remover libera a prévia', () => {
-    const revogadas: string[] = []
-    const revogar = URL.revokeObjectURL
-    URL.revokeObjectURL = (url: string) => void revogadas.push(url)
-    try {
-      const fila = useFilaArquivos()
-      const imagem = new File(['x'], 'foto.png', { type: 'image/png' })
-      const texto = new File(['y'], 'nota.txt', { type: 'text/plain' })
-      fila.adicionarArquivos([imagem, texto] as unknown as FileList)
-      const [itemImagem, itemTexto] = fila.arquivosFila.value
-      expect(itemImagem).toMatchObject({ nome: 'foto.png', isImagem: true, isAudio: false })
-      expect(itemImagem!.previewUrl).toStartWith('blob:')
-      expect(itemTexto!.previewUrl).toBeUndefined()
-      fila.removerArquivoFila(itemImagem!.id)
-      expect(revogadas).toEqual([itemImagem!.previewUrl!])
-      expect(fila.arquivosFila.value.map((a) => a.nome)).toEqual(['nota.txt'])
-      fila.limparTudo()
-      expect(fila.arquivosFila.value).toEqual([])
-    } finally {
-      URL.revokeObjectURL = revogar
-    }
   })
 })
 

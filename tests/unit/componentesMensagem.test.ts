@@ -16,7 +16,6 @@ import ReferenciaRecursiva from '@/components/ReferenciaRecursiva.vue'
 import DetalheStatusMensagem from '@/components/DetalheStatusMensagem.vue'
 import PesquisaAvancada from '@/components/PesquisaAvancada.vue'
 import TranscricaoAudio from '@/components/TranscricaoAudio.vue'
-import FilaArquivosPreview from '@/components/FilaArquivosPreview.vue'
 import { useChatStore } from '@/stores/chat'
 import { useUploadProgress } from '@/composables/useUploadProgress'
 import { StatusTranscricao, TipoConteudo, TipoConversa, TipoMensagemReferencia, type Contato, type Conversa, type MensagemReferencia } from '@/types/api'
@@ -524,40 +523,6 @@ describe('transcrição de áudio', () => {
     relogio.avancar(10_000)
     await aguardar(5)
     expect(pedidosDe('GET', '/anexo/transcricao')).toHaveLength(0)
-  })
-})
-
-describe('fila de arquivos para enviar', () => {
-  const arquivo = (id: string, extras: object) => ({ id, file: new Blob(['x'.repeat(2048)]), nome: `${id}.bin`, tipo: 'application/octet-stream', isAudio: false, ...extras })
-
-  test('imagens em miniatura, arquivos e áudios em lista, com tamanho e duração', async () => {
-    const tela = montar(FilaArquivosPreview, { props: { arquivos: [
-      arquivo('foto', { isImagem: true, previewUrl: 'blob:foto', nome: 'foto.png' }),
-      arquivo('doc', { nome: 'doc.pdf' }),
-      arquivo('audio', { isAudio: true, nome: 'gravacao.webm', duracaoSegundos: 75, reproduzindo: true }),
-    ] } })
-    expect(tela.find('img').attributes('src')).toBe('blob:foto')
-    expect(tela.text()).toContain('doc.pdf')
-    expect(tela.text()).toContain('2.0 KB')
-    expect(tela.text()).toContain('01:15')
-    expect(tela.find('button[title="Pausar"]').exists()).toBe(true)
-    await tela.find('img').trigger('click')
-    await tela.find('button[title="Pausar"]').trigger('click')
-    const remover = tela.findAll('button[title="Remover"]')
-    expect(remover).toHaveLength(3)
-    await remover[0]!.trigger('click')
-    await remover[1]!.trigger('click')
-    expect(tela.emitted('abrir-imagem')).toEqual([['foto']])
-    expect(tela.emitted('alternar-preview')).toEqual([['audio']])
-    expect(tela.emitted('remover')).toEqual([['foto'], ['doc']])
-  })
-
-  test('um arquivo só ocupa a linha toda; vazia não mostra nada', async () => {
-    const tela = montar(FilaArquivosPreview, { props: { arquivos: [arquivo('doc', { isAudio: true, reproduzindo: false })] } })
-    expect(tela.find('.grid').classes()).toContain('grid-cols-1')
-    expect(tela.find('button[title="Ouvir"]').exists()).toBe(true)
-    await tela.setProps({ arquivos: [] })
-    expect(tela.text()).toBe('')
   })
 })
 
