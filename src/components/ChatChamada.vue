@@ -22,8 +22,24 @@
         @forward="(mensagem: Mensagem) => emit('forward', mensagem)"
         @open-message="(conversaId: number, mensagemId: number) => emit('open-message', conversaId, mensagemId)"
       />
+      <!-- Grupo ainda não existe: o campo é criado ao clicar nele -->
+      <template v-if="!call.conversaChatId">
+        <p class="flex-1 px-6 py-6 text-center text-xs text-surface-500">
+          As mensagens enviadas aqui ficam num grupo com quem está na chamada.
+        </p>
+        <p v-if="erro" class="mx-3 mb-1 rounded bg-danger-500/90 px-2 py-1 text-[11px] text-white">{{ erro }}</p>
+        <div class="px-3 pb-2">
+          <button
+            type="button"
+            class="flex h-[46px] w-full items-center rounded-3xl border border-surface-500 bg-surface-base px-4 text-left text-sm text-surface-500 transition-colors hover:border-primary-500 disabled:cursor-wait"
+            :disabled="enviando"
+            @click="iniciarChat"
+          >{{ enviando ? 'Abrindo o chat...' : 'Digite uma mensagem' }}</button>
+        </div>
+      </template>
       <MessageInput
-        v-if="chat.conversaAtivaId === call.conversaChatId"
+        v-if="call.conversaChatId && chat.conversaAtivaId === call.conversaChatId"
+        ref="campoCompleto"
         class="absolute inset-x-0 bottom-0 z-10"
         @message-sent="listaCompleta?.rolarParaFinal()"
         @altura-mudou="(altura: number) => alturaInput = altura"
@@ -118,11 +134,12 @@ const meuId = computed(() => auth.user?.id)
 const marcadas = new Set<number>()
 
 // --- Modo completo ---
-// O grupo existe só depois da primeira mensagem; até lá fica o painel simples.
-// Aberto, o chat da chamada vira a conversa ativa; ao fechar, volta a anterior.
+// O grupo é criado no primeiro clique no campo. Aberto, o chat da chamada vira
+// a conversa ativa; ao fechar, volta a anterior.
 const listaCompleta = ref<InstanceType<typeof MessageList> | null>(null)
 const alturaInput = ref(0)
-const modoCompleto = computed(() => props.completo && !!call.conversaChatId)
+const campoCompleto = ref<InstanceType<typeof MessageInput> | null>(null)
+const modoCompleto = computed(() => props.completo)
 let conversaAnterior: number | null = null
 let assumiu = false
 
@@ -138,7 +155,26 @@ async function abrirCompleto() {
   await listaCompleta.value?.posicionarAberturaConversaAtiva()
 }
 
-watch(modoCompleto, (completo) => { if (completo) void abrirCompleto() }, { immediate: true })
+watch(() => props.completo && call.conversaChatId, (id) => { if (id) void abrirCompleto() }, { immediate: true })
+
+// Primeiro clique no campo, sem grupo ainda: cria o grupo da chamada e abre o
+// chat completo nele, já com o cursor no campo
+async function iniciarChat() {
+  if (enviando.value) return
+  enviando.value = true
+  erro.value = ''
+  try {
+    const id = await call.garantirChatChamada()
+    if (!chat.conversas.some((c) => c.id === id)) await chat.carregarConversas()
+    await abrirCompleto()
+    await nextTick()
+    campoCompleto.value?.focarInput()
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao abrir o chat'
+  } finally {
+    enviando.value = false
+  }
+}
 
 onBeforeUnmount(() => {
   if (!assumiu || chat.conversaAtivaId !== call.conversaChatId) return

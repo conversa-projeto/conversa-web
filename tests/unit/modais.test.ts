@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { EditorView } from '@codemirror/view'
 import CreateGroupModal from '@/components/CreateGroupModal.vue'
 import ForwardMessageModal from '@/components/ForwardMessageModal.vue'
-import GroupMembersModal from '@/components/GroupMembersModal.vue'
+import PainelGrupo from '@/components/PainelGrupo.vue'
 import UserInfoModal from '@/components/UserInfoModal.vue'
 import AddUserToCallModal from '@/components/AddUserToCallModal.vue'
 import CallParticipantsModal from '@/components/CallParticipantsModal.vue'
@@ -158,34 +158,50 @@ describe('encaminhar', () => {
   })
 })
 
-describe('membros do grupo', () => {
+describe('painel do grupo', () => {
   const membros = [{ id: 100, usuario_id: 7, nome: 'Eu' }, { id: 101, usuario_id: 2, nome: 'Bruno' }]
 
-  async function montarModal() {
+  async function montarPainel() {
     rota('GET', '/conversa/usuarios', membros)
+    rota('GET', '/anexos', [])
     const chat = useChatStore()
-    chat.contatos = [contato(2, 'Bruno'), contato(3, 'Carla')]
+    chat.contatos = [contato(2, 'Bruno'), contato(3, 'Carla'), contato(4, 'Davi')]
     chat.conversas = [conversa(5, { tipo: TipoConversa.Grupo, descricao: 'Equipe' })]
     chat.conversaAtivaId = 5
-    const tela = montar(GroupMembersModal, { props: { aberta: true } })
+    const tela = montar(PainelGrupo)
     await aguardar(10)
     return tela
   }
+  const contatoParaAdicionar = (tela: VueWrapper, nome: string) => tela.findAll('button').find((b) => b.text().includes(nome))!
 
-  test('lista os membros; não dá para remover a si mesmo; só oferece quem não está', async () => {
-    const tela = await montarModal()
+  test('lista os membros; não dá para remover a si mesmo; adicionar só oferece quem não está, com busca', async () => {
+    const tela = await montarPainel()
     expect(pedidosDe('GET', '/conversa/usuarios')[0]!.consulta).toEqual({ conversa: '5' })
-    expect(tela.text()).toContain('Eu')
+    expect(tela.text()).toContain('2 participantes')
+    expect(tela.text()).toContain('Eu (você)')
     expect(tela.findAll('button').filter((b) => b.text() === 'Remover')).toHaveLength(1)
-    expect(tela.findAll('option').map((o) => o.text())).toEqual(['Selecionar usuario', 'Carla'])
+    await botao(tela, 'Adicionar pessoas').trigger('click')
+    expect(contatoParaAdicionar(tela, 'Carla')).toBeDefined()
+    expect(contatoParaAdicionar(tela, 'Davi')).toBeDefined()
+    expect(tela.findAll('button').some((b) => b.text().includes('Bruno'))).toBe(false)
+    await tela.find('input[type="search"]').setValue('car')
+    expect(contatoParaAdicionar(tela, 'Carla')).toBeDefined()
+    expect(contatoParaAdicionar(tela, 'Davi')).toBeUndefined()
+  })
+
+  test('mostra os anexos do grupo, com os filtros por tipo', async () => {
+    const tela = await montarPainel()
+    expect(tela.text()).toContain('Anexos')
+    expect(tela.text()).toContain('Imagens')
+    expect(pedidosDe('GET', '/anexos')[0]!.consulta).toMatchObject({ conversa: '5' })
   })
 
   test('renomear só quando o nome muda', async () => {
     rota('PATCH', '/conversa', {})
     rota('GET', '/conversas', [conversa(5, { tipo: TipoConversa.Grupo, descricao: 'Time' })])
-    const tela = await montarModal()
+    const tela = await montarPainel()
     expect(botao(tela, 'Renomear').attributes('disabled')).toBeDefined()
-    await tela.find('input[type="text"]').setValue('Time')
+    await tela.find('input[aria-label="Nome do grupo"]').setValue('Time')
     await botao(tela, 'Renomear').trigger('click')
     await aguardar(10)
     expect(pedidosDe('PATCH', '/conversa')[0]!.corpo).toEqual({ id: 5, descricao: 'Time' })
@@ -195,9 +211,9 @@ describe('membros do grupo', () => {
   test('adicionar e remover recarregam os membros', async () => {
     rota('PUT', '/conversa/usuario', { id: 102 })
     rota('DELETE', '/conversa/usuario', {})
-    const tela = await montarModal()
-    await escolher(tela, 'Carla')
-    await botao(tela, 'Adicionar').trigger('click')
+    const tela = await montarPainel()
+    await botao(tela, 'Adicionar pessoas').trigger('click')
+    await contatoParaAdicionar(tela, 'Carla').trigger('click')
     await aguardar(10)
     expect(pedidosDe('PUT', '/conversa/usuario')[0]!.corpo).toEqual({ conversa_id: 5, usuario_id: 3 })
     expect(tela.text()).toContain('Participante adicionado com sucesso.')
@@ -212,29 +228,30 @@ describe('membros do grupo', () => {
     rota('PUT', '/conversa/usuario', erro(403, 'Sem permissão'))
     rota('DELETE', '/conversa/usuario', erro(403, 'Não pode remover'))
     rota('PATCH', '/conversa', erro(400, 'Nome ruim'))
-    const tela = await montarModal()
-    await escolher(tela, 'Carla')
-    await botao(tela, 'Adicionar').trigger('click')
+    const tela = await montarPainel()
+    await botao(tela, 'Adicionar pessoas').trigger('click')
+    await contatoParaAdicionar(tela, 'Carla').trigger('click')
     await aguardar(10)
     expect(tela.text()).toContain('Sem permissão')
     await botao(tela, 'Remover').trigger('click')
     await aguardar(10)
     expect(tela.text()).toContain('Não pode remover')
-    await tela.find('input[type="text"]').setValue('Outro')
+    await tela.find('input[aria-label="Nome do grupo"]').setValue('Outro')
     await botao(tela, 'Renomear').trigger('click')
     await aguardar(10)
     expect(tela.text()).toContain('Nome ruim')
   })
 
-  test('sem membros avisa; Fechar emite', async () => {
+  test('sem membros avisa; o X fecha', async () => {
     rota('GET', '/conversa/usuarios', [])
+    rota('GET', '/anexos', [])
     const chat = useChatStore()
     chat.conversas = [conversa(5, { tipo: TipoConversa.Grupo })]
     chat.conversaAtivaId = 5
-    const tela = montar(GroupMembersModal, { props: { aberta: true } })
+    const tela = montar(PainelGrupo)
     await aguardar(10)
     expect(tela.text()).toContain('Nenhum membro')
-    await botao(tela, 'Fechar').trigger('click')
+    await tela.find('button[title="Fechar"]').trigger('click')
     expect(tela.emitted('close')).toHaveLength(1)
   })
 })

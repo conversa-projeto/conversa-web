@@ -704,7 +704,19 @@ describe('reações próprias', () => {
     const chat = novaStore()
     chat.definirMensagens(1, [mensagem({ id: 9 })])
     chat.conversaAtivaId = 1
-    await chat.reagirMensagem(9, '🎉')
+    await expect(chat.reagirMensagem(9, '🎉')).rejects.toThrow('x')
     expect(chat.mensagensAtivas[0]!.reacoes).toBeUndefined()
+  })
+
+  test('com 5 emojis meus na mensagem, o sexto é recusado sem ir ao servidor; trocar um dos meus pode', async () => {
+    rota('PUT', '/mensagem/reacao', {})
+    const chat = novaStore()
+    const minhas = ['👍', '❤️', '😂', '😮', '😢'].map((emoji) => ({ emoji, quantidade: 1, reagiu: true }))
+    chat.definirMensagens(1, [mensagem({ id: 9, reacoes: [...minhas, { emoji: '🙏', quantidade: 1, reagiu: false }] })])
+    chat.conversaAtivaId = 1
+    await expect(chat.reagirMensagem(9, '🙏')).rejects.toThrow('Você já reagiu com 5 emojis nesta mensagem.')
+    expect(pedidosDe('PUT', '/mensagem/reacao')).toHaveLength(0)
+    await chat.reagirMensagem(9, '👍')
+    expect(pedidosDe('PUT', '/mensagem/reacao')).toHaveLength(1)
   })
 })

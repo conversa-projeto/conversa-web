@@ -126,7 +126,7 @@
           @update:sidebar-aberta="sidebarAberta = $event"
           @start-call="solicitarChamada"
           @go-to-message="abrirResultadoBusca"
-          @open-group-members="modalMembrosGrupo = true"
+          @open-group-members="painelGrupoAberto = !painelGrupoAberto"
           @open-anexos="abrirAnexosDaConversa"
         />
 
@@ -161,6 +161,15 @@
           @open-fila-image="handleOpenFilaImage"
         />
       </main>
+
+      <!-- Dados do grupo à direita do chat (por cima dele em tela pequena) -->
+      <PainelGrupo
+        v-if="painelGrupoAberto && secaoAtiva === 'chat' && chat.conversaAtiva?.tipo === TipoConversa.Grupo && !mostrarChamadaNoPrincipal"
+        class="fixed inset-y-0 right-0 z-30 shadow-xl lg:static lg:z-auto lg:shadow-none"
+        @close="painelGrupoAberto = false"
+        @open-image-gallery="handleOpenAnexoImagem"
+        @open-message="abrirMensagemDoAnexo"
+      />
 
       <div v-if="mostrarChamadaNoPrincipal" class="fixed inset-0 z-40">
         <CallWindow
@@ -219,11 +228,6 @@
       :aberta="abrirModalGrupo"
       @close="abrirModalGrupo = false"
       @created="onConversationOpened"
-    />
-
-    <GroupMembersModal
-      :aberta="modalMembrosGrupo"
-      @close="modalMembrosGrupo = false"
     />
 
     <ForwardMessageModal
@@ -291,7 +295,7 @@ import MessageInput from './components/MessageInput.vue'
 import ImageViewerModal from './components/ImageViewerModal.vue'
 import ImagePreviewModal from './components/ImagePreviewModal.vue'
 import CreateGroupModal from './components/CreateGroupModal.vue'
-import GroupMembersModal from './components/GroupMembersModal.vue'
+import PainelGrupo from './components/PainelGrupo.vue'
 import ForwardMessageModal from './components/ForwardMessageModal.vue'
 import CallParticipantsModal from './components/CallParticipantsModal.vue'
 import IncomingCallModal from './components/IncomingCallModal.vue'
@@ -362,7 +366,7 @@ const sidebarAberta = ref(
   !(historia.estadoAtual.value.secao === 'chat' && historia.estadoAtual.value.conversaId)
 )
 const abrirModalGrupo = ref(false)
-const modalMembrosGrupo = ref(false)
+const painelGrupoAberto = ref(false)
 const modalParticipantesChamada = ref(false)
 const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)

@@ -97,8 +97,20 @@ describe('visualizador de HTML', () => {
     const iframe = document.querySelector('iframe')!
     expect(iframe.getAttribute('sandbox')).toBe('allow-scripts')
     expect(iframe.getAttribute('sandbox')).not.toContain('allow-same-origin')
-    expect(iframe.getAttribute('srcdoc')).toBe('<h1>Olá</h1><script>alert(1)</script>')
+    expect(iframe.getAttribute('srcdoc')).toEndWith('<h1>Olá</h1><script>alert(1)</script>')
     expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer')
+  })
+
+  test('links "#..." rolam dentro do documento: o script entra logo depois do <head>', async () => {
+    rota('GET', '/anexo', { url: 'https://localhost/storage/pagina' })
+    rota('GET', '/storage/pagina', new Response('<!DOCTYPE html><html><head><title>T</title></head><body><a href="#status">ir</a><h2 id="status">S</h2></body></html>'))
+    montar(VisualizadorHtml, { props: { identificador: 'x', nome: 'pagina.html' } })
+    await aguardar(10)
+    const srcdoc = document.querySelector('iframe')!.getAttribute('srcdoc')!
+    expect(srcdoc).toStartWith('<!DOCTYPE html><html><head><script>')
+    expect(srcdoc).toContain("closest('a[href^=\"#\"]')")
+    expect(srcdoc).toContain('scrollIntoView')
+    expect(srcdoc).toEndWith('<title>T</title></head><body><a href="#status">ir</a><h2 id="status">S</h2></body></html>')
   })
 
   test('arquivo indisponível mostra erro e sugere baixar', async () => {

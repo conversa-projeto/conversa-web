@@ -179,7 +179,8 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Conversas**: listagem, criação (direta e grupo), sidebar com busca
 - **Mensagens**: envio (texto, imagem, arquivo, áudio, gravação), recebimento em tempo real via WebSocket, paginação bidirecional
 - **Referências**: responder e encaminhar mensagens
-- **Reações**: emoji reactions nas mensagens
+- **Reações**: emoji reactions nas mensagens; até 5 emojis diferentes por pessoa na mesma mensagem (o servidor confere); na bolha, 5 à mostra e o resto num "+N"
+- **Painel do grupo**: o avatar (ou o botão de participantes) do grupo abre à direita o `PainelGrupo`: nome, participantes (adicionar/remover) e anexos da conversa com filtro por tipo
 - **Anexos**: upload com deduplicação SHA-256, preview de imagem, visualizador de imagem fullscreen, player de áudio
 - **Code blocks**: destaque de sintaxe com highlight.js, modal com CodeMirror
 - **Chamadas WebRTC**: áudio e vídeo, multi-participante (mesh), compartilhamento de tela, janela flutuante, popup externo

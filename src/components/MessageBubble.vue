@@ -117,7 +117,7 @@
         :class="isOwn ? 'mr-[19px] justify-end self-end pr-0' : 'justify-start self-start pl-0'"
       >
         <div
-          v-for="reacao in mensagem.reacoes"
+          v-for="reacao in reacoesVisiveis"
           :key="reacao.emoji"
           class="group/reacao relative"
         >
@@ -148,6 +148,38 @@
                 <span class="text-xs text-surface-700 dark:text-surface-600">{{ u.nome }}</span>
                 <span class="text-[10px] text-surface-500">{{ formatarHoraReacao(u.reagido_em) }}</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mais de 5 emojis: o resto fica no "+N", listado ao passar o mouse -->
+        <div v-if="reacoesExtras.length" class="group/extras relative">
+          <button
+            type="button"
+            class="reacao-btn flex items-center rounded-full border px-1.5 py-0.5 text-xs transition"
+            :class="reacoesExtras.some((r) => r.reagiu) ? 'reacao-reagiu' : 'reacao-normal'"
+            :title="`Mais ${reacoesExtras.length} reações`"
+          >
+            <span class="font-semibold text-surface-500">+{{ reacoesExtras.length }}</span>
+          </button>
+          <div
+            class="absolute bottom-full z-50 hidden pb-1.5 group-hover/extras:block"
+            :class="isOwn ? 'right-0' : 'left-0'"
+          >
+            <div class="flex w-max flex-col gap-0.5 rounded-lg border border-surface-300 bg-surface-100 p-1 shadow-lg dark:border-surface-500 dark:bg-surface-200">
+              <button
+                v-for="reacao in reacoesExtras"
+                :key="reacao.emoji"
+                type="button"
+                class="flex items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition hover:bg-surface-200 dark:hover:bg-surface-300"
+                :class="reacao.reagiu ? 'font-semibold text-primary-600' : 'text-surface-700 dark:text-surface-600'"
+                :title="reacao.usuarios?.map((u) => u.nome).join(', ')"
+                @click.stop="emit('reagir', mensagem.id, reacao.emoji)"
+              >
+                <span class="text-sm">{{ reacao.emoji }}</span>
+                <span>{{ reacao.quantidade }}</span>
+                <span class="max-w-[12rem] truncate text-[10px] font-normal text-surface-500">{{ reacao.usuarios?.map((u) => u.nome).join(', ') }}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -279,6 +311,10 @@ const componenteMap = {
 
 const ehChamada = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Chamada)
 // Excluída não tem ações nem reações: só o status e o conteúdo ao segurar
+// Até 5 emojis à mostra; os demais ficam no "+N"
+const REACOES_A_MOSTRA = 5
+const reacoesVisiveis = computed(() => props.mensagem.reacoes?.slice(0, REACOES_A_MOSTRA) ?? [])
+const reacoesExtras = computed(() => props.mensagem.reacoes?.slice(REACOES_A_MOSTRA) ?? [])
 const ehExcluida = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Excluida)
 
 const agora = useAgora(() => props.mensagem.visivel_em)

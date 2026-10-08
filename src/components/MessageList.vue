@@ -56,7 +56,7 @@
             @responder-privado="(msg) => chat.responderNoPrivado(msg).catch((e) => console.error('Erro ao responder no privado', e))"
             @forward="(msg) => emit('forward', msg)"
             @go-to-message="irParaReferencia"
-            @reagir="(mensagemId, emoji) => chat.reagirMensagem(mensagemId, emoji)"
+            @reagir="reagir"
             @excluir="excluirMensagem"
           />
         </template>
@@ -172,6 +172,14 @@ watch(usuarioNoFimDoChat, (val) => {
 
 // Confirmação e avisos com a janela do app, no lugar das do navegador
 const dialogo = useDialogo()
+
+async function reagir(mensagemId: number, emoji: string) {
+  try {
+    await chat.reagirMensagem(mensagemId, emoji)
+  } catch (e) {
+    void dialogo.avisar({ titulo: 'Não foi possível reagir', mensagem: e instanceof Error ? e.message : 'Erro ao reagir' })
+  }
+}
 
 async function excluirMensagem(msg: Mensagem) {
   const agendada = !!msg.visivel_em && new Date(msg.visivel_em).getTime() > Date.now()

@@ -246,6 +246,30 @@ describe('chat da chamada', () => {
     Element.prototype.scrollIntoView = rolagemOriginal
   })
 
+  test('janela principal sem grupo ainda: o clique no campo cria o grupo e abre o chat completo', async () => {
+    const rolagemOriginal = Element.prototype.scrollIntoView
+    globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as never
+    Element.prototype.scrollIntoView = () => {}
+    rota('PUT', '/chamada/chat', { conversa_id: 40 })
+    rota('GET', '/conversas', [{ id: 40, descricao: 'Chamada: Ana, Eu', tipo: 2, inserida: new Date().toISOString() }])
+    rota('GET', '/mensagens', [])
+    rota('GET', '/conversa/usuarios', [])
+    await montar([participante(ANA, 'Ana')])
+    const chat = useChatStore()
+    await janela.find('button[title="Chat da chamada"]').trigger('click')
+    expect(janela.text()).toContain('ficam num grupo com quem está na chamada')
+    expect(janela.find('textarea').exists()).toBe(false)
+    expect(pedidosDe('PUT', '/chamada/chat')).toHaveLength(0)
+
+    await janela.findAll('button').find((b) => b.text() === 'Digite uma mensagem')!.trigger('click')
+    await aguardar(20)
+    expect(pedidosDe('PUT', '/chamada/chat')).toHaveLength(1)
+    expect(chat.conversaAtivaId).toBe(40)
+    expect(janela.findComponent(MessageList).exists()).toBe(true)
+    expect(janela.findComponent(MessageInput).exists()).toBe(true)
+    Element.prototype.scrollIntoView = rolagemOriginal
+  })
+
   test('com o painel fechado, o botão mostra as não lidas do grupo', async () => {
     await montar([participante(ANA, 'Ana')])
     call.chamada = { ...call.chamada!, conversa_chat_id: 40 }
@@ -255,23 +279,28 @@ describe('chat da chamada', () => {
   })
 })
 
-describe('cores dos botões', () => {
+describe('chave de liga/desliga', () => {
   const botao = (titulo: string) => janela.find(`button[title="${titulo}"]`)
+  const chave = (titulo: string) => botao(titulo).find('[data-chave]')
 
-  test('microfone desligado fica vermelho; ligado, neutro', async () => {
+  test('microfone: a chave fica verde ligada e cinza desligada', async () => {
     await montar([participante(ANA, 'Ana')])
-    expect(botao('Microfone').classes()).toContain('bg-chamada-700')
+    expect(botao('Microfone').attributes('role')).toBe('switch')
+    expect(botao('Microfone').attributes('aria-checked')).toBe('true')
+    expect(chave('Microfone').classes()).toContain('bg-success-500')
     call.micMutado = true
     await flushPromises()
-    expect(botao('Microfone').classes()).toContain('bg-danger-500')
+    expect(botao('Microfone').attributes('aria-checked')).toBe('false')
+    expect(chave('Microfone').classes()).toContain('bg-chamada-500')
   })
 
-  test('compartilhar tela ligado fica azul; ações ficam sempre neutras', async () => {
+  test('compartilhar tela tem chave; ações não', async () => {
     await montar([participante(ANA, 'Ana')])
-    expect(botao('Compartilhar tela').classes()).toContain('bg-chamada-700')
+    expect(chave('Compartilhar tela').classes()).toContain('bg-chamada-500')
     call.compartilhandoTela = true
     await flushPromises()
-    expect(botao('Compartilhar tela').classes()).toContain('bg-primary-600')
-    expect(botao('Minimizar').classes()).toContain('bg-chamada-700')
+    expect(chave('Compartilhar tela').classes()).toContain('bg-success-500')
+    expect(botao('Minimizar').find('[data-chave]').exists()).toBe(false)
+    expect(botao('Minimizar').attributes('role')).toBeUndefined()
   })
 })

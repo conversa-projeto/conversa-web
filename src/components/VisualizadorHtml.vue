@@ -17,7 +17,7 @@
            acesso ao token de login, aos cookies nem à janela do app -->
       <iframe
         v-else
-        :srcdoc="html"
+        :srcdoc="comAncoras(html)"
         sandbox="allow-scripts"
         referrerpolicy="no-referrer"
         class="min-h-0 w-full flex-1 border-0 bg-white"
@@ -43,6 +43,28 @@ const emit = defineEmits<{
 
 const html = ref<string | null>(null)
 const erro = ref('')
+
+// No srcdoc, "#status" é resolvido contra o endereço do app: o clique abriria
+// o Conversa dentro do quadro. Este script, que vai antes do HTML, faz os links
+// "#..." rolarem até o ponto do próprio documento.
+const SCRIPT_ANCORAS = `<script>document.addEventListener('click', function (e) {
+  var a = e.target instanceof Element ? e.target.closest('a[href^="#"]') : null
+  if (!a || e.defaultPrevented) return
+  e.preventDefault()
+  var id = decodeURIComponent(a.getAttribute('href').slice(1))
+  var alvo = id ? document.getElementById(id) || document.getElementsByName(id)[0] : null
+  if (alvo) alvo.scrollIntoView()
+  else if (!id || id === 'top') window.scrollTo(0, 0)
+})<\/script>`
+
+// Entra logo depois do <head> (ou do doctype): antes do doctype, a página
+// cairia no modo quirks
+function comAncoras(conteudo: string) {
+  const ponto = /<head[^>]*>/i.exec(conteudo) ?? /<!doctype[^>]*>/i.exec(conteudo)
+  if (!ponto) return SCRIPT_ANCORAS + conteudo
+  const fim = ponto.index + ponto[0].length
+  return conteudo.slice(0, fim) + SCRIPT_ANCORAS + conteudo.slice(fim)
+}
 
 function aoTeclar(evento: KeyboardEvent) {
   if (evento.key === 'Escape') emit('fechar')

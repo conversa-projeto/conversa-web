@@ -19,6 +19,8 @@ export type BlocoMensagem =
   | { figurinha: string }
   | { arquivo: { blob: Blob; nomeArquivo: string; mimeType?: string; isAudio?: boolean; isGravacaoAudio?: boolean } }
 
+export const LIMITE_REACOES_POR_PESSOA = 5
+
 export const useChatStore = defineStore('chat', () => {
   const contatos = ref<Contato[]>([])
   const conversas = ref<Conversa[]>([])
@@ -1162,22 +1164,25 @@ export const useChatStore = defineStore('chat', () => {
     const auth = useAuthStore()
     if (!auth.user) return
 
-    // Atualização otimista
-    for (const mensagens of Object.values(mensagensPorConversa.value)) {
-      const msg = mensagens.find(m => m.id === mensagemId)
-      if (msg) {
-        atualizarReacaoLocal(msg, emoji, auth.user.id)
-        break
-      }
+    const msg = Object.values(mensagensPorConversa.value).flat().find(m => m.id === mensagemId)
+    // Cada pessoa deixa no máximo 5 emojis diferentes na mesma mensagem (o
+    // servidor confere de novo)
+    const minhas = msg?.reacoes?.filter(r => r.reagiu) ?? []
+    if (!minhas.some(r => r.emoji === emoji) && minhas.length >= LIMITE_REACOES_POR_PESSOA) {
+      throw new Error(`Você já reagiu com ${LIMITE_REACOES_POR_PESSOA} emojis nesta mensagem.`)
     }
+
+    // Atualização otimista
+    if (msg) atualizarReacaoLocal(msg, emoji, auth.user.id)
 
     try {
       await api.reagirMensagem(mensagemId, emoji)
-    } catch {
+    } catch (e) {
       // Em caso de erro, recarregar mensagens da conversa ativa
       if (conversaAtivaId.value) {
         await carregarMensagens(conversaAtivaId.value)
       }
+      throw e
     }
   }
 

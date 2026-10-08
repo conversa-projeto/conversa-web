@@ -9,6 +9,8 @@
     ]"
     :title="title"
     :disabled="disabled"
+    :role="ehSwitch ? 'switch' : undefined"
+    :aria-checked="ehSwitch ? active : undefined"
     @click="emit('click')"
   >
     <slot>
@@ -33,6 +35,19 @@
         </g>
       </svg>
     </slot>
+    <!-- Liga/desliga: a chave ao lado do ícone mostra o estado -->
+    <span
+      v-if="ehSwitch"
+      aria-hidden="true"
+      data-chave
+      class="relative shrink-0 rounded-full transition-colors duration-200"
+      :class="[chave.trilho, active ? 'bg-success-500' : 'bg-chamada-500']"
+    >
+      <span
+        class="absolute left-0.5 top-0.5 rounded-full bg-white shadow transition-transform duration-200"
+        :class="[chave.bolinha, active ? chave.ligada : '']"
+      ></span>
+    </span>
   </button>
 </template>
 
@@ -41,8 +56,8 @@ import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{
   icon?: string
-  // alternar: microfone, câmera, som (desligado fica vermelho); destaque:
-  // tela, chat, ponteiro (ligado fica azul); secondary: ações, sempre neutro
+  // alternar: microfone, câmera, som; destaque: tela, chat, ponteiro (os dois
+  // com chave de liga/desliga); secondary: ações, sempre neutro
   variant?: 'danger' | 'primary' | 'secondary' | 'success' | 'ghost' | 'alternar' | 'destaque'
   size?: 'xs' | 'sm' | 'md' | 'lg'
   active?: boolean
@@ -61,7 +76,28 @@ const emit = defineEmits<{
   'click': []
 }>()
 
+// alternar (microfone, câmera, som) e destaque (tela, chat, ponteiro) são
+// liga/desliga: viram uma pílula com o ícone e uma chave
+const ehSwitch = computed(() => props.variant === 'alternar' || props.variant === 'destaque')
+
+const chave = computed(() => {
+  switch (props.size) {
+    case 'xs': return { trilho: 'h-3.5 w-6', bolinha: 'h-2.5 w-2.5', ligada: 'translate-x-2.5' }
+    case 'sm': return { trilho: 'h-4 w-7', bolinha: 'h-3 w-3', ligada: 'translate-x-3' }
+    case 'lg': return { trilho: 'h-6 w-11', bolinha: 'h-5 w-5', ligada: 'translate-x-5' }
+    default: return { trilho: 'h-[18px] w-8', bolinha: 'h-[14px] w-[14px]', ligada: 'translate-x-[14px]' }
+  }
+})
+
 const sizeClasses = computed(() => {
+  if (ehSwitch.value) {
+    switch (props.size) {
+      case 'xs': return 'h-7 gap-1 pl-1.5 pr-1'
+      case 'sm': return 'h-8 gap-1.5 pl-2 pr-1.5'
+      case 'lg': return 'h-14 gap-2.5 pl-3 pr-2.5'
+      default: return 'h-10 gap-2 pl-2.5 pr-2'
+    }
+  }
   switch (props.size) {
     case 'xs': return 'h-7 w-7 p-1'
     case 'sm': return 'h-8 w-8 p-1.5'
@@ -84,13 +120,8 @@ const variantClasses = computed(() => {
   if (props.variant === 'ghost') {
     return 'bg-transparent text-white hover:bg-chamada-700/50'
   }
-  // Cores fixas da chamada: não mudam com o tema claro ou escuro do app
-  if (props.variant === 'alternar' && !props.active) {
-    return 'bg-danger-500 text-white hover:bg-danger-600'
-  }
-  if (props.variant === 'destaque' && props.active) {
-    return 'bg-primary-600 text-white hover:bg-primary-700'
-  }
+  // Cores fixas da chamada: não mudam com o tema claro ou escuro do app. Nos
+  // liga/desliga, quem mostra o estado é a chave
   return 'bg-chamada-700 text-white hover:bg-chamada-600'
 })
 </script>

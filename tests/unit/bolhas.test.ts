@@ -120,6 +120,17 @@ describe('status, agendamento e reações', () => {
     await botao.trigger('click')
     expect(tela.emitted('reagir')).toEqual([[9, '👍']])
   })
+
+  test('mais de 5 emojis: os 5 primeiros à mostra e o resto no "+N", que também reage', async () => {
+    const emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🎉']
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], reacoes: emojis.map((emoji) => ({ emoji, quantidade: 1, reagiu: false, usuarios: [] })) }))
+    const pilulas = tela.findAll('button.reacao-btn')
+    expect(pilulas.map((b) => b.text())).toEqual(['👍1', '❤️1', '😂1', '😮1', '😢1', '+2'])
+    const extra = tela.findAll('button').find((b) => b.text().startsWith('🎉'))!
+    expect(tela.findAll('button').some((b) => b.text().startsWith('🙏'))).toBe(true)
+    await extra.trigger('click')
+    expect(tela.emitted('reagir')).toEqual([[9, '🎉']])
+  })
 })
 
 describe('mensagem excluída', () => {

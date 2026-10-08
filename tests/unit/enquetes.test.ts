@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import BolhaEnquete from '@/components/BolhaEnquete.vue'
+import BolhaExcluida from '@/components/BolhaExcluida.vue'
 import EnqueteModal from '@/components/EnqueteModal.vue'
 import AnexoPopup from '@/components/AnexoPopup.vue'
 import { useEnquetesStore } from '@/stores/enquetes'
@@ -46,6 +47,18 @@ describe('classificação', () => {
 
   test('oculta continua oculta', () => {
     expect(classificarMensagem({ ...mensagemEnquete(), excluida_em: new Date() })).toBe(TipoExibicaoMensagem.Excluida)
+  })
+})
+
+describe('votação oculta', () => {
+  test('clicar na mensagem oculta mostra a pergunta e os votos', async () => {
+    rota('GET', '/enquete', enqueteApi())
+    tela = mount(BolhaExcluida, { props: { mensagem: { ...mensagemEnquete(), excluida_em: new Date() }, isOwn: false, isGroup: true, getAnexoUrl: () => '' }, attachTo: document.body })
+    expect(tela.text()).not.toContain('Almoço?')
+    await tela.trigger('click')
+    await aguardar(10)
+    expect(tela.text()).toContain('Almoço?')
+    expect(tela.text()).toContain('Pizza')
   })
 })
 
