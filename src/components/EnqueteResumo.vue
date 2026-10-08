@@ -2,6 +2,7 @@
   <div class="min-w-[12rem] text-sm">
     <template v-if="enquete">
       <p class="font-semibold">📊 {{ enquete.pergunta }}</p>
+      <p v-if="enquete.encerrada" class="text-[11px] opacity-70">Votação encerrada</p>
       <p
         v-for="opcao in enquete.opcoes"
         :key="opcao.id"

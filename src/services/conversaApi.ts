@@ -222,8 +222,8 @@ export function chamadaRecusar(chamadaId: number, naoAtendeu = false): Promise<{
 
 // --- Votação (enquete) em grupo ---
 
-export function criarEnquete(conversaId: number, pergunta: string, opcoes: string[], multipla: boolean) {
-  return dados(api().enquete.put({ conversa_id: conversaId, pergunta, opcoes, multipla }))
+export function criarEnquete(conversaId: number, pergunta: string, opcoes: string[], multipla: boolean, encerraEm: Date | null = null) {
+  return dados(api().enquete.put({ conversa_id: conversaId, pergunta, opcoes, multipla, encerra_em: encerraEm?.toISOString() ?? null }))
 }
 
 export function getEnquete(id: number): Promise<Enquete> {
@@ -233,6 +233,16 @@ export function getEnquete(id: number): Promise<Enquete> {
 // O voto do usuário passa a ser exatamente estas opções (vazio tira o voto)
 export function votarEnquete(id: number, opcoes: number[]): Promise<Enquete> {
   return dados(api().enquete.votar.post({ enquete_id: id, opcoes }))
+}
+
+// Encerra antes do prazo (quem criou a votação ou o grupo)
+export function encerrarEnquete(id: number): Promise<Enquete> {
+  return dados(api().enquete.encerrar.post({ enquete_id: id }))
+}
+
+// Define, adia ou tira (null) a data final (quem criou a votação)
+export function alterarPrazoEnquete(id: number, encerraEm: Date | null): Promise<Enquete> {
+  return dados(api().enquete.patch({ enquete_id: id, encerra_em: encerraEm?.toISOString() ?? null }))
 }
 
 // --- Permissões e parâmetros do sistema ---

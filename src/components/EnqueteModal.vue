@@ -54,6 +54,20 @@
           </span>
         </label>
 
+        <div>
+          <label class="flex cursor-pointer items-start gap-3">
+            <input v-model="comPrazo" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600" />
+            <span>
+              <span class="block text-sm text-surface-800">Definir data final</span>
+              <span class="block text-xs text-surface-500">Depois dela ninguém vota mais. Dá para mudar ou encerrar antes pela votação.</span>
+            </span>
+          </label>
+          <div v-if="comPrazo" class="mt-2 pl-7">
+            <CampoDataHora v-model="encerraEm" />
+            <p v-if="erroDoPrazo" class="mt-1 text-xs text-danger-600">{{ erroDoPrazo }}</p>
+          </div>
+        </div>
+
         <p v-if="erro" class="rounded-xl bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
       </div>
 
@@ -72,6 +86,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
+import { erroPrazo } from '../utils/prazoEnquete'
+import CampoDataHora from './CampoDataHora.vue'
 
 const MAXIMO_OPCOES = 12
 
@@ -82,11 +98,20 @@ const campoPergunta = ref<HTMLInputElement | null>(null)
 const pergunta = ref('')
 const opcoes = ref(['', ''])
 const multipla = ref(false)
+const comPrazo = ref(false)
+// Sugestão: amanhã, na próxima hora cheia
+const encerraEm = ref<Date | null>((() => {
+  const sugestao = new Date()
+  sugestao.setDate(sugestao.getDate() + 1)
+  sugestao.setHours(sugestao.getHours() + 1, 0, 0, 0)
+  return sugestao
+})())
 const criando = ref(false)
 const erro = ref('')
 
 const preenchidas = computed(() => opcoes.value.map((o) => o.trim()).filter(Boolean))
-const valida = computed(() => !!pergunta.value.trim() && preenchidas.value.length >= 2)
+const erroDoPrazo = computed(() => (comPrazo.value ? erroPrazo(encerraEm.value) : ''))
+const valida = computed(() => !!pergunta.value.trim() && preenchidas.value.length >= 2 && !erroDoPrazo.value)
 
 onMounted(() => campoPergunta.value?.focus())
 
@@ -95,7 +120,7 @@ async function criar() {
   criando.value = true
   erro.value = ''
   try {
-    await chat.criarEnquete(pergunta.value, preenchidas.value, multipla.value)
+    await chat.criarEnquete(pergunta.value, preenchidas.value, multipla.value, comPrazo.value ? encerraEm.value : null)
     emit('criada')
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Não foi possível criar a votação'

@@ -563,10 +563,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   // Votação: o servidor cria a enquete e a mensagem que a leva
-  async function criarEnquete(pergunta: string, opcoes: string[], multipla: boolean) {
+  async function criarEnquete(pergunta: string, opcoes: string[], multipla: boolean, encerraEm: Date | null = null) {
     const conversaId = conversaAtivaId.value
     if (!conversaId) throw new Error('Nenhuma conversa ativa')
-    await api.criarEnquete(conversaId, pergunta, opcoes, multipla)
+    await api.criarEnquete(conversaId, pergunta, opcoes, multipla, encerraEm)
     await carregarMensagens(conversaId)
     void carregarConversas()
   }

@@ -319,6 +319,15 @@ export interface Enquete {
   /** Pessoas que votaram (na múltipla escolha, cada uma conta uma vez) */
   total_votantes: number
   meus_votos: number[]
+  /** Data final (opcional); passou dela, a votação está encerrada */
+  encerra_em: Date | null
+  /** Encerrada à mão antes do prazo */
+  encerrada_em: Date | null
+  encerrada: boolean
+  /** Quem criou a votação ou quem criou o grupo, com a votação aberta */
+  pode_encerrar: boolean
+  /** Só quem criou, com a votação aberta */
+  pode_alterar_prazo: boolean
 }
 
 /** Permissões do sistema (tabela permissao no servidor) */

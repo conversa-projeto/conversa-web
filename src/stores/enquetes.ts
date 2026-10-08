@@ -25,10 +25,18 @@ export const useEnquetesStore = defineStore('enquetes', () => {
     porId.value[id] = await api.votarEnquete(id, opcoes)
   }
 
+  async function encerrar(id: number) {
+    porId.value[id] = await api.encerrarEnquete(id)
+  }
+
+  async function alterarPrazo(id: number, encerraEm: Date | null) {
+    porId.value[id] = await api.alterarPrazoEnquete(id, encerraEm)
+  }
+
   // Aviso do servidor: só relê as que estão na tela
   function aoAtualizar(id: number) {
     if (porId.value[id]) void carregar(id, true).catch(() => { /* fica o resultado anterior */ })
   }
 
-  return { porId, carregar, votar, aoAtualizar }
+  return { porId, carregar, votar, encerrar, alterarPrazo, aoAtualizar }
 })

@@ -9,6 +9,8 @@ const CAMPOS_DATA = new Set([
   'inserida',
   'alterada',
   'visivel_em',
+  'encerra_em',
+  'encerrada_em',
   'criado_em',
   'atualizado_em',
   'ultima_mensagem',
