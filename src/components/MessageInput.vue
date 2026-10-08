@@ -116,6 +116,7 @@
               class="relative max-h-[40vh] min-h-[20px] w-full overflow-y-auto whitespace-pre-wrap break-words pr-2 text-sm leading-5 text-surface-800 outline-none"
               @keydown.enter.exact="onEnterCampo"
               @keydown="aoTeclarNoCampo"
+              @beforeinput="aoAntesDeMudar"
               @paste="aoColarNoChat"
               @input="aoDigitar"
               @drop="aoSoltarNoCampo"
@@ -146,8 +147,21 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
               </svg>
             </button>
+            <!-- Campo vazio com mensagens agendadas no chat: o relógio abre a lista -->
             <button
-              v-else
+              v-if="!temConteudo && chat.agendadasAtivas.length"
+              type="button"
+              class="relative flex h-8 w-8 items-center justify-center rounded-full text-primary-600 transition hover:bg-surface-200"
+              :title="chat.agendadasAtivas.length === 1 ? '1 mensagem agendada' : `${chat.agendadasAtivas.length} mensagens agendadas`"
+              @click="mostrarAgendadas = true"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold leading-none text-white">{{ chat.agendadasAtivas.length }}</span>
+            </button>
+            <button
+              v-if="!temConteudo"
               class="action-btn flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Gravar áudio"
               @pointerdown.prevent="onMicPointerDown"
@@ -206,25 +220,32 @@
       @close="mostrarAgendarModal = false"
       @confirmar="enviarAgendada"
     />
+
+    <MensagensAgendadasModal v-if="mostrarAgendadas" @close="mostrarAgendadas = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, watch, type ComponentPublicInstance } from 'vue'
-import type { Contato } from '../types/api'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, ref, toRaw, watch, type ComponentPublicInstance } from 'vue'
+import type { Contato, Mensagem } from '../types/api'
 import { TipoConversa, TipoMensagemReferencia } from '../types/api'
 import { dividirMencoes, extrairMencoesCruas } from '../utils/mencoesTexto'
 import { useChatStore, type BlocoMensagem } from '../stores/chat'
+import { useAuthStore } from '../stores/auth'
+import { apagarRascunho, chaveRascunho, lerRascunho, salvarRascunho, type Rascunho } from '../services/rascunhos'
 import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
 import { substituirAtalhoAntesDoCursor, substituirAtalhoNoFim } from '../utils/emojiAtalhos'
 import { cercaCodigo, ehDesenhoAscii, pareceCodigo, textoLongo } from '../utils/codeBlocks'
 import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { extrairBlocos } from '../utils/blocosEditor'
-import { criarAtomoAnexo, criarAtomoFigurinha, criarAtomoMencao, editorVazio, ESPACO_INVISIVEL, liberarPrevias, limparAnexosForaDoCampo, pecaAcimaDoCursor, pecaAoLadoDoCursor, removerLinhaVaziaAntes, removerPeca, semLinhaAntes, abrirLinhaAntes, type AnexoEditor } from '../utils/editorRico'
+import { gifDoHtml } from '../utils/copiarImagem'
+import { criarHistorico } from '../utils/historicoEditor'
+import { animarFigurinha, criarAtomoAnexo, criarAtomoFigurinha, criarAtomoMencao, editorVazio, ESPACO_INVISIVEL, liberarPrevias, apagarSelecaoComPecas, marcarSelecao, pecaAcimaDoCursor, pecaAoLadoDoCursor, removerLinhaVaziaAntes, removerPeca, semLinhaAntes, abrirLinhaAntes, tirarEspacoInvisivelNoCursor, limparEspacosInvisiveis, pularEspacoInvisivel, removerLinhaEntrePecas, type AnexoEditor } from '../utils/editorRico'
 import AnexoPopup from './AnexoPopup.vue'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
 const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
+const MensagensAgendadasModal = defineAsyncComponent(() => import('./MensagensAgendadasModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
 import MencaoDropdown from './MencaoDropdown.vue'
 import BarraGravacao from './BarraGravacao.vue'
@@ -284,6 +305,7 @@ const mostrarAnexo = ref(false)
 const mostrarCodigo = ref(false)
 const mostrarEnquete = ref(false)
 const mostrarAgendarModal = ref(false)
+const mostrarAgendadas = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erro = ref('')
 const raiz = ref<HTMLElement | null>(null)
@@ -303,7 +325,29 @@ watch(raiz, (el) => {
 
 function atualizarVazio() {
   campoVazio.value = !campo.value || editorVazio(campo.value)
-  if (campo.value) limparAnexosForaDoCampo(campo.value, anexos)
+  agendarRascunho()
+}
+
+// Ctrl+Z / Ctrl+Y do campo, que também desfazem o que o app insere ou tira
+// (peças), e não só o que se digita
+const historico = criarHistorico(() => campo.value, (raiz) => {
+  raiz.querySelectorAll<HTMLElement>('[data-figurinha]').forEach(animarFigurinha)
+  mencaoAtiva.value = null
+  atualizarVazio()
+})
+
+// Digitação e o que o navegador muda sozinho; o desfazer pelo menu (botão
+// direito) também passa por aqui
+function aoAntesDeMudar(event: InputEvent) {
+  if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+    event.preventDefault()
+    if (event.inputType === 'historyUndo') historico.desfazer()
+    else historico.refazer()
+    return
+  }
+  historico.registrar(event.inputType.startsWith('insertText') || event.inputType === 'insertCompositionText'
+    ? 'digitar'
+    : event.inputType.startsWith('deleteContent') ? 'apagar' : 'outro')
 }
 
 // Onde estava o cursor quando o campo perdeu o foco (para o seletor de emoji,
@@ -343,6 +387,7 @@ function posicionarCursorDepois(no: Node) {
 function inserirNoCursor(no: Node) {
   const intervalo = intervaloNoCampo()
   if (!intervalo) return
+  historico.registrar('outro')
   intervalo.deleteContents()
   intervalo.insertNode(no)
   posicionarCursorDepois(no)
@@ -355,13 +400,31 @@ function inserirNoCursor(no: Node) {
 function inserirBloco(no: HTMLElement) {
   const intervalo = intervaloNoCampo()
   if (!intervalo) return
+  historico.registrar('outro')
   intervalo.deleteContents()
   const depois = document.createTextNode(ESPACO_INVISIVEL)
   intervalo.insertNode(depois)
   intervalo.insertNode(no)
   const selecao = window.getSelection()
   const cursor = document.createRange()
-  cursor.setStart(depois, 1)
+  // Dividir o texto no cursor deixa trechos vazios; juntos, o invisível e o
+  // texto que vinha depois ficam num trecho só. Com texto, é ele que segura a
+  // linha de baixo, e o invisível sai.
+  no.parentNode?.normalize()
+  // Colada na linha vazia logo abaixo de outra peça: essa linha some, e as
+  // duas ficam juntas, sem linha vazia no meio
+  const linhaDeCima = no.previousSibling
+  if (linhaDeCima?.nodeType === Node.TEXT_NODE && !(linhaDeCima.textContent ?? '').replaceAll(ESPACO_INVISIVEL, '')
+    && linhaDeCima.previousSibling instanceof HTMLElement && (linhaDeCima.previousSibling.dataset.anexo || linhaDeCima.previousSibling.dataset.figurinha)) {
+    linhaDeCima.remove()
+  }
+  const linha = no.nextSibling as Text
+  if (linha.data.replaceAll(ESPACO_INVISIVEL, '')) {
+    linha.deleteData(0, 1)
+    cursor.setStart(linha, 0)
+  } else {
+    cursor.setStart(linha, linha.data.length)
+  }
   cursor.collapse(true)
   selecao?.removeAllRanges()
   selecao?.addRange(cursor)
@@ -386,6 +449,7 @@ function inserirTexto(texto: string) {
   const el = campo.value
   if (!el) return
   voltarAoCampo()
+  historico.registrar('outro')
   document.execCommand('insertText', false, texto)
   atualizarVazio()
 }
@@ -396,21 +460,161 @@ function inserirAnexo(anexo: AnexoEditor) {
 }
 
 function inserirArquivos(arquivos: Iterable<File>) {
-  for (const arquivo of arquivos) {
-    const mimeType = arquivo.type || 'application/octet-stream'
-    inserirAnexo({ blob: arquivo, nomeArquivo: arquivo.name, mimeType, isAudio: mimeType.startsWith('audio/') })
-  }
+  historico.emUmPasso(() => {
+    for (const arquivo of arquivos) {
+      const mimeType = arquivo.type || 'application/octet-stream'
+      inserirAnexo({ blob: arquivo, nomeArquivo: arquivo.name, mimeType, isAudio: mimeType.startsWith('audio/') })
+    }
+  })
 }
 
-function limparCampo() {
+// Esvazia o campo (ao enviar ou ao trocar de conversa)
+function esvaziarCampo() {
   const el = campo.value
-  if (!el) return
-  liberarPrevias(el)
-  el.innerHTML = ''
+  liberarPrevias(anexos)
+  if (el) el.innerHTML = ''
   anexos.clear()
+  historico.limpar()
   mencaoAtiva.value = null
   campoVazio.value = true
 }
+
+// Enviada: o rascunho da conversa acabou
+function limparCampo() {
+  if (!campo.value) return
+  esvaziarCampo()
+  cancelarRascunhoAgendado()
+  const chave = chaveDoRascunho(conversaDoCampo)
+  if (chave) void apagarRascunho(chave).catch(() => { /* sem IndexedDB: nada a apagar */ })
+}
+
+// --- Rascunho por conversa ---
+// O que está no campo (e o "respondendo a...") fica salvo por usuário e
+// conversa: trocar de conversa esvazia o campo, e voltar o traz de volta,
+// mesmo depois de fechar o navegador (services/rascunhos.ts, IndexedDB)
+
+const auth = useAuthStore()
+// Conversa a que pertence o que está no campo agora
+let conversaDoCampo: number | null = null
+let rascunhoAgendado: ReturnType<typeof setTimeout> | null = null
+let restaurandoRascunho = false
+
+function chaveDoRascunho(conversaId: number | null) {
+  const usuarioId = auth.user?.id
+  return usuarioId && conversaId ? chaveRascunho(usuarioId, conversaId) : null
+}
+
+function cancelarRascunhoAgendado() {
+  if (rascunhoAgendado) clearTimeout(rascunhoAgendado)
+  rascunhoAgendado = null
+}
+
+function copiaDaResposta(mensagem: Mensagem | null): Mensagem | null {
+  if (!mensagem) return null
+  try {
+    return structuredClone(toRaw(mensagem))
+  } catch {
+    return null
+  }
+}
+
+function capturarRascunho(): Rascunho | null {
+  const el = campo.value
+  const respondendo = chat.mensagemRespondendo
+  if ((!el || editorVazio(el)) && !respondendo) return null
+  const presentes = new Set(el ? [...el.querySelectorAll<HTMLElement>('[data-anexo]')].map((peca) => peca.dataset.anexo) : [])
+  return {
+    html: el?.innerHTML ?? '',
+    anexos: [...anexos].filter(([id]) => presentes.has(id)).map(([id, anexo]) => ({
+      id,
+      blob: anexo.blob,
+      nomeArquivo: anexo.nomeArquivo,
+      mimeType: anexo.mimeType,
+      isAudio: anexo.isAudio,
+      isGravacaoAudio: anexo.isGravacaoAudio,
+    })),
+    respondendo: copiaDaResposta(respondendo),
+    tipoReferencia: chat.tipoReferenciaPendente,
+    atualizadoEm: Date.now(),
+  }
+}
+
+// Grava já (vazio apaga o rascunho)
+function gravarRascunho(conversaId: number | null) {
+  const chave = chaveDoRascunho(conversaId)
+  if (!chave) return
+  const rascunho = capturarRascunho()
+  void (rascunho ? salvarRascunho(chave, rascunho) : apagarRascunho(chave)).catch(() => { /* sem IndexedDB (aba anônima, por exemplo): fica sem rascunho */ })
+}
+
+// Cada mudança no campo grava um pouco depois, de uma vez
+function agendarRascunho() {
+  if (restaurandoRascunho) return
+  cancelarRascunhoAgendado()
+  const conversa = conversaDoCampo
+  rascunhoAgendado = setTimeout(() => {
+    rascunhoAgendado = null
+    if (conversa === conversaDoCampo) gravarRascunho(conversa)
+  }, 400)
+}
+
+function aplicarRascunho(rascunho: Rascunho) {
+  const el = campo.value
+  if (!el) return
+  restaurandoRascunho = true
+  el.innerHTML = rascunho.html
+  // As prévias antigas (blob URL) não valem mais: cada peça é refeita do arquivo
+  const salvos = new Map(rascunho.anexos.map((anexo) => [anexo.id, anexo]))
+  for (const peca of el.querySelectorAll<HTMLElement>('[data-anexo]')) {
+    const salvo = salvos.get(peca.dataset.anexo ?? '')
+    if (!salvo) {
+      peca.remove()
+      continue
+    }
+    const { id: _id, ...anexo } = salvo
+    peca.replaceWith(criarAtomoAnexo(anexos, anexo))
+  }
+  el.querySelectorAll<HTMLElement>('[data-figurinha]').forEach(animarFigurinha)
+  el.querySelectorAll('[data-selecionada]').forEach((peca) => peca.removeAttribute('data-selecionada'))
+  // A resposta escolhida enquanto o rascunho era lido (ex.: "responder no
+  // privado") fica no lugar da salva
+  if (rascunho.respondendo?.conversa_id === conversaDoCampo && !chat.mensagemRespondendo) {
+    chat.mensagemRespondendo = rascunho.respondendo
+    chat.tipoReferenciaPendente = rascunho.tipoReferencia
+  }
+  atualizarVazio()
+  restaurandoRascunho = false
+}
+
+async function restaurarRascunho(conversaId: number) {
+  const chave = chaveDoRascunho(conversaId)
+  if (!chave) return
+  let rascunho: Rascunho | null = null
+  try {
+    rascunho = await lerRascunho(chave)
+  } catch {
+    return
+  }
+  await nextTick()
+  // Trocou de conversa ou já começou a escrever enquanto lia: fica como está
+  if (!rascunho || conversaDoCampo !== conversaId || (campo.value && !editorVazio(campo.value))) return
+  aplicarRascunho(rascunho)
+}
+
+// Troca de conversa: guarda o rascunho da que sai, esvazia o campo e traz o da
+// que entra
+watch(() => chat.conversaAtivaId, (nova, antiga) => {
+  cancelarRascunhoAgendado()
+  if (antiga && conversaDoCampo === antiga) {
+    gravarRascunho(antiga)
+    esvaziarCampo()
+    chat.cancelarResposta()
+  }
+  conversaDoCampo = nova
+  if (nova) void restaurarRascunho(nova)
+}, { immediate: true })
+
+watch(() => chat.mensagemRespondendo, () => agendarRascunho())
 
 // --- @mention ---
 
@@ -441,6 +645,7 @@ function inserirMencao(contato: Contato) {
   const ativa = mencaoAtiva.value
   mencaoAtiva.value = null
   if (!trecho || !ativa) return
+  historico.registrar('outro')
   const intervalo = document.createRange()
   intervalo.setStart(trecho.no, Math.max(0, trecho.posicao - ativa.tamanho))
   intervalo.setEnd(trecho.no, trecho.posicao)
@@ -497,6 +702,7 @@ function aoSoltarNoCampo(event: DragEvent) {
 // no canto dela a remove
 // Tira a peça do campo e deixa o cursor onde ela estava
 function tirarPeca(peca: HTMLElement) {
+  historico.registrar('outro')
   const ponto = removerPeca(peca)
   campo.value?.focus()
   const selecao = window.getSelection()
@@ -523,6 +729,7 @@ function aoClicarNoCampo(event: MouseEvent) {
     const peca = [...campo.value.children].find((el): el is HTMLElement =>
       el instanceof HTMLElement && !!(el.dataset.anexo || el.dataset.figurinha) && el.getBoundingClientRect().top > event.clientY)
     if (peca && semLinhaAntes(peca) && peca.getBoundingClientRect().top - event.clientY <= 12) {
+      historico.registrar('outro')
       abrirLinhaAntes(peca)
       atualizarVazio()
       return
@@ -847,6 +1054,7 @@ function enviarAgendada(quando: Date) {
 }
 
 function aoDigitar(event: Event) {
+  if (campo.value) limparEspacosInvisiveis(campo.value)
   const tipo = (event as InputEvent).inputType
   if (tipo === 'insertText' || tipo === 'insertLineBreak') {
     const trecho = textoAntesDoCursor()
@@ -882,10 +1090,20 @@ function naPrimeiraLinhaAbaixo(peca: HTMLElement) {
 }
 
 function aoTeclarNoCampo(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+    const tecla = event.key.toLowerCase()
+    if (tecla === 'z' || tecla === 'y') {
+      event.preventDefault()
+      if (tecla === 'z' && !event.shiftKey) historico.desfazer()
+      else historico.refazer()
+      return
+    }
+  }
   // Backspace/Delete encostado numa peça a apaga como um caractere (o
   // navegador nem sempre apaga um bloco que não se edita)
   if ((event.key === 'Backspace' || event.key === 'Delete') && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && campo.value) {
-    if (removerLinhaVaziaAntes(campo.value)) {
+    const registrar = () => historico.registrar('outro')
+    if (apagarSelecaoComPecas(campo.value, registrar) || removerLinhaEntrePecas(campo.value, registrar) || removerLinhaVaziaAntes(campo.value, registrar)) {
       event.preventDefault()
       atualizarVazio()
       return
@@ -896,6 +1114,13 @@ function aoTeclarNoCampo(event: KeyboardEvent) {
       tirarPeca(peca)
       return
     }
+    // Sobra invisível colada no cursor sai antes; a tecla segue e apaga o
+    // caractere visível
+    tirarEspacoInvisivelNoCursor(campo.value, event.key === 'Backspace' ? 'antes' : 'depois')
+  }
+  // Setas para os lados passam por cima do espaço invisível (não é um passo)
+  if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && !mencaoAtiva.value && campo.value) {
+    pularEspacoInvisivel(campo.value, event.key === 'ArrowLeft' ? 'antes' : 'depois')
   }
   // Seta para cima (ou para a esquerda, no começo) na linha logo abaixo de uma
   // peça que abre o campo: não há linha acima dela, então cria uma
@@ -903,6 +1128,7 @@ function aoTeclarNoCampo(event: KeyboardEvent) {
     const peca = event.key === 'ArrowLeft' ? pecaAoLadoDoCursor(campo.value, 'antes') : pecaAcimaDoCursor(campo.value)
     if (peca && semLinhaAntes(peca) && (event.key === 'ArrowLeft' || naPrimeiraLinhaAbaixo(peca))) {
       event.preventDefault()
+      historico.registrar('outro')
       abrirLinhaAntes(peca)
       return
     }
@@ -938,19 +1164,24 @@ function colarTexto(texto: string) {
     inserirTexto(texto)
     return
   }
-  for (const trecho of dividirMencoes(limpo, mencoes)) {
-    const mencao = trecho.mencao ? mencoes.find((m) => `@${m.nome}` === trecho.texto) : undefined
-    if (mencao) inserirNoCursor(criarAtomoMencao(mencao.nome, mencao.id))
-    else if (trecho.texto) inserirTexto(trecho.texto)
-  }
+  historico.emUmPasso(() => {
+    for (const trecho of dividirMencoes(limpo, mencoes)) {
+      const mencao = trecho.mencao ? mencoes.find((m) => `@${m.nome}` === trecho.texto) : undefined
+      if (mencao) inserirNoCursor(criarAtomoMencao(mencao.nome, mencao.id))
+      else if (trecho.texto) inserirTexto(trecho.texto)
+    }
+  })
 }
 
 function aoColarNoChat(event: ClipboardEvent) {
   if (!chat.conversaAtivaId) return
   event.preventDefault()
 
-  // Imagens e arquivos colados entram no ponto do cursor
-  const arquivos = [...(event.clipboardData?.files ?? [])]
+  // Imagens e arquivos colados entram no ponto do cursor. Um GIF copiado vem
+  // também no HTML: o arquivo (PNG) teria só o primeiro quadro
+  const colados = [...(event.clipboardData?.files ?? [])]
+  const gif = colados.length === 1 && colados[0]!.type.startsWith('image/') ? gifDoHtml(event.clipboardData?.getData('text/html') ?? '') : null
+  const arquivos = gif ? [gif] : colados
   if (arquivos.length) {
     inserirArquivos(arquivos.map((arquivo) => arquivo.name
       ? arquivo
@@ -1029,15 +1260,27 @@ function aoTeclarForaDoCampo(event: KeyboardEvent) {
 
 document.addEventListener('keydown', aoTeclarForaDoCampo)
 
+// Imagens e outras peças selecionadas junto com o texto ficam azuis
+function aoMudarSelecao() {
+  if (campo.value) marcarSelecao(campo.value)
+}
+document.addEventListener('selectionchange', aoMudarSelecao)
+
 // --- Cleanup ---
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', aoTeclarForaDoCampo)
+  document.removeEventListener('selectionchange', aoMudarSelecao)
   observadorAltura?.disconnect()
   document.removeEventListener('pointerup', onGlobalPointerUp)
   document.removeEventListener('pointermove', onMicPointerMove)
   if (holdTimer) { clearTimeout(holdTimer); holdTimer = null }
-  if (campo.value) liberarPrevias(campo.value)
+  liberarPrevias(anexos)
+  // Saindo com mudança ainda por gravar
+  if (rascunhoAgendado) {
+    cancelarRascunhoAgendado()
+    gravarRascunho(conversaDoCampo)
+  }
 })
 </script>
 

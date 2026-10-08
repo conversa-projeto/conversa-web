@@ -423,6 +423,8 @@ const itensMensagens = computed<ItemMensagemView[]>(() => {
   let indicadorInserido = false
 
   for (const mensagem of chat.mensagensAtivas) {
+    // Agendada que ainda não saiu fica na lista do relógio, não no chat
+    if (chat.idsAgendadasAtivas.has(mensagem.id)) continue
     const data = new Date(mensagem.inserida)
     const diaChave = Number.isNaN(data.getTime()) ? 'sem-data' : `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
 

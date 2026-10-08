@@ -179,22 +179,14 @@ describe('ações nas mensagens', () => {
     await aguardar(10)
   }
 
-  test('excluir pede confirmação na janela do app (texto diferente para agendada) e mostra erro do servidor', async () => {
+  test('excluir pede confirmação na janela do app e mostra erro do servidor', async () => {
     rota('DELETE', '/mensagem', {})
-    const futura = new Date(Date.now() + 3600_000)
-    await abrir([msg(1, EU, dia(1)), msg(2, EU, dia(1), { visivel_em: futura })])
-    bolhas()[1]!.vm.$emit('excluir', chat.mensagensAtivas[1]!)
-    await aguardar(5)
-    expect(dialogoAberto()!.textContent).toContain('Cancelar mensagem agendada')
-    expect([...dialogoAberto()!.querySelectorAll('button')].map((b) => b.textContent!.trim())).toEqual(['Voltar', 'Cancelar envio'])
-    await responder('Cancelar envio')
-    expect(pedidosDe('DELETE', '/mensagem')[0]!.consulta).toEqual({ id: '2' })
-    expect(dialogoAberto()).toBeNull()
+    await abrir([msg(1, EU, dia(1))])
     bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
     await aguardar(5)
     expect(dialogoAberto()!.textContent).toContain('Ela continua na conversa, marcada como oculta.')
     await responder('Cancelar')
-    expect(pedidosDe('DELETE', '/mensagem')).toHaveLength(1)
+    expect(pedidosDe('DELETE', '/mensagem')).toHaveLength(0)
     rota('DELETE', '/mensagem', erro(403, 'Só o autor exclui'))
     bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
     await aguardar(5)
@@ -206,7 +198,7 @@ describe('ações nas mensagens', () => {
     expect(dialogoAberto()).toBeNull()
   })
 
-  test('excluída continua na lista, como excluída; a agendada que não saiu some', async () => {
+  test('excluída continua na lista, como excluída; a agendada que não saiu nem aparece no chat', async () => {
     const excluidaEm = new Date().toISOString()
     rota('DELETE', '/mensagem', (pedido: { consulta: { id: string } }) => pedido.consulta.id === '1'
       ? { id: 1, conversa_id: 1, excluida_em: excluidaEm }
@@ -215,6 +207,7 @@ describe('ações nas mensagens', () => {
     rota('GET', '/conversas', [{ id: 1, descricao: 'Bruno', tipo: TipoConversa.Direta, inserida: new Date().toISOString() }])
     const futura = new Date(Date.now() + 3600_000)
     await abrir([msg(1, EU, dia(1)), msg(2, EU, dia(1), { visivel_em: futura })])
+    expect(bolhas()).toHaveLength(1)
     bolhas()[0]!.vm.$emit('excluir', chat.mensagensAtivas[0]!)
     await aguardar(5)
     await responder('Ocultar')
@@ -222,10 +215,7 @@ describe('ações nas mensagens', () => {
     expect(chat.mensagensAtivas[0]!.excluida_em).toEqual(new Date(excluidaEm))
     expect(tela.findComponent(BolhaExcluida).exists()).toBe(true)
     expect(pedidosDe('GET', '/conversas')).toHaveLength(1)
-    bolhas()[1]!.vm.$emit('excluir', chat.mensagensAtivas[1]!)
-    await aguardar(5)
-    await responder('Cancelar envio')
-    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([1])
+    expect(bolhas()).toHaveLength(1)
   })
 
   test('baixar anexo indisponível avisa o erro', async () => {

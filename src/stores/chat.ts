@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { TipoConversa, TipoConteudo, TipoEventoSocket, TipoMensagemReferencia } from '../types/api'
 import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem, SinalChamada } from '../types/api'
@@ -7,6 +7,7 @@ import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { useAtividadesStore } from './atividades'
 import { useEnquetesStore } from './enquetes'
+import { useAgora } from '../composables/useAgora'
 import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
 import { resumirTexto } from '../utils/formatters'
 import { ordenarMensagens, primeiraMensagemSalva } from '../utils/ordemMensagens'
@@ -96,6 +97,17 @@ export const useChatStore = defineStore('chat', () => {
     }
     return mensagensPorConversa.value[conversaAtivaId.value] || []
   })
+
+  // Agendadas da conversa aberta que ainda não saíram: ficam fora do chat (e na
+  // lista do relógio, ao lado do microfone). O agora é atualizado bem na hora
+  // da próxima, que então entra no chat.
+  const proximaAgendada = ref<Date | null>(null)
+  const agora = useAgora(() => proximaAgendada.value)
+  const agendadasAtivas = computed(() => mensagensAtivas.value
+    .filter((m) => m.visivel_em && new Date(m.visivel_em).getTime() > agora.value)
+    .sort((a, b) => new Date(a.visivel_em!).getTime() - new Date(b.visivel_em!).getTime()))
+  const idsAgendadasAtivas = computed(() => new Set(agendadasAtivas.value.map((m) => m.id)))
+  watch(agendadasAtivas, (lista) => { proximaAgendada.value = lista[0]?.visivel_em ?? null }, { immediate: true })
 
   const digitandoNaConversaAtiva = computed<string[]>(() => {
     if (!conversaAtivaId.value) return []
@@ -1291,6 +1303,8 @@ export const useChatStore = defineStore('chat', () => {
     arquivarConversa,
     conversaAtivaId,
     mensagensAtivas,
+    agendadasAtivas,
+    idsAgendadasAtivas,
     resultadosBuscaConversa,
     resultadosBuscaGlobal,
     buscandoGlobal,

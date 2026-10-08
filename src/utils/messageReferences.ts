@@ -47,6 +47,20 @@ export function obterConteudosReferencia(mensagem: Mensagem): ConteudoMensagem[]
   return mensagem.mensagem_referencia?.mensagem?.conteudos || []
 }
 
+// Encaminhada leva uma cópia dos conteúdos da original, que já aparecem na
+// citação logo abaixo: some com essas cópias (uma por uma, na mesma
+// quantidade) e fica só o que foi acrescentado. Resposta não copia nada.
+export function semCopiasDaReferencia(conteudos: ConteudoMensagem[], referencia: MensagemReferencia | null | undefined): ConteudoMensagem[] {
+  if (Number(referencia?.tipo) !== TipoMensagemReferencia.Encaminhada || !referencia?.mensagem) return conteudos
+  const jaExibidos = (referencia.mensagem.conteudos || []).map((c) => `${Number(c.tipo)}:${c.conteudo}`)
+  return conteudos.filter((c) => {
+    const indice = jaExibidos.indexOf(`${Number(c.tipo)}:${c.conteudo}`)
+    if (indice < 0) return true
+    jaExibidos.splice(indice, 1)
+    return false
+  })
+}
+
 export function tituloReferencia(tipo: number, remetente: string): string {
   if (Number(tipo) === TipoMensagemReferencia.Encaminhada) {
     return remetente === 'Resposta' ? 'Encaminhado' : `Encaminhado de ${remetente}`

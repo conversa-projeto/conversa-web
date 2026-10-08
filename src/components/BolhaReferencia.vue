@@ -43,7 +43,7 @@
       />
 
       <MessageContent
-        v-for="conteudo in referencia.excluida_em ? [] : conteudosRef"
+        v-for="conteudo in referencia.excluida_em ? [] : conteudosRefExibidos"
         :key="`ref-${mensagem.id}-${conteudo.ordem}`"
         :conteudo="conteudo"
         :mensagem-id="referencia.id"
@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { TipoMensagemReferencia, type Mensagem, type MensagemReferencia } from '../types/api'
-import { obterReferenciaPrincipal, obterConteudosReferencia, tituloReferencia } from '../utils/messageReferences'
+import { obterReferenciaPrincipal, obterConteudosReferencia, semCopiasDaReferencia, tituloReferencia } from '../utils/messageReferences'
 import { formatarHora } from '../utils/formatters'
 import MessageContent from './MessageContent.vue'
 import MensagemStatus from './MensagemStatus.vue'
@@ -121,6 +121,13 @@ const conteudosRef = computed(() => {
   }
   return conteudosRefOriginal.value
 })
+
+// Na citação: se ela também é encaminhada, a cópia que leva da citação de
+// baixo (já à mostra) não se repete
+const conteudosRefExibidos = computed(() =>
+  referenciaAninhada.value?.mensagem && conteudosRef.value === conteudosRefOriginal.value
+    ? semCopiasDaReferencia(conteudosRef.value, referenciaAninhada.value)
+    : conteudosRef.value)
 
 const conteudosProprios = computed(() => {
   if (!isEncaminhamento.value) return props.mensagem.conteudos

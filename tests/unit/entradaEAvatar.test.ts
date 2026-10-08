@@ -307,6 +307,294 @@ describe('campo com imagens, áudio, arquivos e figurinhas no meio do texto', ()
     }
   })
 
+  test('imagem dentro da seleção fica marcada (azul), como o texto; fora dela, não', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    document.execCommand('insertText', false, 'antes')
+    colarNo(campo, { arquivos: [imagem()] })
+    document.execCommand('insertText', false, 'depois')
+    await campo.vm.$nextTick()
+    const peca = el.querySelector<HTMLElement>('[data-anexo]')!
+    const selecionar = (inicio: Node, fim: Node) => {
+      const intervalo = document.createRange()
+      intervalo.setStart(inicio, 0)
+      intervalo.setEnd(fim, fim.childNodes.length || (fim.textContent ?? '').length)
+      window.getSelection()!.removeAllRanges()
+      window.getSelection()!.addRange(intervalo)
+      document.dispatchEvent(new Event('selectionchange'))
+    }
+    selecionar(el, el)
+    expect(peca.hasAttribute('data-selecionada')).toBe(true)
+    expect(peca.className).toContain('data-[selecionada]:!bg-primary-500/40')
+    // Só o texto de antes: a imagem fica de fora
+    selecionar(el.firstChild!, el.firstChild!)
+    expect(peca.hasAttribute('data-selecionada')).toBe(false)
+    // Cursor parado não marca nada
+    window.getSelection()!.collapse(el, 0)
+    document.dispatchEvent(new Event('selectionchange'))
+    expect(peca.hasAttribute('data-selecionada')).toBe(false)
+  })
+
+  test('selecionar só a imagem e apagar tira só a imagem; o texto de cima e o de baixo ficam', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    document.execCommand('insertText', false, 'teste')
+    colarNo(campo, { arquivos: [imagem()] })
+    document.execCommand('insertText', false, 'novo')
+    await campo.vm.$nextTick()
+    for (const key of ['Backspace', 'Delete']) {
+      if (key === 'Delete') {
+        colarNo(campo, { arquivos: [imagem()] })
+        await campo.vm.$nextTick()
+      }
+      const antes = [...el.childNodes].find((n) => n.textContent === 'teste')!
+      const depois = [...el.childNodes].find((n) => n.textContent!.includes('novo'))!
+      const peca = el.querySelector('[data-anexo]')!
+      const intervalo = document.createRange()
+      intervalo.setStartBefore(peca)
+      intervalo.setEndAfter(peca)
+      window.getSelection()!.removeAllRanges()
+      window.getSelection()!.addRange(intervalo)
+      const tecla = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+      el.dispatchEvent(tecla)
+      expect(tecla.defaultPrevented).toBe(true)
+      expect(el.querySelector('[data-anexo]')).toBeNull()
+      expect(antes.isConnected && antes.textContent).toBe('teste')
+      expect(depois.isConnected).toBe(true)
+    }
+    expect(el.textContent!.replaceAll('​', '')).toBe('testenovo')
+    expect(el.querySelector('br')).not.toBeNull()
+  })
+
+  test('seleção com texto e imagem apaga o trecho todo', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    document.execCommand('insertText', false, 'teste')
+    colarNo(campo, { arquivos: [imagem()] })
+    document.execCommand('insertText', false, 'novo')
+    await campo.vm.$nextTick()
+    const antes = [...el.childNodes].find((n) => n.textContent === 'teste') as Text
+    const depois = [...el.childNodes].find((n) => n.textContent!.includes('novo')) as Text
+    const intervalo = document.createRange()
+    intervalo.setStart(antes, 2)
+    intervalo.setEnd(depois, depois.data.indexOf('v'))
+    window.getSelection()!.removeAllRanges()
+    window.getSelection()!.addRange(intervalo)
+    const tecla = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
+    el.dispatchEvent(tecla)
+    expect(tecla.defaultPrevented).toBe(true)
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+    expect(el.textContent!.replaceAll('​', '')).toBe('tevo')
+  })
+
+  test('Ctrl+Z traz de volta a imagem apagada (e ela ainda vai no envio); Ctrl+Y apaga de novo', async () => {
+    const campo = montarCampo()
+    const chat = useChatStore()
+    const chamadas: unknown[][] = []
+    chat.enviarMensagemComConteudos = (async (...args: unknown[]) => { chamadas.push(args) }) as never
+    const el = editavel(campo)
+    el.focus()
+    document.execCommand('insertText', false, 'teste')
+    colarNo(campo, { arquivos: [imagem()] })
+    document.execCommand('insertText', false, 'novo')
+    await campo.vm.$nextTick()
+    const teclar = (key: string, extras: KeyboardEventInit = {}) => {
+      const tecla = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...extras })
+      el.dispatchEvent(tecla)
+      return tecla
+    }
+    const peca = el.querySelector('[data-anexo]')!
+    const intervalo = document.createRange()
+    intervalo.setStartBefore(peca)
+    intervalo.setEndAfter(peca)
+    window.getSelection()!.removeAllRanges()
+    window.getSelection()!.addRange(intervalo)
+    teclar('Backspace')
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+
+    expect(teclar('z', { ctrlKey: true }).defaultPrevented).toBe(true)
+    expect(el.querySelector('[data-anexo] img')).not.toBeNull()
+    expect(el.textContent!.replaceAll('​', '')).toBe('testenovo')
+    teclar('y', { ctrlKey: true })
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+    teclar('Z', { ctrlKey: true, shiftKey: true })
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+    teclar('z', { ctrlKey: true })
+    expect(el.querySelector('[data-anexo]')).not.toBeNull()
+
+    await campo.vm.$nextTick()
+    await campo.find('button[title="Enviar"]').trigger('click')
+    await aguardar()
+    const blocos = chamadas[0]![4] as { texto?: string; arquivo?: { nomeArquivo: string } }[]
+    expect(blocos.map((b) => b.texto ?? b.arquivo!.nomeArquivo)).toEqual(['teste', 'tela.png', 'novo'])
+  })
+
+  test('Ctrl+Z desfaz o "×" e a imagem colada; com o campo enviado, o histórico zera', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    colarNo(campo, { arquivos: [imagem()] })
+    await campo.vm.$nextTick()
+    el.querySelector<HTMLElement>('[data-remover]')!.click()
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+    const desfazer = () => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))
+    desfazer()
+    expect(el.querySelector('[data-anexo]')).not.toBeNull()
+    // Antes de colar, o campo estava vazio
+    desfazer()
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+    await campo.vm.$nextTick()
+    expect(campo.find('button[title="Enviar"]').exists()).toBe(false)
+  })
+
+  test('digitação seguida é um passo só do desfazer', () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    for (const letra of ['o', 'l', 'á']) {
+      el.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: letra, bubbles: true, cancelable: true }))
+      document.execCommand('insertText', false, letra)
+    }
+    expect(el.textContent).toBe('olá')
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }))
+    expect(el.textContent).toBe('')
+  })
+
+  test('seleção que começa dentro da imagem (como o navegador faz) apaga a imagem e o texto', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    document.execCommand('insertText', false, 'teste')
+    colarNo(campo, { arquivos: [imagem()] })
+    document.execCommand('insertText', false, 'teste')
+    await campo.vm.$nextTick()
+    const peca = el.querySelector('[data-anexo]')!
+    const depois = el.lastChild as Text
+    // Começo da seleção dentro da peça, logo depois da imagem
+    const intervalo = document.createRange()
+    intervalo.setStart(peca, 1)
+    intervalo.setEnd(depois, depois.data.length)
+    window.getSelection()!.removeAllRanges()
+    window.getSelection()!.addRange(intervalo)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }))
+    expect(el.querySelector('[data-anexo]')).toBeNull()
+    expect(el.textContent!.replaceAll('​', '')).toBe('teste')
+  })
+
+  test('espaço invisível que sobrou no meio do texto não segura o Backspace nem o Delete', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.innerHTML = 'abc​def'
+    const texto = el.firstChild as Text
+    const teclar = (key: string, posicao: number) => {
+      window.getSelection()!.collapse(texto, posicao)
+      const tecla = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+      el.dispatchEvent(tecla)
+      return tecla
+    }
+    // Cursor logo depois do invisível: ele sai e a tecla segue para o "c"
+    expect(teclar('Backspace', 4).defaultPrevented).toBe(false)
+    expect(texto.data).toBe('abcdef')
+    expect(window.getSelection()!.getRangeAt(0).startOffset).toBe(3)
+    texto.data = 'abc​def'
+    expect(teclar('Delete', 3).defaultPrevented).toBe(false)
+    expect(texto.data).toBe('abcdef')
+    expect(window.getSelection()!.getRangeAt(0).startOffset).toBe(3)
+    // O que segura a linha de uma peça fica
+    texto.data = '​'
+    teclar('Delete', 0)
+    expect(texto.data).toBe('​')
+  })
+
+  test('linha com texto abaixo da imagem fica sem o espaço invisível; a seta não para nele', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    colarNo(campo, { arquivos: [imagem()] })
+    // Linha vazia abaixo da imagem: só o invisível, que segura o cursor
+    expect(el.lastChild!.textContent).toBe('​')
+    const linha = el.lastChild as Text
+    linha.data = '​ee'
+    window.getSelection()!.collapse(linha, 3)
+    el.dispatchEvent(new InputEvent('input', { inputType: 'insertText', data: 'e', bubbles: true }))
+    expect(el.lastChild!.textContent).toBe('ee')
+    // O cursor continua depois do último "e"
+    expect(window.getSelection()!.getRangeAt(0).startOffset).toBe(2)
+
+    // Sobra antiga: a seta para a direita passa por cima dela
+    const texto = el.lastChild as Text
+    texto.data = '​ee'
+    window.getSelection()!.collapse(texto, 0)
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    expect(window.getSelection()!.getRangeAt(0).startOffset).toBe(1)
+  })
+
+  test('imagem no meio do texto: o texto de depois já segura a linha, sem invisível', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    document.execCommand('insertText', false, 'antesdepois')
+    const texto = el.firstChild as Text
+    window.getSelection()!.collapse(texto, 5)
+    colarNo(campo, { arquivos: [imagem()] })
+    expect(el.textContent).toBe('antesdepois')
+    const depois = el.querySelector('[data-anexo]')!.nextSibling!
+    expect(depois.textContent).toBe('depois')
+    expect(window.getSelection()!.getRangeAt(0).startContainer).toBe(depois)
+    expect(window.getSelection()!.getRangeAt(0).startOffset).toBe(0)
+  })
+
+  test('GIF copiado (PNG + HTML com o GIF) entra como GIF, com a animação', async () => {
+    const campo = montarCampo()
+    const chat = useChatStore()
+    const chamadas: unknown[][] = []
+    chat.enviarMensagemComConteudos = (async (...args: unknown[]) => { chamadas.push(args) }) as never
+    colarNo(campo, { arquivos: [new File(['png'], 'image.png', { type: 'image/png' })], texto: '<img src="data:image/gif;base64,R0lGODlh">' })
+    await campo.vm.$nextTick()
+    await campo.find('button[title="Enviar"]').trigger('click')
+    await aguardar()
+    const blocos = chamadas[0]![4] as { arquivo: { mimeType: string; nomeArquivo: string } }[]
+    expect(blocos[0]!.arquivo.mimeType).toBe('image/gif')
+    expect(blocos[0]!.arquivo.nomeArquivo).toEndWith('.gif')
+  })
+
+  test('duas imagens coladas uma depois da outra ficam juntas, sem linha vazia no meio', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    el.focus()
+    colarNo(campo, { arquivos: [imagem()] })
+    colarNo(campo, { arquivos: [imagem()] })
+    await campo.vm.$nextTick()
+    const [primeira, segunda] = el.querySelectorAll('[data-anexo]')
+    expect(primeira!.nextSibling).toBe(segunda!)
+  })
+
+  test('linha vazia entre duas imagens: Backspace e Delete tiram só a linha', async () => {
+    const campo = montarCampo()
+    const el = editavel(campo)
+    for (const key of ['Backspace', 'Delete']) {
+      el.focus()
+      colarNo(campo, { arquivos: [imagem()] })
+      await campo.vm.$nextTick()
+      colarNo(campo, { arquivos: [imagem()] })
+      await campo.vm.$nextTick()
+      const [primeira, segunda] = el.querySelectorAll('[data-anexo]')
+      // Linha vazia (só o invisível) entre as duas, como nos campos de antes
+      primeira!.after(document.createTextNode('​'))
+      const vazia = primeira!.nextSibling as Text
+      window.getSelection()!.collapse(vazia, key === 'Backspace' ? 1 : 0)
+      const tecla = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+      el.dispatchEvent(tecla)
+      expect(tecla.defaultPrevented).toBe(true)
+      expect(el.querySelectorAll('[data-anexo]')).toHaveLength(2)
+      expect(primeira!.nextSibling).toBe(segunda!)
+      el.innerHTML = ''
+    }
+  })
+
   test('Backspace no meio do texto não mexe na imagem', async () => {
     const campo = montarCampo()
     const el = editavel(campo)

@@ -18,7 +18,7 @@
     <p v-if="mensagemRef?.excluida_em" class="text-xs italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem oculta</p>
     <!-- Referência aninhada (recursiva) -->
     <ReferenciaRecursiva
-      v-if="!mensagemRef?.excluida_em && mensagemRef?.mensagem_referencia?.mensagem && profundidade < 5"
+      v-if="mostraAninhada && mensagemRef?.mensagem_referencia"
       :referencia="mensagemRef.mensagem_referencia"
       :is-own="isOwn"
       :get-anexo-url="getAnexoUrl"
@@ -30,7 +30,7 @@
     />
 
     <MessageContent
-      v-for="conteudo in mensagemRef?.excluida_em ? [] : mensagemRef?.conteudos || []"
+      v-for="conteudo in conteudosExibidos"
       :key="`ref-${profundidade}-${mensagemRef?.id}-${conteudo.ordem}`"
       :conteudo="conteudo"
       :mensagem-id="mensagemRef?.id ?? 0"
@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { TipoMensagemReferencia, type MensagemReferencia } from '../types/api'
-import { tituloReferencia } from '../utils/messageReferences'
+import { semCopiasDaReferencia, tituloReferencia } from '../utils/messageReferences'
 import { formatarHora } from '../utils/formatters'
 import MessageContent from './MessageContent.vue'
 import { useChatStore } from '../stores/chat'
@@ -71,6 +71,14 @@ const emit = defineEmits<{
 const chat = useChatStore()
 
 const mensagemRef = computed(() => props.referencia.mensagem)
+
+// Com a citação de baixo à mostra, a cópia que a encaminhada leva dela não se repete
+const mostraAninhada = computed(() => !mensagemRef.value?.excluida_em && !!mensagemRef.value?.mensagem_referencia?.mensagem && props.profundidade < 5)
+const conteudosExibidos = computed(() => {
+  const mensagem = mensagemRef.value
+  if (!mensagem || mensagem.excluida_em) return []
+  return mostraAninhada.value ? semCopiasDaReferencia(mensagem.conteudos || [], mensagem.mensagem_referencia) : mensagem.conteudos || []
+})
 
 // Encaminhada abre a conversa de origem, se o usuário participa dela
 const navegavel = computed(() => {

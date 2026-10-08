@@ -111,6 +111,27 @@
       </button>
     </div>
 
+    <!-- Ctrl + clique direito: só os emojis de reação, junto do clique -->
+    <div
+      v-if="reacoesRapidas"
+      ref="reacoesRef"
+      role="menu"
+      aria-label="Reagir"
+      class="fixed z-50 flex gap-0.5 rounded-full border border-surface-200 bg-surface-base p-1 shadow-lg"
+      :style="reacoesRapidas"
+    >
+      <button
+        v-for="emoji in emojisRapidos"
+        :key="emoji"
+        type="button"
+        role="menuitem"
+        class="h-9 w-9 rounded-full text-lg transition hover:scale-110 hover:bg-surface-100"
+        :class="{ 'bg-primary-500/20': jaReagi(emoji) }"
+        :title="emojiNome(emoji)"
+        @click="acaoReagir(emoji)"
+      >{{ emoji }}</button>
+    </div>
+
     <!-- Emoji Picker popup -->
     <div
       v-if="pickerAberto"
@@ -163,6 +184,10 @@ const MARGEM = 8
 
 const emojisLinha1 = ['👍', '❤️', '😂', '😮']
 const emojisLinha2 = ['😢', '👏', '🔥']
+const emojisRapidos = [...emojisLinha1, ...emojisLinha2]
+// Largura e altura da barra de reações rápidas (7 botões de 36px + espaços)
+const REACOES_LARGURA = 7 * 36 + 6 * 2 + 10
+const REACOES_ALTURA = 46
 
 const topOffset = ref(0)
 const menuAberto = ref(false)
@@ -172,6 +197,10 @@ const menuRef = ref<HTMLElement>()
 const pickerRef = ref<HTMLElement>()
 const menuStyle = ref<CSSProperties>({})
 const pickerStyle = ref<CSSProperties>({})
+const reacoesRef = ref<HTMLElement>()
+const reacoesRapidas = ref<CSSProperties | null>(null)
+
+const jaReagi = (emoji: string) => !!props.mensagem.reacoes?.some((r) => r.emoji === emoji && r.reagiu)
 
 function getScrollContainer(el: HTMLElement | null): HTMLElement | null {
   let parent = el?.parentElement
@@ -258,12 +287,29 @@ function toggleMenu() {
 function fecharMenu() {
   menuAberto.value = false
   pickerAberto.value = false
+  reacoesRapidas.value = null
   emit('menu-toggle', false)
+}
+
+// Barra só com os emojis, logo acima do ponto do clique (abaixo, se não couber)
+function abrirReacoesRapidas(x: number, y: number) {
+  document.dispatchEvent(new CustomEvent('fechar-menu-acoes', { detail: props.mensagem.id }))
+  menuAberto.value = false
+  pickerAberto.value = false
+  const left = Math.min(Math.max(MARGEM, x - REACOES_LARGURA / 2), window.innerWidth - REACOES_LARGURA - MARGEM)
+  const acima = y - REACOES_ALTURA - MARGEM
+  const top = acima >= MARGEM ? acima : Math.min(y + MARGEM, window.innerHeight - REACOES_ALTURA - MARGEM)
+  reacoesRapidas.value = { left: `${left}px`, top: `${top}px` }
+  emit('menu-toggle', true)
+}
+
+function aoTeclarComMenu(e: KeyboardEvent) {
+  if (e.key === 'Escape' && (menuAberto.value || reacoesRapidas.value)) fecharMenu()
 }
 
 function onFecharMenuGlobal(e: Event) {
   const idOrigem = (e as CustomEvent).detail
-  if (menuAberto.value && idOrigem !== props.mensagem.id) {
+  if ((menuAberto.value || reacoesRapidas.value) && idOrigem !== props.mensagem.id) {
     fecharMenu()
   }
 }
@@ -319,7 +365,7 @@ function acaoReagirPicker(emoji: string) {
 
 function fecharMenuExterno(e: MouseEvent) {
   const alvo = e.target as Node
-  const dentro = [containerRef.value, menuRef.value, pickerRef.value].some((el) => el?.contains(alvo))
+  const dentro = [containerRef.value, menuRef.value, pickerRef.value, reacoesRef.value].some((el) => el?.contains(alvo))
   if (containerRef.value && !dentro) {
     fecharMenu()
   }
@@ -330,6 +376,7 @@ let alvoCopia: AlvoCopia = null
 
 function abrirViaContextMenu(alvo: AlvoCopia = null) {
   alvoCopia = alvo
+  reacoesRapidas.value = null
   abrirMenu()
 }
 
@@ -350,7 +397,7 @@ function atualizarTopOffset() {
 
 function onScrollContainer() {
   atualizarTopOffset()
-  if (menuAberto.value) {
+  if (menuAberto.value || reacoesRapidas.value) {
     fecharMenu()
   }
 }
@@ -358,6 +405,7 @@ function onScrollContainer() {
 onMounted(() => {
   document.addEventListener('click', fecharMenuExterno)
   document.addEventListener('fechar-menu-acoes', onFecharMenuGlobal)
+  document.addEventListener('keydown', aoTeclarComMenu)
   scrollContainer = getScrollContainer(containerRef.value ?? null)
   if (scrollContainer) {
     scrollContainer.addEventListener('scroll', onScrollContainer, { passive: true })
@@ -366,11 +414,12 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', fecharMenuExterno)
   document.removeEventListener('fechar-menu-acoes', onFecharMenuGlobal)
+  document.removeEventListener('keydown', aoTeclarComMenu)
   if (scrollContainer) {
     scrollContainer.removeEventListener('scroll', onScrollContainer)
     scrollContainer = null
   }
 })
 
-defineExpose({ abrirViaContextMenu })
+defineExpose({ abrirViaContextMenu, abrirReacoesRapidas })
 </script>

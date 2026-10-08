@@ -80,6 +80,26 @@ describe('conteúdo das bolhas', () => {
     expect(tela.text()).toContain('Encaminhado de Bruno')
   })
 
+  test('encaminhada de uma encaminhada mostra o conteúdo original uma vez só, em cada nível', () => {
+    const codigo = texto('INDICE_UNICO_X')
+    const doRaul = { id: 10, remetente: 'Raul', conteudos: [codigo] }
+    // Daniel encaminhou a do Raul (a encaminhada leva uma cópia do conteúdo)
+    const doDaniel = { id: 11, remetente: 'Daniel', conteudos: [codigo], mensagem_referencia: { tipo: TipoMensagemReferencia.Encaminhada, mensagem: doRaul } }
+    // ...que foi citada por outra do Daniel, encaminhada com um comentário
+    const comentario = { id: 12, remetente: 'Daniel', conteudos: [codigo, texto('veja isso')], mensagem_referencia: { tipo: TipoMensagemReferencia.Encaminhada, mensagem: doDaniel } }
+    const tela = bolha(mensagem({ conteudos: [codigo, texto('veja isso'), texto('teste no grupo')], mensagem_referencia: { tipo: TipoMensagemReferencia.Encaminhada, mensagem: comentario } }))
+    expect(tela.text().split('INDICE_UNICO_X')).toHaveLength(2)
+    expect(tela.text().split('veja isso')).toHaveLength(2)
+    expect(tela.text()).toContain('teste no grupo')
+    expect(tela.text()).toContain('Encaminhado de Raul')
+  })
+
+  test('resposta a uma resposta com o mesmo texto não esconde nada', () => {
+    const anterior = { id: 20, remetente: 'Bruno', conteudos: [texto('ok')], mensagem_referencia: { tipo: TipoMensagemReferencia.Resposta, mensagem: { id: 19, remetente: 'Ana', conteudos: [texto('ok')] } } }
+    const tela = bolha(mensagem({ conteudos: [texto('beleza')], mensagem_referencia: { tipo: TipoMensagemReferencia.Resposta, mensagem: anterior } }))
+    expect(tela.text().split('ok')).toHaveLength(3)
+  })
+
   test('código mostra o trecho e a linguagem', () => {
     const tela = bolha(mensagem({ conteudos: [texto('```sql\nselect 1\n```')] }))
     expect(tela.text()).toContain('select 1')
@@ -130,6 +150,58 @@ describe('status, agendamento e reações', () => {
     expect(tela.findAll('button').some((b) => b.text().startsWith('🙏'))).toBe(true)
     await extra.trigger('click')
     expect(tela.emitted('reagir')).toEqual([[9, '🎉']])
+  })
+})
+
+describe('menu de contexto', () => {
+  const contextmenu = (tela: VueWrapper, extras: MouseEventInit = {}) =>
+    tela.find('[class~="group/bubble"]').element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 200, ...extras }))
+  const barraDeReacoes = () => document.querySelector<HTMLElement>('[role="menu"][aria-label="Reagir"]')
+  const menuCompleto = () => [...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'Responder')
+
+  test('Ctrl + clique direito: só os emojis, junto do clique; o meu já marcado; escolher reage', async () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], reacoes: [{ emoji: '❤️', quantidade: 1, reagiu: true, usuarios: [] }] }))
+    contextmenu(tela, { ctrlKey: true })
+    await tela.vm.$nextTick()
+    const barra = barraDeReacoes()!
+    expect(barra).not.toBeNull()
+    expect(menuCompleto()).toBe(false)
+    expect([...barra.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual(['👍', '❤️', '😂', '😮', '😢', '👏', '🔥'])
+    expect(barra.querySelector('[title]')!.parentElement!.style.top).toBe(`${200 - 46 - 8}px`)
+    expect([...barra.querySelectorAll('button')].find((b) => b.textContent?.trim() === '❤️')!.className).toContain('bg-primary-500/20')
+    ;[...barra.querySelectorAll('button')].find((b) => b.textContent?.trim() === '😂')!.click()
+    await tela.vm.$nextTick()
+    expect(tela.emitted('reagir')).toEqual([[9, '😂']])
+    expect(barraDeReacoes()).toBeNull()
+  })
+
+  test('clique direito sem Ctrl continua abrindo o menu completo', async () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')] }))
+    contextmenu(tela)
+    await tela.vm.$nextTick()
+    expect(menuCompleto()).toBe(true)
+    expect(barraDeReacoes()).toBeNull()
+  })
+
+  test('toque longo abre o menu completo; arrastar (rolar) não abre', async () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')] }))
+    const alvo = tela.find('[class~="group/bubble"]').element
+    const toque = (tipo: string, x = 100, y = 100) => alvo.dispatchEvent(new PointerEvent(tipo, { pointerType: 'touch', clientX: x, clientY: y, bubbles: true }))
+    toque('pointerdown')
+    toque('pointermove', 100, 140)
+    await new Promise((r) => setTimeout(r, 550))
+    expect(menuCompleto()).toBe(false)
+
+    toque('pointerdown')
+    await new Promise((r) => setTimeout(r, 550))
+    await tela.vm.$nextTick()
+    expect(menuCompleto()).toBe(true)
+    // O contextmenu que o Android manda depois não fecha nem troca o menu
+    contextmenu(tela)
+    toque('pointerup')
+    document.body.click()
+    await tela.vm.$nextTick()
+    expect(menuCompleto()).toBe(true)
   })
 })
 

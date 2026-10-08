@@ -18,9 +18,13 @@
       <div
         ref="wrapperRef"
         class="group/bubble relative flex w-fit max-w-full items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
-        :class="[isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '']"
+        :class="[isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '', '[@media(pointer:coarse)]:select-none [-webkit-touch-callout:none]']"
         @mouseleave="onMouseLeave"
         @contextmenu.prevent="onContextMenu"
+        @pointerdown="iniciarToqueLongo"
+        @pointermove="moverToqueLongo"
+        @pointerup="soltarToqueLongo"
+        @pointercancel="cancelarToqueLongo"
       >
         <MensagemAcoes
           v-if="mensagem.id > 0 && !ehChamada && !ehExcluida"
@@ -252,10 +256,75 @@ function onMouseLeave() {
   // O fechamento é tratado pelo click externo e evento global.
 }
 
+// Clique direito: menu completo. Ctrl + clique direito: só os emojis de
+// reação, junto do ponto do clique
 function onContextMenu(event: MouseEvent) {
-  if (props.mensagem.id > 0 && acoesRef.value) {
-    acoesRef.value.abrirViaContextMenu(alvoDoClique(event.target as Element))
+  if (props.mensagem.id <= 0 || !acoesRef.value) return
+  // O toque longo já abriu o menu (o Android ainda dispara o contextmenu)
+  if (abertoPeloToque) {
+    abertoPeloToque = false
+    return
   }
+  if (event.ctrlKey) {
+    acoesRef.value.abrirReacoesRapidas(event.clientX, event.clientY)
+    return
+  }
+  acoesRef.value.abrirViaContextMenu(alvoDoClique(event.target as Element))
+}
+
+// Toque longo no celular: menu completo. O iPhone não dispara o contextmenu
+// no toque longo; aqui vale para todos.
+const TOQUE_LONGO_MS = 500
+const TOQUE_TOLERANCIA_PX = 10
+let toqueLongo: ReturnType<typeof setTimeout> | null = null
+let toqueInicio: { x: number; y: number } | null = null
+let abertoPeloToque = false
+// Este toque abriu o menu: o clique ao soltar o dedo é engolido
+let toqueAbriuMenu = false
+
+function iniciarToqueLongo(event: PointerEvent) {
+  if (event.pointerType !== 'touch' || props.mensagem.id <= 0) return
+  cancelarToqueLongo()
+  abertoPeloToque = false
+  toqueAbriuMenu = false
+  toqueInicio = { x: event.clientX, y: event.clientY }
+  const alvo = event.target as Element
+  toqueLongo = setTimeout(() => {
+    toqueLongo = null
+    if (!acoesRef.value) return
+    abertoPeloToque = true
+    toqueAbriuMenu = true
+    // Sem o contextmenu (iPhone), a marca não pode segurar um clique direito depois
+    setTimeout(() => { abertoPeloToque = false }, 1000)
+    acoesRef.value.abrirViaContextMenu(alvoDoClique(alvo))
+  }, TOQUE_LONGO_MS)
+}
+
+// Ao soltar o dedo depois do toque longo, alguns celulares ainda mandam um
+// clique, que fecharia o menu que acabou de abrir: ele é engolido
+function soltarToqueLongo() {
+  const abriu = toqueAbriuMenu
+  toqueAbriuMenu = false
+  cancelarToqueLongo()
+  if (!abriu) return
+  const engolir = (e: Event) => {
+    e.stopPropagation()
+    e.preventDefault()
+  }
+  window.addEventListener('click', engolir, { capture: true, once: true })
+  setTimeout(() => window.removeEventListener('click', engolir, { capture: true }), 700)
+}
+
+// Arrastar (rolar a conversa) não é toque longo
+function moverToqueLongo(event: PointerEvent) {
+  if (!toqueLongo || !toqueInicio) return
+  if (Math.hypot(event.clientX - toqueInicio.x, event.clientY - toqueInicio.y) > TOQUE_TOLERANCIA_PX) cancelarToqueLongo()
+}
+
+function cancelarToqueLongo() {
+  if (toqueLongo) clearTimeout(toqueLongo)
+  toqueLongo = null
+  toqueInicio = null
 }
 
 // Imagem ou texto sob o clique direito, para copiar só aquele conteúdo

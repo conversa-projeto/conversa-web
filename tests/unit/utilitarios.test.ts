@@ -3,7 +3,7 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick, ref, type ObjectDirective } from 'vue'
 import { redimensionarImagem } from '@/utils/imageResize'
-import { copiarImagem } from '@/utils/copiarImagem'
+import { copiarImagem, gifDoHtml } from '@/utils/copiarImagem'
 import { vSrcObject as diretiva } from '@/directives/vSrcObject'
 import { useDraggable } from '@/composables/useDraggable'
 import { useDragAndDrop } from '@/composables/useDragAndDrop'
@@ -132,6 +132,24 @@ describe('copiar imagem', () => {
     } finally {
       falsa.restaurar()
     }
+  })
+
+  test('GIF vai também inteiro, num HTML com a imagem original, que volta como GIF ao colar', async () => {
+    const bytes = new Uint8Array([71, 73, 70, 56, 57, 97, 1, 0])
+    rota('GET', '/storage/a.gif', new Response(new Blob([bytes], { type: 'image/gif' })))
+    Object.assign(globalThis, { createImageBitmap: async () => ({ width: 1, height: 1, close: () => {} }) })
+    const falsa = comImagemFalsa(1, 1)
+    try {
+      await copiarImagem('https://localhost/storage/a.gif')
+      const html = await (await gravados[0]!['text/html']!).text()
+      expect(html).toStartWith('<img src="data:image/gif;base64,')
+      const gif = gifDoHtml(html)!
+      expect(gif.type).toBe('image/gif')
+      expect([...new Uint8Array(await gif.arrayBuffer())]).toEqual([...bytes])
+    } finally {
+      falsa.restaurar()
+    }
+    expect(gifDoHtml('<p>texto</p><img src="https://x/a.png">')).toBeNull()
   })
 })
 
