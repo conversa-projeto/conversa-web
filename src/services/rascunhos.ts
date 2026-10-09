@@ -1,3 +1,4 @@
+import type { JSONContent } from '@tiptap/core'
 import type { Mensagem, TipoMensagemReferencia } from '../types/api'
 
 // Rascunho do campo de mensagem, um por usuário e conversa, no IndexedDB do
@@ -14,8 +15,10 @@ export interface AnexoRascunho {
 }
 
 export interface Rascunho {
-  /** O campo como estava: texto, linhas, menções e figurinhas */
-  html: string
+  /** O campo como estava (documento do editor): texto, linhas, menções, peças */
+  documento?: JSONContent | null
+  /** Rascunho salvo pelo campo antigo, em HTML */
+  html?: string
   anexos: AnexoRascunho[]
   /** "Respondendo a..." (ou encaminhando) em andamento */
   respondendo: Mensagem | null

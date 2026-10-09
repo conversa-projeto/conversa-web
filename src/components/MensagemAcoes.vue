@@ -130,6 +130,17 @@
         :title="emojiNome(emoji)"
         @click="acaoReagir(emoji)"
       >{{ emoji }}</button>
+      <button
+        type="button"
+        role="menuitem"
+        class="flex h-9 w-9 items-center justify-center rounded-full text-surface-400 transition hover:bg-surface-100 hover:text-surface-600"
+        title="Mais emojis"
+        @click.stop="abrirPickerDasReacoes"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.536-4.464a.75.75 0 1 0-1.061-1.061 3.5 3.5 0 0 1-4.95 0 .75.75 0 0 0-1.06 1.06 5 5 0 0 0 7.07 0ZM9 8.5c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S7.448 7 8 7s1 .672 1 1.5Zm3 1.5c.552 0 1-.672 1-1.5S12.552 7 12 7s-1 .672-1 1.5.448 1.5 1 1.5Z" clip-rule="evenodd" />
+        </svg>
+      </button>
     </div>
 
     <!-- Emoji Picker popup -->
@@ -185,8 +196,8 @@ const MARGEM = 8
 const emojisLinha1 = ['👍', '❤️', '😂', '😮']
 const emojisLinha2 = ['😢', '👏', '🔥']
 const emojisRapidos = [...emojisLinha1, ...emojisLinha2]
-// Largura e altura da barra de reações rápidas (7 botões de 36px + espaços)
-const REACOES_LARGURA = 7 * 36 + 6 * 2 + 10
+// Largura e altura da barra de reações rápidas (7 emojis e o "mais", de 36px, + espaços)
+const REACOES_LARGURA = 8 * 36 + 7 * 2 + 10
 const REACOES_ALTURA = 46
 
 const topOffset = ref(0)
@@ -303,13 +314,26 @@ function abrirReacoesRapidas(x: number, y: number) {
   emit('menu-toggle', true)
 }
 
+// "Mais emojis" na barra rápida: a lista completa no lugar da barra, junto dela
+function abrirPickerDasReacoes() {
+  const barra = reacoesRef.value?.getBoundingClientRect()
+  if (!barra) return
+  const top = barra.top - PICKER_ALTURA - 4 >= MARGEM
+    ? barra.top - PICKER_ALTURA - 4
+    : Math.min(barra.bottom + 4, window.innerHeight - PICKER_ALTURA - MARGEM)
+  const left = Math.min(Math.max(MARGEM, barra.left), window.innerWidth - PICKER_LARGURA - MARGEM)
+  pickerStyle.value = { top: `${Math.max(MARGEM, top)}px`, left: `${left}px` }
+  reacoesRapidas.value = null
+  pickerAberto.value = true
+}
+
 function aoTeclarComMenu(e: KeyboardEvent) {
-  if (e.key === 'Escape' && (menuAberto.value || reacoesRapidas.value)) fecharMenu()
+  if (e.key === 'Escape' && (menuAberto.value || reacoesRapidas.value || pickerAberto.value)) fecharMenu()
 }
 
 function onFecharMenuGlobal(e: Event) {
   const idOrigem = (e as CustomEvent).detail
-  if ((menuAberto.value || reacoesRapidas.value) && idOrigem !== props.mensagem.id) {
+  if ((menuAberto.value || reacoesRapidas.value || pickerAberto.value) && idOrigem !== props.mensagem.id) {
     fecharMenu()
   }
 }
@@ -397,7 +421,7 @@ function atualizarTopOffset() {
 
 function onScrollContainer() {
   atualizarTopOffset()
-  if (menuAberto.value || reacoesRapidas.value) {
+  if (menuAberto.value || reacoesRapidas.value || pickerAberto.value) {
     fecharMenu()
   }
 }

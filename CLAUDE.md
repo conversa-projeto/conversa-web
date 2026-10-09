@@ -26,6 +26,7 @@
 | **Upload** | MinIO via presigned URL (XHR para progress) |
 | **Hash** | hash-wasm (SHA-256 para deduplicação de anexos) |
 | **Code highlight** | highlight.js + CodeMirror 6 |
+| **Campo de mensagem** | Tiptap 3 (ProseMirror), licença MIT; chunk `editor` no Vite |
 | **VoIP** | sip.js 0.21 (WebRTC SIP) |
 | **Chamadas** | WebRTC nativo (ICE via STUN/TURN configurável) |
 
@@ -56,6 +57,7 @@ src/
 │   └── *Modal.vue             # Modais diversos
 ├── composables/               # Hooks reutilizáveis (useTheme, useAudioPlayer, etc.)
 ├── directives/                # Diretivas Vue customizadas
+├── editor/                    # Campo de mensagem no Tiptap: peças (pecas.ts) e suas views em Vue
 ├── services/
 │   ├── http.ts                # Wrapper fetch — auth via Bearer token, prefixo /api
 │   ├── conversaApi.ts         # Todas as chamadas à API REST
@@ -189,7 +191,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Chat da chamada**: grupo criado na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`)
 - **Figurinhas**: animações Lottie em `public/figurinhas`, geradas por `scripts/gerar-figurinhas.ts`; a mensagem leva só `pacote/nome` (conteúdo tipo 7)
 - **Votação em grupo**: opção Votação no "+" (só em grupos), escolha única ou múltipla, data final opcional (quem criou muda; quem criou a votação ou o grupo encerra antes); votos ficam nas tabelas `enquete*` do backend e chegam em tempo real (store `enquetes`, aviso pelo WebSocket tipo 62)
-- **Campo de mensagem rico**: o `MessageInput` é um `contenteditable`; imagem, vídeo, áudio, arquivo, figurinha e menção entram no ponto do cursor como peças que o Backspace apaga como um caractere (`utils/editorRico.ts`). No envio, os conteúdos vão na ordem do campo (`utils/blocosEditor.ts`, `chat.enviarBlocos`); só texto vai como antes. Figurinha e gravação com o campo vazio são enviadas na hora. O campo tem o próprio desfazer/refazer (`utils/historicoEditor.ts`): toda mudança, inclusive as peças inseridas ou tiradas pelo app, registra o estado antes dela. Rascunho por usuário e conversa no IndexedDB (`services/rascunhos.ts`): o campo (com os arquivos) e o "respondendo a..." ficam salvos; trocar de conversa esvazia o campo e voltar restaura, inclusive depois de fechar o navegador; enviar apaga o rascunho
+- **Campo de mensagem rico**: o `MessageInput` é um editor Tiptap (`editor/pecas.ts`): imagem, vídeo, áudio, arquivo e figurinha são blocos (views em Vue: `PecaAnexo`, `PecaFigurinha`) e a menção fica no texto, com a lista de sugestões (`MencaoDropdown`). O editor cuida de apagar a peça como um caractere, selecionar (peça na seleção fica azul), desfazer/refazer, pôr o cursor entre peças (gapcursor) e mudar a ordem arrastando. Enter envia, Shift+Enter quebra a linha, Tab põe espaços; atalhos de emoji viram emoji com o espaço. No envio, `blocosDoDocumento` monta os conteúdos na ordem do campo (`chat.enviarBlocos`); só texto vai como antes. Figurinha e gravação com o campo vazio são enviadas na hora. Rascunho por usuário e conversa no IndexedDB (`services/rascunhos.ts`): o documento do editor (com os arquivos) e o "respondendo a..." ficam salvos; trocar de conversa esvazia o campo e voltar restaura, inclusive depois de fechar o navegador; enviar apaga o rascunho
 - **Chat da chamada completo**: na janela principal, o painel da chamada usa o `MessageList` e o `MessageInput` do chat (a conversa do grupo vira a ativa enquanto o painel está aberto)
 - **Atividades**: reações, respostas, menções e chamadas perdidas do usuário, com contador de novas na barra; tabela `atividade` no backend, gravada quando o evento acontece (store `atividades`, aviso pelo WebSocket tipo 61)
 - **Permissões e configurações do sistema**: abas Sistema (parâmetros do servidor) e Acessos (quem tem cada permissão) nas Configurações, visíveis só com a permissão (`auth.temPermissao`); o servidor confere em cada rota

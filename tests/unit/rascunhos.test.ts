@@ -43,13 +43,17 @@ function montar() {
 }
 const editavel = () => campo!.find('[contenteditable="true"]').element as HTMLElement
 
+// "Digitar": o texto entra no ponto do cursor, como o que se cola
 function digitar(textoDigitado: string) {
   const el = editavel()
   el.focus()
-  el.append(document.createTextNode(textoDigitado))
-  window.getSelection()!.collapse(el, el.childNodes.length)
-  el.dispatchEvent(new InputEvent('input', { inputType: 'insertText', data: textoDigitado, bubbles: true }))
+  const evento = new Event('paste', { cancelable: true }) as ClipboardEvent
+  Object.defineProperty(evento, 'clipboardData', { value: { files: [], getData: (tipo: string) => (tipo === 'text/plain' ? textoDigitado : '') } })
+  el.dispatchEvent(evento)
 }
+
+// O documento salvo, em texto, para procurar o que foi escrito
+const salvo = (chave: string) => JSON.stringify(guardados.get(chave)?.documento ?? null)
 
 function colarImagem() {
   const el = editavel()
@@ -69,8 +73,8 @@ describe('rascunho por conversa', () => {
     const chat = montar()
     await aguardar(10)
     digitar('meio escrito')
-    await aguardar(450)
-    expect(guardados.get('7:1')!.html).toContain('meio escrito')
+    await aguardar(700)
+    expect(salvo('7:1')).toContain('meio escrito')
 
     await trocarPara(chat, 2)
     expect(editavel().textContent).toBe('')
@@ -84,7 +88,7 @@ describe('rascunho por conversa', () => {
     await aguardar(10)
     digitar('rápido')
     await trocarPara(chat, 2)
-    expect(guardados.get('7:1')!.html).toContain('rápido')
+    expect(salvo('7:1')).toContain('rápido')
     // O da conversa 2 não recebe o da 1
     expect(guardados.has('7:2')).toBe(false)
   })
@@ -113,7 +117,7 @@ describe('rascunho por conversa', () => {
     const chat = montar()
     await aguardar(10)
     chat.responderMensagem(mensagem({ id: 50, conversa_id: 1, remetente: 'Ana', conteudos: [texto('pergunta?')] }))
-    await aguardar(450)
+    await aguardar(700)
     expect(guardados.get('7:1')!.respondendo!.id).toBe(50)
 
     await trocarPara(chat, 2)
@@ -126,11 +130,13 @@ describe('rascunho por conversa', () => {
     const chat = montar()
     await aguardar(10)
     digitar('x')
-    await aguardar(450)
+    await aguardar(700)
     expect(guardados.has('7:1')).toBe(true)
-    editavel().textContent = ''
+    // Apagar letra a letra é do próprio navegador (o editor lê o que mudou na
+    // página); aqui o texto some direto da página
+    editavel().querySelector('p')!.textContent = ''
     editavel().dispatchEvent(new InputEvent('input', { inputType: 'deleteContentBackward', bubbles: true }))
-    await aguardar(450)
+    await aguardar(700)
     expect(guardados.has('7:1')).toBe(false)
 
     ativo = false

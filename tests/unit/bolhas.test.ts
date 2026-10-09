@@ -166,13 +166,28 @@ describe('menu de contexto', () => {
     const barra = barraDeReacoes()!
     expect(barra).not.toBeNull()
     expect(menuCompleto()).toBe(false)
-    expect([...barra.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual(['👍', '❤️', '😂', '😮', '😢', '👏', '🔥'])
+    expect([...barra.querySelectorAll('button')].map((b) => b.textContent?.trim() || b.title)).toEqual(['👍', '❤️', '😂', '😮', '😢', '👏', '🔥', 'Mais emojis'])
     expect(barra.querySelector('[title]')!.parentElement!.style.top).toBe(`${200 - 46 - 8}px`)
     expect([...barra.querySelectorAll('button')].find((b) => b.textContent?.trim() === '❤️')!.className).toContain('bg-primary-500/20')
     ;[...barra.querySelectorAll('button')].find((b) => b.textContent?.trim() === '😂')!.click()
     await tela.vm.$nextTick()
     expect(tela.emitted('reagir')).toEqual([[9, '😂']])
     expect(barraDeReacoes()).toBeNull()
+  })
+
+  test('"Mais emojis" na barra rápida abre a lista completa; escolher reage', async () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')] }))
+    contextmenu(tela, { ctrlKey: true })
+    await tela.vm.$nextTick()
+    barraDeReacoes()!.querySelector<HTMLElement>('button[title="Mais emojis"]')!.click()
+    await tela.vm.$nextTick()
+    expect(barraDeReacoes()).toBeNull()
+    const lista = tela.findComponent({ name: 'EmojiPicker' })
+    expect(lista.exists()).toBe(true)
+    lista.vm.$emit('selecionar', '🎉')
+    await tela.vm.$nextTick()
+    expect(tela.emitted('reagir')).toEqual([[9, '🎉']])
+    expect(tela.findComponent({ name: 'EmojiPicker' }).exists()).toBe(false)
   })
 
   test('clique direito sem Ctrl continua abrindo o menu completo', async () => {

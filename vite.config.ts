@@ -43,6 +43,11 @@ export default defineConfig(({ command }) => ({
             return 'markdown'
           }
 
+          // Editor do campo de mensagem (Tiptap e ProseMirror)
+          if (id.includes('node_modules/@tiptap') || id.includes('node_modules/prosemirror') || id.includes('node_modules/orderedmap') || id.includes('node_modules/rope-sequence') || id.includes('node_modules/w3c-keyname')) {
+            return 'editor'
+          }
+
           if (id.includes('node_modules/lottie-web')) {
             return 'lottie'
           }

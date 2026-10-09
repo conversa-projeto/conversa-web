@@ -1,12 +1,17 @@
 import { ref } from 'vue'
+import { arrastoNoCampo } from '../editor/pecas'
 
 export function useDragAndDrop(onFilesDropped: (files: FileList) => void) {
   const isDragging = ref(false)
   let dragCounter = 0
 
+  // Peça arrastada de dentro do campo de mensagem (mudando a ordem) não é
+  // arquivo chegando: o Chrome a anuncia como arquivo, mas o aviso não vale
+  const ehArquivoDeFora = (event: DragEvent) => !arrastoNoCampo.ativo && !!event.dataTransfer?.types.includes('Files')
+
   function onDragEnter(event: DragEvent) {
     event.preventDefault()
-    if (event.dataTransfer?.types.includes('Files')) {
+    if (ehArquivoDeFora(event)) {
       dragCounter++
       isDragging.value = true
     }
@@ -14,7 +19,7 @@ export function useDragAndDrop(onFilesDropped: (files: FileList) => void) {
 
   function onDragLeave(event: DragEvent) {
     event.preventDefault()
-    if (event.dataTransfer?.types.includes('Files')) {
+    if (ehArquivoDeFora(event)) {
       dragCounter--
       if (dragCounter <= 0) {
         dragCounter = 0
