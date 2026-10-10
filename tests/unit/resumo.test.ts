@@ -1,16 +1,28 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import ResumoConversaModal from '@/components/ResumoConversaModal.vue'
+import type { ResumoSalvo } from '@/services/resumosSalvos'
 import type { ResumoConversa } from '@/types/api'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
 import { relogioFalso } from './relogioFalso'
+
+// IndexedDB de mentira, num Map (o happy-dom não tem IndexedDB)
+const guardados = new Map<string, ResumoSalvo>()
+mock.module('@/services/resumosSalvos', () => ({
+  chaveResumo: (usuarioId: number, conversaId: number) => `${usuarioId}:${conversaId}`,
+  lerResumoSalvo: async (chave: string) => guardados.get(chave) ?? null,
+  salvarResumo: async (chave: string, salvo: ResumoSalvo) => { guardados.set(chave, salvo) },
+}))
+
+const { default: ResumoConversaModal } = await import('@/components/ResumoConversaModal.vue')
 
 let tela: VueWrapper | undefined
 let relogio: ReturnType<typeof relogioFalso>
 
 beforeEach(() => {
   localStorage.setItem('conversa.token', 'token')
+  localStorage.setItem('conversa.user', JSON.stringify({ id: 7, nome: 'Eu', login: 'eu' }))
+  guardados.clear()
   setActivePinia(createPinia())
   relogio = relogioFalso()
 })
@@ -66,6 +78,51 @@ describe('resumo da conversa', () => {
     await botao('Resumir de novo').trigger('click')
     await aguardar(5)
     expect(tela.text()).toContain('IA não configurada')
+  })
+
+  test('o resumo pronto fica guardado: fechar, ir à mensagem e abrir de novo o traz de volta', async () => {
+    const pronto = resumo({ status: 'concluido', periodo: '30d', assuntos: [{ titulo: 'Orçamento', resumo: 'Fecha quinta.', pendencias: [], mensagens: [40] }] })
+    rota('POST', '/conversa/resumo', pronto)
+    tela = mount(ResumoConversaModal, { props: { conversaId: 5 }, attachTo: document.body })
+    await botao('30 dias').trigger('click')
+    await botao('Resumir').trigger('click')
+    await aguardar(5)
+    expect(guardados.get('7:5')!.resumo).toEqual(pronto)
+    tela.unmount()
+
+    tela = mount(ResumoConversaModal, { props: { conversaId: 5 }, attachTo: document.body })
+    await aguardar(5)
+    expect(tela.text()).toContain('Orçamento')
+    expect(tela.text()).toMatch(/Resumo de \d{2}\/\d{2} às \d{2}:\d{2} · 30 dias · 12 mensagens/)
+    expect(botao('30 dias').classes()).toContain('border-primary-500')
+    expect(pedidosDe('POST', '/conversa/resumo')).toHaveLength(1)
+
+    tela.unmount()
+    tela = mount(ResumoConversaModal, { props: { conversaId: 6 }, attachTo: document.body })
+    await aguardar(5)
+    expect(tela.text()).not.toContain('Orçamento')
+  })
+
+  test('em andamento ao fechar, volta a acompanhar ao abrir; se o servidor o perdeu, avisa', async () => {
+    guardados.set('7:5', { resumo: resumo(), geradoEm: Date.now() })
+    rota('GET', '/conversa/resumo', resumo({ status: 'concluido', assuntos: [{ titulo: 'Entrega', resumo: 'Atrasou.', pendencias: [], mensagens: [] }] }))
+    tela = mount(ResumoConversaModal, { props: { conversaId: 5 }, attachTo: document.body })
+    await aguardar(5)
+    expect(tela.find('[role="status"]').exists()).toBe(true)
+    relogio.avancar(2000)
+    await aguardar(5)
+    expect(tela.text()).toContain('Entrega')
+    expect(guardados.get('7:5')!.resumo.status).toBe('concluido')
+    tela.unmount()
+
+    guardados.set('7:5', { resumo: resumo(), geradoEm: Date.now() })
+    rota('GET', '/conversa/resumo', erro(404, 'Resumo não encontrado (pode ter expirado). Peça de novo.'))
+    tela = mount(ResumoConversaModal, { props: { conversaId: 5 }, attachTo: document.body })
+    await aguardar(5)
+    relogio.avancar(2000)
+    await aguardar(5)
+    expect(tela.text()).toContain('Resumo não encontrado')
+    expect(guardados.get('7:5')!.resumo.status).toBe('erro')
   })
 
   test('fechar para de consultar', async () => {
