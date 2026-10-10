@@ -25,6 +25,26 @@
         </div>
       </section>
     </template>
+
+    <section v-if="sugestoes.disponivel.value" class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
+      <h4 class="text-sm font-semibold text-surface-800">Inteligência artificial</h4>
+      <label class="mt-3 flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
+          :checked="sugestoes.ligadas.value"
+          @change="sugestoes.alterar(($event.target as HTMLInputElement).checked)"
+        />
+        <span class="min-w-0">
+          <span class="block text-sm text-surface-800">Sugerir a continuação ao digitar</span>
+          <span class="block text-xs text-surface-500">
+            Depois de uma pausa, a IA sugere em cinza como continuar a mensagem: Tab aceita, Esc descarta.
+            Para isso, o que você digita e as últimas mensagens da conversa vão para o servidor de IA do sistema.
+            Vale só neste navegador.
+          </span>
+        </span>
+      </label>
+    </section>
     <p v-if="erro" class="rounded bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
   </div>
 </template>
@@ -33,6 +53,7 @@
 import { onMounted, ref } from 'vue'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
+import { usePreferenciaSugestoes } from '../composables/useSugestaoIa'
 import type { Privacidade } from '../types/api'
 
 const OPCOES: Array<{ chave: keyof Privacidade; titulo: string; descricao: string }> = [
@@ -42,6 +63,7 @@ const OPCOES: Array<{ chave: keyof Privacidade; titulo: string; descricao: strin
 ]
 
 const auth = useAuthStore()
+const sugestoes = usePreferenciaSugestoes()
 const privacidade = ref<Privacidade>({ mostrar_visto_em: true, mostrar_na_conversa: true, aparecer_offline: false })
 const carregando = ref(true)
 const salvando = ref(false)

@@ -12,6 +12,9 @@ import { useChatStore } from '@/stores/chat'
 import { TipoConversa } from '@/types/api'
 import { aguardar, pedidosDe, rota } from './apiFalsa'
 import { instalarWebrtcFalso } from './webrtcFalso'
+import { relogioFalso } from './relogioFalso'
+import { useRecursos } from '@/composables/useRecursos'
+import { usePreferenciaSugestoes } from '@/composables/useSugestaoIa'
 
 const montados: VueWrapper[] = []
 beforeEach(() => {
@@ -89,7 +92,7 @@ const editavel = (campo: VueWrapper) => campo.find('[contenteditable="true"]').e
 // Texto do campo como o editor o guarda: parágrafos e quebras de linha
 function textoDoCampo(campo: VueWrapper) {
   return [...editavel(campo).children].map((bloco) => bloco.tagName === 'P'
-    ? [...bloco.childNodes].filter((no) => !(no instanceof HTMLElement && no.classList.contains('ProseMirror-trailingBreak')))
+    ? [...bloco.childNodes].filter((no) => !(no instanceof HTMLElement && (no.classList.contains('ProseMirror-trailingBreak') || no.hasAttribute('data-sugestao'))))
       .map((no) => (no.nodeName === 'BR' ? '\n' : no.textContent)).join('')
     : '').join('\n').replace(/\n+$/, '')
 }
@@ -344,6 +347,69 @@ describe('campo com imagens, áudio, arquivos e figurinhas no meio do texto', ()
     await campo.find('button[title="Não pedir confirmação"]').trigger('click')
     expect(useChatStore().pedirConfirmacao).toBe(false)
     expect(campo.text()).not.toContain('A mensagem vai pedir confirmação de leitura')
+  })
+
+  describe('sugestão da IA', () => {
+    let relogio: ReturnType<typeof relogioFalso>
+    beforeEach(async () => {
+      rota('GET', '/recursos', { transcricao: false, ia: true })
+      await useRecursos().recarregar()
+      usePreferenciaSugestoes().alterar(true)
+    })
+    afterEach(() => relogio?.restaurar())
+    const sugestaoNaTela = (campo: VueWrapper) => editavel(campo).querySelector('[data-sugestao]')?.textContent ?? null
+
+    async function digitarEPausar(campo: VueWrapper, texto: string) {
+      relogio?.restaurar()
+      relogio = relogioFalso()
+      digitar(campo, texto)
+      relogio.avancar(600)
+      await aguardar(5)
+    }
+
+    test('depois da pausa, aparece em cinza; Tab aceita', async () => {
+      rota('POST', '/ia/sugestao', { sugestao: ' aguardar até segunda.' })
+      const campo = await montarCampo()
+      await digitarEPausar(campo, 'Ok, então vamos')
+      expect(pedidosDe('POST', '/ia/sugestao')[0]!.corpo).toEqual({ conversa_id: 1, texto: 'Ok, então vamos' })
+      expect(sugestaoNaTela(campo)).toBe(' aguardar até segunda.')
+      expect(textoDoCampo(campo)).toBe('Ok, então vamos')
+      teclar(campo, 'Tab')
+      await aguardar()
+      expect(textoDoCampo(campo)).toBe('Ok, então vamos aguardar até segunda.')
+      expect(sugestaoNaTela(campo)).toBeNull()
+    })
+
+    test('Esc descarta e continuar digitando apaga a sugestão; sem sugestão, Tab põe espaços', async () => {
+      rota('POST', '/ia/sugestao', { sugestao: ' a todos!' })
+      const campo = await montarCampo()
+      await digitarEPausar(campo, 'Bom dia')
+      expect(sugestaoNaTela(campo)).toBe(' a todos!')
+      teclar(campo, 'Escape')
+      await aguardar()
+      expect(sugestaoNaTela(campo)).toBeNull()
+      teclar(campo, 'Tab')
+      await aguardar()
+      expect(textoDoCampo(campo)).toBe('Bom dia    ')
+
+      await digitarEPausar(campo, 'x')
+      expect(sugestaoNaTela(campo)).toBe(' a todos!')
+      digitar(campo, 'y')
+      await aguardar()
+      expect(sugestaoNaTela(campo)).toBeNull()
+    })
+
+    test('desligada nas configurações, ou com pouco texto, não pede', async () => {
+      rota('POST', '/ia/sugestao', { sugestao: ' nada' })
+      const campo = await montarCampo()
+      await digitarEPausar(campo, 'Oi')
+      expect(pedidosDe('POST', '/ia/sugestao')).toHaveLength(0)
+      usePreferenciaSugestoes().alterar(false)
+      relogio.restaurar()
+      await digitarEPausar(campo, ' tudo bem com você')
+      expect(pedidosDe('POST', '/ia/sugestao')).toHaveLength(0)
+      expect(localStorage.getItem('conversa.sugestoesIa')).toBe('0')
+    })
   })
 
   test('Ctrl+Enter também envia', async () => {

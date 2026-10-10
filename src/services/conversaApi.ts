@@ -46,6 +46,11 @@ export function testarIa(servidor: { url: string; modelo: string; token?: string
   return dados(api().parametros.ia.testar.post(servidor))
 }
 
+// Continuação do que está sendo digitado; cancelada quando a pessoa volta a digitar
+export function sugerirTexto(conversaId: number, texto: string, sinal: AbortSignal): Promise<{ sugestao: string }> {
+  return dados(api().ia.sugestao.post({ conversa_id: conversaId, texto }, { fetch: { signal: sinal } }))
+}
+
 export function pedirResumo(conversaId: number, periodo: PeriodoResumo): Promise<ResumoConversa> {
   return dados(api().conversa.resumo.post({ conversa_id: conversaId, periodo }))
 }

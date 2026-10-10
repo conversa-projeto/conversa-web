@@ -246,6 +246,8 @@ import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { gifDoHtml } from '../utils/copiarImagem'
 import { Anexo, ExtensoesDoCampo, Figurinha, blocosDoDocumento, criarMencao, liberarPrevias, novoIdAnexo, type AnexoEditor } from '../editor/pecas'
+import { SugestaoIa, chaveSugestao, sugestaoAtual } from '../editor/sugestao'
+import { useSugestaoIa } from '../composables/useSugestaoIa'
 import AnexoPopup from './AnexoPopup.vue'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
 const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
@@ -375,6 +377,7 @@ const editor = useEditor({
     ExtensoesDoCampo.PecasSelecionadas,
     ExtensoesDoCampo.AtalhosEmoji,
     ExtensoesDoCampo.Teclas.configure({ aoEnter: () => { void enviarMensagem(); return true } }),
+    SugestaoIa,
   ],
   editorProps: {
     attributes: {
@@ -399,6 +402,19 @@ const editor = useEditor({
     handleDrop: (view, event, _fatia, movido) => (movido ? false : aoSoltarNoCampo(view, event)),
   },
   onUpdate: ({ transaction }) => aoMudarCampo(transaction),
+  // Cursor mudou de lugar sem digitar: a sugestão pedida não vale mais
+  onSelectionUpdate: ({ transaction }) => { if (!transaction.docChanged) sugestaoIa.cancelar() },
+  onBlur: () => {
+    sugestaoIa.cancelar()
+    const ed = editor.value
+    if (ed && sugestaoAtual(ed.state)) ed.view.dispatch(ed.state.tr.setMeta(chaveSugestao, null))
+  },
+})
+
+// Sugestão da IA em cinza depois do cursor (Tab aceita, Esc descarta)
+const sugestaoIa = useSugestaoIa(editor, {
+  conversaId: () => chat.conversaAtivaId,
+  bloqueada: () => !!mencaoAtiva.value,
 })
 
 // Campo sem nada: nem texto (fora espaços), nem peça
@@ -417,6 +433,8 @@ function aoMudarCampo(transacao: Transaction) {
   campoVazio.value = !ed || documentoVazio(ed.state.doc)
   agendarRascunho()
   if (!campoVazio.value && transacao.docChanged && !transacao.getMeta('rascunho')) chat.enviarDigitando()
+  if (transacao.docChanged && !transacao.getMeta('rascunho')) sugestaoIa.aoDigitar()
+  else sugestaoIa.cancelar()
 }
 
 // Volta o cursor ao campo (onde estava; o editor guarda a seleção sem foco)
