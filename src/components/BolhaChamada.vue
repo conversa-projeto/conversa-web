@@ -2,7 +2,7 @@
   <div
     class="rounded-xl px-3 py-2"
     :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
-    style="min-width: 220px; max-width: 320px;"
+    :style="{ minWidth: '220px', maxWidth: chatAberto ? '480px' : '320px' }"
   >
     <!-- Cabeçalho: icone + tipo -->
     <div class="flex items-center gap-2">
@@ -54,6 +54,22 @@
       </div>
     </div>
 
+    <!-- Chat da ligação, dentro da própria mensagem -->
+    <div v-if="chatId" class="mt-2 border-t pt-2" :class="isOwn ? 'border-white/30' : 'border-surface-400'">
+      <button
+        type="button"
+        class="flex items-center gap-1 text-xs font-medium"
+        :aria-expanded="chatAberto"
+        @click.stop="chatAberto = !chatAberto"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5 transition-transform" :class="chatAberto ? 'rotate-90' : ''">
+          <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+        </svg>
+        {{ chatAberto ? 'Esconder o chat da chamada' : 'Ver chat da chamada' }}
+      </button>
+      <ChatDaChamada v-if="chatAberto" class="mt-1.5" :conversa-id="chatId" @abrir="(id) => chat.selecionarConversa(id)" />
+    </div>
+
     <!-- Hora -->
     <div class="mt-1 text-right text-[10px]" :class="subtextoColor">
       {{ formatarHora(mensagem.inserida) }}
@@ -62,7 +78,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useChatStore } from '../stores/chat'
+import ChatDaChamada from './ChatDaChamada.vue'
 import type { Mensagem, ChamadaConteudo } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import { formatarHora, formatarDuracao } from '../utils/formatters'
@@ -83,6 +101,11 @@ const dados = computed<ChamadaConteudo>(() => {
 })
 
 const ehGrupo = computed(() => dados.value.participantes.length > 2)
+
+// O servidor só manda o chat da ligação para quem é membro dele
+const chat = useChatStore()
+const chatId = computed(() => props.mensagem.conteudos.find(c => Number(c.tipo) === TipoConteudo.Chamada)?.chat_chamada_id ?? null)
+const chatAberto = ref(false)
 
 const titulo = computed(() => {
   const tipo = dados.value.tipo === 2 ? 'video' : 'audio'

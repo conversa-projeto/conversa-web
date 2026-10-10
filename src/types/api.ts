@@ -136,6 +136,8 @@ export interface ConteudoMensagem {
   /** Audio: situacao da transcricao (StatusTranscricao) e o texto, quando pronto. */
   transcricao_status?: number
   transcricao?: string
+  /** Mensagem de chamada: o chat criado na ligação, para quem é membro dele */
+  chat_chamada_id?: number
 }
 
 export const StatusTranscricao = {
@@ -309,6 +311,8 @@ export interface ChamadaHistoricoItem {
   criado_em: Date
   criado_por: number
   conversa_id: number | null
+  // Chat criado na ligação (só para quem é membro dele)
+  conversa_chat_id: number | null
   iniciada: Date | null
   finalizada: Date | null
   duracao: number | null

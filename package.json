@@ -10,8 +10,10 @@
     "dev": "bun --bun vite",
     "build": "bun run typecheck && bun --bun vite build",
     "preview": "bun --bun vite preview",
-    "typecheck": "bun scripts/vue-tsc.ts -b tsconfig.json tsconfig.node.json tsconfig.test.json",
-    "test": "bun test tests/unit"
+    "typecheck": "bun scripts/vue-tsc.ts -b tsconfig.json tsconfig.node.json tsconfig.test.json tsconfig.e2e.json",
+    "test": "bun test tests/unit",
+    "e2e": "node node_modules/@playwright/test/cli.js test",
+    "e2e:ver": "node node_modules/@playwright/test/cli.js test --headed"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -51,6 +53,7 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.14.5",
+    "@playwright/test": "^1.64.0",
     "@types/bun": "^1.4.2",
     "@vitejs/plugin-vue": "^6.0.1",
     "@volar/language-core": "2.4.28",

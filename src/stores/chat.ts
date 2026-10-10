@@ -1340,7 +1340,12 @@ export const useChatStore = defineStore('chat', () => {
   async function carregarContatosOnline() {
     try {
       const lista = await api.getContatosPresenca()
-      presencas.value = new Map(lista.map(({ usuario_id, estado, visto_em }) => [usuario_id, { estado, visto_em }]))
+      const novo = new Map(lista.map(({ usuario_id, estado, visto_em }) => [usuario_id, { estado, visto_em }]))
+      // O próprio estado chega pelo WebSocket (às vezes antes desta lista, que não o traz)
+      const eu = useAuthStore().user?.id
+      const meu = eu ? presencas.value.get(eu) : undefined
+      if (eu && meu && !novo.has(eu)) novo.set(eu, meu)
+      presencas.value = novo
     } catch {
       // Silently fail — status is non-critical
     }

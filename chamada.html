@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/logo.png" />
+    <title>Chamada · Conversa</title>
+    <style>
+      html, body, #chamada { height: 100%; margin: 0; background: #111; }
+    </style>
+  </head>
+  <body>
+    <!-- A janela da chamada é desenhada aqui pela aba do app que a abriu
+         (src/composables/useAbaChamada.ts): mesma conexão e mesmos dados -->
+    <div id="chamada"></div>
+    <p id="sem-app" style="display:none;padding:2rem;font-family:sans-serif;color:#ccc">
+      A chamada acontece na aba do Conversa que a abriu. Volte para ela.
+    </p>
+    <script>
+      // Aberta direto (sem a aba do app), ou o app foi fechado: avisa
+      setTimeout(function () {
+        if (!document.getElementById('chamada').childElementCount) document.getElementById('sem-app').style.display = 'block'
+      }, 3000)
+    </script>
+  </body>
+</html>

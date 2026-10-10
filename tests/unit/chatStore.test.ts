@@ -528,6 +528,24 @@ describe('tempo real (WebSocket)', () => {
     expect(socket.enviados).toHaveLength(quantos + 2)
   })
 
+  test('o próprio estado, que chega pelo socket, não se perde quando a lista dos contatos chega depois', async () => {
+    rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Bruno' }])
+    rota('GET', '/conversas', [conversaApi(1, { destinatario_id: 2 })])
+    rota('GET', '/conversa/presentes', [])
+    let liberar!: () => void
+    rota('GET', '/contatos/presenca', () => new Promise((resolver) => (liberar = () => resolver([{ usuario_id: 2, estado: 'ausente', visto_em: null }]))))
+    const chat = novaStore()
+    await chat.inicializar()
+    const socket = SocketFalso.ultimo()
+    socket.abrir()
+    await aguardar()
+    socket.receber({ tipo: 60, usuario_id: EU, online: true, estado: 'ativo', visto_em: null })
+    liberar()
+    await aguardar()
+    expect(chat.presencaDe(EU).estado).toBe('ativo')
+    expect(chat.presencaDe(2).estado).toBe('ausente')
+  })
+
   test('estado, visto por último e quem está na conversa pelos eventos', async () => {
     const { chat, socket } = await conectado()
     socket.receber({ tipo: 60, usuario_id: 2, online: true, estado: 'ausente', visto_em: '2026-10-09T12:00:00.000Z' })

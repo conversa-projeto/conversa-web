@@ -187,9 +187,9 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Confirmação de leitura**: "+" > Confirmar leitura marca a próxima mensagem (`chat.pedirConfirmacao`); na bolha, junto das reações, quem recebe tem a caixa de confirmar e quem enviou vê quantos confirmaram (aviso pelo WebSocket tipo 8)
 - **Anexos**: upload com deduplicação SHA-256, preview de imagem, visualizador de imagem fullscreen, player de áudio; "Transcrever" só aparece com o transcritor configurado (`useRecursos`, `GET /recursos`)
 - **Code blocks**: destaque de sintaxe com highlight.js, modal com CodeMirror
-- **Chamadas WebRTC**: áudio e vídeo, multi-participante (mesh), compartilhamento de tela, janela flutuante, popup externo; quem não atendeu aparece na grade com "Chamar de novo"
+- **Chamadas WebRTC**: áudio e vídeo, multi-participante (mesh), compartilhamento de tela; quem não atendeu aparece na grade com "Chamar de novo". No computador, a chamada de vídeo abre numa aba própria (`chamada.html`, desenhada pela aba do app com o mesmo Vue e pinia, `useAbaChamada`): a conexão fica na aba do app, que mostra só a barra do topo ("Abrir chamada" traz a aba de volta; fechar a aba não desliga). Navegador que bloqueia a aba: a chamada fica dentro do app, como antes. No celular (tela estreita ou só toque) fica dentro do app, sem compartilhar tela; "Voltar ao chat" deixa a barra no topo do app, em qualquer seção
 - **Ponteiro remoto**: quem assiste aponta na tela compartilhada; posição repassada pelo WebSocket (sinal da chamada, tipo 57)
-- **Chat da chamada**: grupo criado na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`)
+- **Chat da chamada**: na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`), a conversa onde a ligação começou é reaproveitada se todos da ligação já estão nela; senão é criado um grupo "Chamada: ...". A mensagem da ligação (`BolhaChamada`) e o histórico de chamadas expandem esse chat só para leitura (`ChatDaChamada`), com "Abrir o chat completo" (o servidor manda `chat_chamada_id` / `conversa_chat_id` só para quem é membro)
 - **Figurinhas**: animações Lottie em `public/figurinhas`, geradas por `scripts/gerar-figurinhas.ts`; a mensagem leva só `pacote/nome` (conteúdo tipo 7)
 - **Votação em grupo**: opção Votação no "+" (só em grupos), escolha única ou múltipla, data final opcional (quem criou muda; quem criou a votação ou o grupo encerra antes); votos ficam nas tabelas `enquete*` do backend e chegam em tempo real (store `enquetes`, aviso pelo WebSocket tipo 62)
 - **Campo de mensagem rico**: o `MessageInput` é um editor Tiptap (`editor/pecas.ts`): imagem, vídeo, áudio, arquivo e figurinha são blocos (views em Vue: `PecaAnexo`, `PecaFigurinha`) e a menção fica no texto, com a lista de sugestões (`MencaoDropdown`). O editor cuida de apagar a peça como um caractere, selecionar (peça na seleção fica azul), desfazer/refazer, pôr o cursor entre peças (gapcursor) e mudar a ordem arrastando. Enter envia, Shift+Enter quebra a linha, Tab põe espaços; atalhos de emoji viram emoji com o espaço. No envio, `blocosDoDocumento` monta os conteúdos na ordem do campo (`chat.enviarBlocos`); só texto vai como antes. Figurinha e gravação com o campo vazio são enviadas na hora. Rascunho por usuário e conversa no IndexedDB (`services/rascunhos.ts`): o documento do editor (com os arquivos) e o "respondendo a..." ficam salvos; trocar de conversa esvazia o campo e voltar restaura, inclusive depois de fechar o navegador; enviar apaga o rascunho
@@ -198,6 +198,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Permissões e configurações do sistema**: abas Sistema (parâmetros do servidor) e Acessos (quem tem cada permissão) nas Configurações, visíveis só com a permissão (`auth.temPermissao`); o servidor confere em cada rota
 - **Presença**: cada aba avisa pelo WebSocket (tipo 63) se está visível e em uso (5 min sem mexer = parada) e qual conversa está aberta; a API junta as abas: ativo (verde), ausente (amarelo) ou offline, com "visto por último" e "nesta conversa" no cabeçalho (`IndicadorPresenca`, `chat.presencaDe`). O próprio avatar na barra mostra como os outros te veem. Configurações > Privacidade: aparecer offline, mostrar visto por último, mostrar quando está na conversa
 - **IA e resumo da conversa**: em Configurações > Sistema o administrador põe endereço, modelo e token de um servidor no padrão da OpenAI (vLLM, Ollama ou OpenAI), com "Testar conexão"; com a IA ligada (`useRecursos().recursos.ia`), o cabeçalho tem "Resumir conversa" (`ResumoConversaModal`): por período, a API resume em segundo plano separando por assunto, com pendências e "Ver na conversa"
+- **Sugestão da IA ao digitar**: depois de 0,6 s parado com o cursor no fim, `useSugestaoIa` pede a continuação (`POST /ia/sugestao`) e `editor/sugestao.ts` a mostra em cinza depois do cursor: Tab aceita, Esc descarta; pedido velho é cancelado. Ligada/desligada por navegador em Configurações > Privacidade
 - **Telefonia SIP**: registro, discador, chamadas PSTN via sip.js
 - **Push notifications**: Firebase Cloud Messaging
 - **Tema**: dark/light mode com CSS variables
@@ -210,9 +211,18 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 bun run dev        # Inicia o Vite (porta 5173, acessado pelo nginx do backend em HTTPS na 443)
 bun run typecheck  # Checagem de tipos (strict + noUncheckedIndexedAccess), inclusive dos testes
 bun run test       # Testes (bun test + happy-dom) de utils, services, stores, composables e componentes, em tests/unit
+bun run e2e        # Ponta a ponta (Playwright, pelo Node) contra o ambiente local do Docker: duas pessoas, ligação, tela, chat, presença
+bun run e2e:ver    # O mesmo, com as janelas à vista e mais devagar
 bun run build      # Type-check + build de produção
 bun run preview    # Preview do build de produção
 ```
+
+### Testes de ponta a ponta (`e2e/`)
+
+- Playwright rodando pelo **Node** (o Bun no Windows não abre o navegador dele), com o **Edge** do Windows: o Chromium baixado pelo Playwright não abre com janela nesta máquina
+- Precisam do Docker no ar (`https://localhost`). Usam as contas "Teste Ana E2E" e "Teste Bruno E2E" no banco de desenvolvimento, criadas na primeira execução (senhas em `e2e/.contas.json`, fora do Git) por `e2e/preparar.ts`
+- Cada pessoa num navegador próprio (`abrirComo`, em `e2e/apoio.ts`): no mesmo processo a câmera falsa de uma encerra a da outra. A câmera é um vídeo de teste gerado (`e2e/camera.ts`), porque a falsa padrão do Edge se encerra sozinha; a tela compartilhada é escolhida sozinha
+- Mídia conferida pelas estatísticas do WebRTC (`esperarMidiaChegando`). Falhou: vídeo de cada janela e trace em `e2e/resultados`, relatório em `e2e/relatorio`
 
 ## 10. DOCUMENTAÇÃO DO PROJETO
 

@@ -13,6 +13,8 @@ import BolhaExcluida from '@/components/BolhaExcluida.vue'
 import MensagemAcoes from '@/components/MensagemAcoes.vue'
 import { TipoConteudo, TipoMensagemReferencia, type Mensagem } from '@/types/api'
 import { comReferencia, conteudo, mensagem, texto } from './fabrica'
+import { aguardar, pedidosDe, rota } from './apiFalsa'
+import { useChatStore } from '@/stores/chat'
 
 const montados: VueWrapper[] = []
 function bolha(m: Mensagem, extras: { isOwn?: boolean; isGroup?: boolean } = {}) {
@@ -153,6 +155,33 @@ describe('status, agendamento e reações', () => {
   })
 })
 
+describe('mensagem da ligação', () => {
+  const ligacao = (extras: Record<string, unknown> = {}) => mensagem({ id: 3, conversa_id: 1, conteudos: [{ ...conteudo(TipoConteudo.Chamada, JSON.stringify({ chamada_id: 9, tipo: 2, status: 4, duracao: 65, participantes: [] })), ...extras }] })
+
+  test('com chat, expande as mensagens dentro dela; abrir leva ao chat', async () => {
+    rota('GET', '/mensagens', [
+      mensagem({ id: 1, remetente: 'Ana', conteudos: [texto('Oi @[Bruno](2)')] }),
+      mensagem({ id: 2, remetente: 'Bruno', conteudos: [conteudo(TipoConteudo.Imagem, 'abc')] }),
+    ])
+    const tela = bolha(ligacao({ chat_chamada_id: 50 }))
+    await tela.findAll('button').find((b) => b.text() === 'Ver chat da chamada')!.trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('GET', '/mensagens')[0]!.consulta).toMatchObject({ conversa: '50' })
+    const chat = tela.find('[data-chat-da-chamada]').text()
+    expect(chat).toContain('Oi @Bruno')
+    expect(chat).toContain('📷 Imagem')
+    const chatStore = useChatStore()
+    let aberta = 0
+    chatStore.selecionarConversa = (async (id: number) => { aberta = id }) as never
+    await tela.findAll('button').find((b) => b.text() === 'Abrir o chat completo')!.trigger('click')
+    expect(aberta).toBe(50)
+  })
+
+  test('sem chat (ou chat de quem não é membro), não oferece expandir', () => {
+    expect(bolha(ligacao()).text()).not.toContain('Ver chat da chamada')
+  })
+})
+
 describe('confirmação de leitura', () => {
   const confirmacao = (extras = {}) => ({ total: 2, confirmou: false, usuarios: [], ...extras })
 
@@ -160,6 +189,7 @@ describe('confirmação de leitura', () => {
     const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao() }))
     const caixa = tela.find('input[type="checkbox"]')
     expect(tela.text()).toContain('Confirmar leitura')
+    expect(tela.find('label span[aria-hidden="true"] svg').exists()).toBe(false)
     await caixa.setValue(true)
     expect(tela.emitted('confirmar-leitura')![0]![0]).toMatchObject({ id: 9 })
     expect((caixa.element as HTMLInputElement).checked).toBe(false)
@@ -171,6 +201,9 @@ describe('confirmação de leitura', () => {
     expect(caixa.checked).toBe(true)
     expect(caixa.disabled).toBe(true)
     expect(tela.text()).toContain('Leitura confirmada')
+    // Caixa desenhada (a nativa some com a cor principal escura): preenchida e com o check
+    expect(tela.find('label span[aria-hidden="true"]').classes()).toContain('bg-primary-600')
+    expect(tela.find('label span[aria-hidden="true"] svg').exists()).toBe(true)
   })
 
   test('quem enviou vê quantos confirmaram, sem a caixa', () => {

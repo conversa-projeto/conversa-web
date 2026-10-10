@@ -46,9 +46,8 @@
           <div class="sticky top-0 z-10 bg-surface-100 px-4 py-1.5 text-xs font-medium text-surface-500">
             {{ grupo.label }}
           </div>
+          <template v-for="chamada in grupo.chamadas" :key="chamada.id">
           <div
-            v-for="chamada in grupo.chamadas"
-            :key="chamada.id"
             class="group flex cursor-pointer items-center gap-3 px-4 py-2.5 transition hover:bg-surface-100"
             @click="abrirConversa(chamada)"
           >
@@ -80,6 +79,18 @@
               </div>
             </div>
 
+            <!-- Chat da ligação, aberto embaixo da chamada -->
+            <button
+              v-if="chamada.conversa_chat_id"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200"
+              :class="chatsAbertos.has(chamada.id) ? 'bg-surface-200 text-primary-600' : ''"
+              :title="chatsAbertos.has(chamada.id) ? 'Esconder o chat da chamada' : 'Ver chat da chamada'"
+              :aria-expanded="chatsAbertos.has(chamada.id)"
+              @click.stop="alternarChat(chamada.id)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" /></svg>
+            </button>
+
             <!-- Botao religar -->
             <button
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary-500 opacity-0 transition hover:bg-primary-50 group-hover:opacity-100 dark:hover:bg-primary-900/50"
@@ -91,6 +102,10 @@
               </svg>
             </button>
           </div>
+          <div v-if="chamada.conversa_chat_id && chatsAbertos.has(chamada.id)" class="px-4 pb-3 pl-[4.25rem] text-surface-700">
+            <ChatDaChamada :conversa-id="chamada.conversa_chat_id" @abrir="(id) => emit('open-conversa', id)" />
+          </div>
+          </template>
         </template>
       </div>
     </div>
@@ -100,6 +115,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import DateInput from './DateInput.vue'
+import ChatDaChamada from './ChatDaChamada.vue'
 import type { ChamadaHistoricoItem } from '../types/api'
 import { TipoChamada } from '../types/api'
 import * as api from '../services/conversaApi'
@@ -214,6 +230,15 @@ function formatarHoraChamada(data: Date): string {
 
 function formatarDuracaoChamada(segundos: number): string {
   return formatarDuracao(segundos)
+}
+
+// Chamadas com o chat aberto embaixo
+const chatsAbertos = ref(new Set<number>())
+
+function alternarChat(chamadaId: number) {
+  const abertos = new Set(chatsAbertos.value)
+  if (!abertos.delete(chamadaId)) abertos.add(chamadaId)
+  chatsAbertos.value = abertos
 }
 
 function abrirConversa(chamada: ChamadaHistoricoItem) {

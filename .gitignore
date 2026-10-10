@@ -41,3 +41,9 @@ dist-ssr/
 # Tailwind / CSS
 .stylelintcache
 .claude
+
+# Testes de ponta a ponta (Playwright): senhas das contas de teste e resultados
+e2e/.contas.json
+e2e/.midia/
+e2e/resultados/
+e2e/relatorio/

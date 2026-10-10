@@ -20,6 +20,16 @@
         </svg>
         Conexao em tempo real indisponivel — usando atualizacao periodica
       </div>
+      <!-- Celular: a chamada fora da tela fica no topo do app, em qualquer seção
+           (a área da conversa some quando a lista ou outra seção está aberta) -->
+      <CallBar
+        v-if="call.emChamada && !mostrarChamadaNoPrincipal && telaPequena"
+        class="shrink-0"
+        @leave-call="sairDaChamadaAtual"
+        @upgrade-video="upgradeParaVideoUI"
+        @show-call-window="mostrarJanelaDaChamada"
+        @open-add-user-modal="modalAdicionarUsuario = true"
+      />
       <div class="relative flex min-w-0 flex-1 overflow-hidden pb-[50px] md:pb-0">
       <NavBar
         v-model:secao-ativa="secaoAtiva"
@@ -114,10 +124,10 @@
         </div>
 
         <CallBar
-          v-if="call.emChamada && !mostrarChamadaNoPrincipal"
+          v-if="call.emChamada && !mostrarChamadaNoPrincipal && !telaPequena"
           @leave-call="sairDaChamadaAtual"
           @upgrade-video="upgradeParaVideoUI"
-          @show-call-window="chamadaFlutuante = false"
+          @show-call-window="mostrarJanelaDaChamada"
           @open-add-user-modal="modalAdicionarUsuario = true"
         />
 
@@ -273,6 +283,7 @@ import { useAtividadesStore } from './stores/atividades'
 import { TipoConversa } from './types/api'
 import type { Contato, EventoChamadaSocket, Mensagem, TipoChamada } from './types/api'
 import { useCallPopup } from './composables/useCallPopup'
+import { useAbaChamada } from './composables/useAbaChamada'
 import { galeriaDasMensagens, useImageViewer, type ItemGaleria } from './composables/useImageViewer'
 import { useImagePreview } from './composables/useImagePreview'
 import { useAttachments } from './composables/useAttachments'
@@ -400,8 +411,35 @@ watch(() => chat.conectadoTempoReal, (conectado) => {
 const modalEncaminhamentoAberto = ref(false)
 const mensagemParaEncaminhar = ref<Mensagem | null>(null)
 const mostrarChamadaNoPrincipal = computed(() =>
-  call.emChamada && call.tipoChamada === 2 && !chamadaFlutuante.value
+  call.emChamada && call.tipoChamada === 2 && !chamadaFlutuante.value && !abaChamada.aberta.value && !chamadaSoNaBarra.value
 )
+
+// No computador, a chamada de vídeo abre numa aba própria; aqui fica só a
+// barra do topo. No celular (tela estreita ou só toque) continua dentro do app.
+const consultaSoToque = window.matchMedia('(hover: none) and (pointer: coarse)')
+const soToque = ref(consultaSoToque.matches)
+consultaSoToque.addEventListener('change', (e) => { soToque.value = e.matches })
+const chamadaEmAba = computed(() => !telaPequena.value && !soToque.value)
+const abaChamada = useAbaChamada()
+// A pessoa fechou a aba da chamada: ela continua, só na barra (que reabre a aba)
+const chamadaSoNaBarra = ref(false)
+
+function aoFecharAbaDaChamada() {
+  if (call.emChamada) chamadaSoNaBarra.value = true
+}
+
+watch(() => call.emChamada && call.tipoChamada === 2, (video) => {
+  if (!call.emChamada) chamadaSoNaBarra.value = false
+  if (!video || !chamadaEmAba.value || abaChamada.aberta.value || chamadaSoNaBarra.value) return
+  // Bloqueada pelo navegador: fica dentro do app, como antes
+  abaChamada.abrir(aoFecharAbaDaChamada)
+})
+
+function mostrarJanelaDaChamada() {
+  chamadaFlutuante.value = false
+  chamadaSoNaBarra.value = false
+  if (chamadaEmAba.value && call.tipoChamada === 2) abaChamada.abrir(aoFecharAbaDaChamada)
+}
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
 const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null)

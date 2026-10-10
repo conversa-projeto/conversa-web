@@ -278,6 +278,22 @@ describe('histórico de chamadas', () => {
     expect(linhas[2]!.text()).toContain('Recusada')
   })
 
+  test('chamada com chat: expande embaixo o chat da ligação, e abrir leva ao chat completo', async () => {
+    rota('GET', '/chamadas', [{ ...chamadas[0], conversa_chat_id: 50 }, chamadas[1]])
+    rota('GET', '/mensagens', [mensagem({ id: 1, remetente: 'Bruno', conteudos: [texto('Segue o link')] })])
+    const tela = montar(ChamadaHistorico)
+    await aguardar(10)
+    expect(tela.findAll('button[title="Ver chat da chamada"]')).toHaveLength(1)
+    await tela.find('button[title="Ver chat da chamada"]').trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('GET', '/mensagens')[0]!.consulta).toMatchObject({ conversa: '50' })
+    expect(tela.find('[data-chat-da-chamada]').text()).toContain('Segue o link')
+    await tela.findAll('button').find((b) => b.text() === 'Abrir o chat completo')!.trigger('click')
+    expect(tela.emitted('open-conversa')).toEqual([[50]])
+    await tela.find('button[title="Esconder o chat da chamada"]').trigger('click')
+    expect(tela.find('[data-chat-da-chamada]').exists()).toBe(false)
+  })
+
   test('filtros: perdidas e nome', async () => {
     const tela = await montarHistorico()
     await tela.findAll('button').find((b) => b.text() === 'Perdidas')!.trigger('click')

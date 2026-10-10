@@ -20,6 +20,7 @@ export default defineConfig(({ command }) => ({
       input: {
         main: resolve(__dirname, 'index.html'),
         'chat-popup': resolve(__dirname, 'chat-popup.html'),
+        chamada: resolve(__dirname, 'chamada.html'),
       },
       output: {
         manualChunks(id) {

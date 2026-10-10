@@ -130,18 +130,28 @@
           >
             <input
               type="checkbox"
-              class="h-3.5 w-3.5 accent-primary-600"
+              class="peer sr-only"
               :checked="mensagem.confirmacao.confirmou"
               :disabled="mensagem.confirmacao.confirmou"
               @change="confirmarLeitura"
             />
+            <!-- Caixa desenhada: a nativa some quando a cor principal é escura -->
+            <span
+              aria-hidden="true"
+              class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400"
+              :class="mensagem.confirmacao.confirmou ? 'border-primary-600 bg-primary-600 text-white' : 'border-surface-500 bg-surface-base'"
+            >
+              <svg v-if="mensagem.confirmacao.confirmou" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="h-2.5 w-2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            </span>
             <span class="text-surface-600">{{ mensagem.confirmacao.confirmou ? 'Leitura confirmada' : 'Confirmar leitura' }}</span>
           </label>
           <span
             v-else
             class="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs reacao-normal"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+            <span aria-hidden="true" class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="h-2.5 w-2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            </span>
             <span class="text-surface-600">{{ textoConfirmacoes }}</span>
           </span>
 
