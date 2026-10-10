@@ -3,9 +3,9 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CallWindow from '@/CallWindow.vue'
 import { useCallStore, type PeerConexao } from '@/stores/call'
-import { TipoChamada } from '@/types/api'
+import { StatusUsuarioChamada, TipoChamada } from '@/types/api'
 import { instalarWebrtcFalso, MidiaFalsa, TrilhaFalsa } from './webrtcFalso'
-import { aguardar, pedidosDe, rota } from './apiFalsa'
+import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
 import { useChatStore } from '@/stores/chat'
 import MessageList from '@/components/MessageList.vue'
 import MessageInput from '@/components/MessageInput.vue'
@@ -134,6 +134,65 @@ describe('modo de exibição da chamada', () => {
     call.tipoChamada = TipoChamada.Audio
     await flushPromises()
     expect(modoAtivo()).toBeUndefined()
+  })
+})
+
+describe('ligando o vídeo', () => {
+  test('mostra a etapa enquanto o vídeo liga e some no fim', async () => {
+    await montar([participante(ANA, 'Ana')])
+    expect(janela.find('[role="status"]').exists()).toBe(false)
+    call.etapaVideo = 'enviando'
+    await flushPromises()
+    expect(janela.find('[role="status"]').text()).toBe('Enviando o vídeo...')
+    call.etapaVideo = null
+    await flushPromises()
+    expect(janela.find('[role="status"]').exists()).toBe(false)
+  })
+})
+
+describe('convidados fora da chamada', () => {
+  const usuario = (usuario_id: number, usuario_nome: string, status: number, entrou_em: Date | null = null) =>
+    ({ usuario_id, usuario_nome, status, entrou_em })
+
+  test('quem está tocando aparece como Chamando; quem não atendeu, com Chamar de novo', async () => {
+    await montar([participante(ANA, 'Ana')])
+    const CARLA = 4
+    const DAVI = 5
+    call.chamada = { ...call.chamada!, usuarios: [
+      usuario(7, 'Eu', StatusUsuarioChamada.Entrou),
+      usuario(ANA, 'Ana', StatusUsuarioChamada.Entrou),
+      usuario(BRUNO, 'Bruno', StatusUsuarioChamada.Pendente),
+      usuario(CARLA, 'Carla', StatusUsuarioChamada.Recusou),
+      usuario(DAVI, 'Davi', StatusUsuarioChamada.Recusou, new Date()),
+    ] } as never
+    await flushPromises()
+    expect(janela.text()).toContain('Chamando...')
+    expect(janela.text()).toContain('Não atendeu')
+    expect(janela.text()).not.toContain('Davi')
+    expect(janela.find('.grid').classes()).toContain('grid-cols-2')
+
+    rota('POST', '/chamada/chamar-novamente', { id: 1, tipo: 2, status: 3, criado_por: ANA, usuarios: [
+      usuario(7, 'Eu', StatusUsuarioChamada.Entrou),
+      usuario(ANA, 'Ana', StatusUsuarioChamada.Entrou),
+      usuario(BRUNO, 'Bruno', StatusUsuarioChamada.Pendente),
+      usuario(CARLA, 'Carla', StatusUsuarioChamada.Pendente),
+    ] })
+    await janela.findAll('button').find((b) => b.text().includes('Chamar de novo'))!.trigger('click')
+    await aguardar(5)
+    expect(pedidosDe('POST', '/chamada/chamar-novamente')[0]!.corpo).toEqual({ chamada_id: 1, usuario_id: CARLA })
+    expect(janela.text()).not.toContain('Não atendeu')
+    expect(janela.findAll('p').filter((p) => p.text() === 'Chamando...')).toHaveLength(2)
+  })
+
+  test('quem já está conectado não aparece de novo; erro do servidor aparece', async () => {
+    await montar([participante(ANA, 'Ana')])
+    call.chamada = { ...call.chamada!, usuarios: [usuario(ANA, 'Ana', StatusUsuarioChamada.Pendente), usuario(BRUNO, 'Bruno', StatusUsuarioChamada.Recusou)] } as never
+    await flushPromises()
+    expect(janela.text()).not.toContain('Chamando...')
+    rota('POST', '/chamada/chamar-novamente', erro(400, 'Chamada encerrada'))
+    await janela.findAll('button').find((b) => b.text().includes('Chamar de novo'))!.trigger('click')
+    await aguardar(5)
+    expect(janela.text()).toContain('Chamada encerrada')
   })
 })
 

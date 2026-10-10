@@ -208,6 +208,33 @@ describe('painel do grupo', () => {
     expect(tela.text()).toContain('Grupo renomeado com sucesso.')
   })
 
+  test('emoji no lugar da letra; Remover volta à letra', async () => {
+    rota('PATCH', '/conversa', {})
+    rota('GET', '/conversas', [conversa(5, { tipo: TipoConversa.Grupo, descricao: 'Equipe', emoji: '😀' })])
+    const tela = await montarPainel()
+    expect(tela.find('span.h-14').text()).toBe('E')
+    await botao(tela, 'Emoji').trigger('click')
+    const opcao = tela.find('.grid button')
+    await opcao.trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/conversa')[0]!.corpo).toEqual({ id: 5, avatar_anexo_id: null, emoji: opcao.text() })
+    expect(tela.find('span.h-14').text()).toBe('😀')
+    expect(tela.find('.grid button').exists()).toBe(false)
+
+    rota('GET', '/conversas', [conversa(5, { tipo: TipoConversa.Grupo, descricao: 'Equipe' })])
+    await tela.findAll('button').filter((b) => b.text() === 'Remover')[0]!.trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/conversa')[1]!.corpo).toEqual({ id: 5, avatar_anexo_id: null, emoji: null })
+    expect(tela.find('span.h-14').text()).toBe('E')
+  })
+
+  test('com imagem, mostra a imagem', async () => {
+    const tela = await montarPainel()
+    useChatStore().conversas = [conversa(5, { tipo: TipoConversa.Grupo, descricao: 'Equipe', avatar_url: 'https://localhost/storage/g', emoji: '😀' })]
+    await aguardar()
+    expect(tela.find('img[alt="Imagem do grupo"]').attributes('src')).toBe('https://localhost/storage/g')
+  })
+
   test('adicionar e remover recarregam os membros', async () => {
     rota('PUT', '/conversa/usuario', { id: 102 })
     rota('DELETE', '/conversa/usuario', {})

@@ -69,6 +69,15 @@
 
     <!-- Video area -->
     <div class="relative flex flex-1 min-h-0">
+      <!-- Ligando o vídeo numa chamada de áudio: o que está acontecendo -->
+      <div
+        v-if="call.etapaVideo"
+        role="status"
+        class="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white"
+      >
+        <svg class="h-3.5 w-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        {{ TEXTO_ETAPA_VIDEO[call.etapaVideo] }}
+      </div>
     <div class="flex-1 min-w-0 min-h-0 overflow-hidden p-2">
       <!-- Conference layout: 1 big + sidebar -->
       <template v-if="videoDestaque !== null">
@@ -244,6 +253,34 @@
             </template>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
               <span class="text-[10px] text-white">{{ peer.usuarioNome }}</span>
+            </div>
+          </div>
+
+          <!-- Convidados fora da chamada: tocando ou que não atenderam -->
+          <div
+            v-for="convidado in call.participantesAguardando"
+            :key="'aguardando-' + convidado.usuario_id"
+            class="relative overflow-hidden rounded-lg bg-chamada-800"
+            :class="tileAspect"
+          >
+            <div class="flex h-full w-full flex-col items-center justify-center gap-2 bg-chamada-700 opacity-80">
+              <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(convidado.usuario_nome) }}</span>
+              <p v-if="convidado.status === StatusUsuarioChamada.Pendente" class="animate-pulse text-xs text-surface-400">Chamando...</p>
+              <template v-else>
+                <p class="text-xs text-surface-400">N&atilde;o atendeu</p>
+                <button
+                  type="button"
+                  class="flex items-center gap-1 rounded-full bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 disabled:opacity-50"
+                  :disabled="chamandoNovamente.has(convidado.usuario_id)"
+                  @click.stop="chamarNovamente(convidado.usuario_id)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" /></svg>
+                  Chamar de novo
+                </button>
+              </template>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
+              <span class="text-[10px] text-white">{{ convidado.usuario_nome }}</span>
             </div>
           </div>
         </div>
@@ -426,7 +463,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
-import { useCallStore } from './stores/call'
+import { TEXTO_ETAPA_VIDEO, useCallStore } from './stores/call'
 import { useChatStore } from './stores/chat'
 import { vSrcObject } from './directives/vSrcObject'
 import { iniciaisUsuario } from './utils/formatters'
@@ -434,7 +471,7 @@ import { useDraggable } from './composables/useDraggable'
 import CallControlButton from './components/CallControlButton.vue'
 import PonteiroTela from './components/PonteiroTela.vue'
 import ChatChamada from './components/ChatChamada.vue'
-import type { Mensagem } from './types/api'
+import { StatusUsuarioChamada, type Mensagem } from './types/api'
 
 const props = withDefaults(defineProps<{
   fecharAoEncerrar?: boolean
@@ -485,6 +522,22 @@ const modosExibicao: { modo: ModoExibicao; rotulo: string; titulo: string }[] = 
 const modoExibicao = computed<ModoExibicao>(() =>
   videoDestaque.value === null ? 'grade' : telaUnica.value ? 'unica' : 'destaque'
 )
+// Um clique por vez em cada convidado, até o servidor responder
+const chamandoNovamente = ref(new Set<number>())
+
+async function chamarNovamente(usuarioId: number) {
+  chamandoNovamente.value = new Set(chamandoNovamente.value).add(usuarioId)
+  try {
+    await call.chamarNovamente(usuarioId)
+  } catch (e) {
+    call.erroMsg = e instanceof Error ? e.message : 'Erro ao chamar de novo'
+  } finally {
+    const resto = new Set(chamandoNovamente.value)
+    resto.delete(usuarioId)
+    chamandoNovamente.value = resto
+  }
+}
+
 const participantesExibicao = computed<(number | 'local')[]>(() => ['local', ...call.peers.keys()])
 
 function definirModoExibicao(modo: ModoExibicao) {
@@ -518,7 +571,7 @@ function alternarDestaque(passo: number) {
 }
 
 const gridClass = computed(() => {
-  const total = call.peers.size + 1
+  const total = call.peers.size + call.participantesAguardando.length + 1
   if (total <= 1) return 'grid-cols-1'
   if (total === 2) return 'grid-cols-1 md:grid-cols-2'
   if (total <= 4) return 'grid-cols-2'

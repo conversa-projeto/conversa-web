@@ -54,6 +54,14 @@ export async function obterConfigRTC(): Promise<RTCConfiguration> {
   return { iceServers: STUN_FALLBACK }
 }
 
+export type EtapaVideo = 'camera' | 'enviando' | 'recebendo'
+
+export const TEXTO_ETAPA_VIDEO: Record<EtapaVideo, string> = {
+  camera: 'Abrindo a câmera...',
+  enviando: 'Enviando o vídeo...',
+  recebendo: 'Recebendo o vídeo dos participantes...',
+}
+
 export const useCallStore = defineStore('call', () => {
   const estado = ref<EstadoChamada>('inativo')
   const chamada = ref<Chamada | null>(null)
@@ -185,6 +193,18 @@ export const useCallStore = defineStore('call', () => {
   const participantesAtivos = computed(() => {
     if (!chamada.value) return []
     return chamada.value.usuarios.filter(u => u.status === StatusUsuarioChamada.Entrou)
+  })
+
+  // Convidados que não estão na chamada: tocando (Pendente) ou que não
+  // atenderam (Recusou, sem nunca ter entrado), que podem ser chamados de novo
+  const participantesAguardando = computed(() => {
+    if (!chamada.value) return []
+    const meuId = Number(useAuthStore().user?.id)
+    return chamada.value.usuarios.filter((u) => {
+      const id = Number(u.usuario_id)
+      if (id === meuId || peers.value.has(id)) return false
+      return u.status === StatusUsuarioChamada.Pendente || (u.status === StatusUsuarioChamada.Recusou && !u.entrou_em)
+    })
   })
 
   const chamadaRemetente = computed(() => {
@@ -590,29 +610,7 @@ export const useCallStore = defineStore('call', () => {
         entrada.rxPc = pc
         entrada.stream = stream
         tocarAudioRemoto(alvoId, stream)
-
-        // Monitorar conexão WHEP e reconectar se falhar
-        pc.onconnectionstatechange = () => {
-          const estadoPc = pc.connectionState
-          console.debug('[CALL][WHEP] conexão estado', { userId: alvoId, nome: usuarioNome, estado: estadoPc })
-
-          if (estadoPc === 'failed' || estadoPc === 'disconnected') {
-            console.warn('[CALL][WHEP] conexão perdida, reconectando...', { userId: alvoId, nome: usuarioNome })
-            try { pc.close() } catch { /* ignore */ }
-            entrada.rxPc = null
-            entrada.stream = null
-            pararAudioRemoto(alvoId)
-            notificarPeers()
-
-            if (estado.value === 'ativa') {
-              window.setTimeout(() => {
-                if (estado.value === 'ativa') {
-                  void conectarPeer(alvoId, usuarioNome)
-                }
-              }, 2000)
-            }
-          }
-        }
+        monitorarAssinatura(entrada, pc)
 
         // Verificar se tracks de vídeo chegaram após conexão estabelecida
         if (tipoChamada.value === TipoChamada.Video) {
@@ -696,6 +694,55 @@ export const useCallStore = defineStore('call', () => {
 
   // Refaz a assinatura de um participante: usado quando ele republica a
   // transmissao (ao ativar o video, por exemplo) e o fluxo antigo morre.
+  // Monitorar conexão WHEP e reconectar se falhar
+  function monitorarAssinatura(entrada: PeerConexao, pc: RTCPeerConnection) {
+    pc.onconnectionstatechange = () => {
+      const estadoPc = pc.connectionState
+      console.debug('[CALL][WHEP] conexão estado', { userId: entrada.usuarioId, nome: entrada.usuarioNome, estado: estadoPc })
+
+      if ((estadoPc === 'failed' || estadoPc === 'disconnected') && entrada.rxPc === pc) {
+        console.warn('[CALL][WHEP] conexão perdida, reconectando...', { userId: entrada.usuarioId, nome: entrada.usuarioNome })
+        try { pc.close() } catch { /* ignore */ }
+        entrada.rxPc = null
+        entrada.stream = null
+        pararAudioRemoto(entrada.usuarioId)
+        notificarPeers()
+
+        if (estado.value === 'ativa') {
+          window.setTimeout(() => {
+            if (estado.value === 'ativa') {
+              void conectarPeer(entrada.usuarioId, entrada.usuarioNome)
+            }
+          }, 2000)
+        }
+      }
+    }
+  }
+
+  // Assina de novo sem cortar: a assinatura nova (com o vídeo, se a chamada já
+  // for de vídeo) entra no lugar da antiga, que só fecha depois. Enquanto isso o
+  // áudio segue pela antiga, se ela ainda estiver de pé.
+  async function trocarAssinatura(usuarioId: number) {
+    const peer = peers.value.get(usuarioId)
+    if (!peer || estado.value !== 'ativa') return
+    try {
+      const { pc, stream } = await assinarDePeer(usuarioId)
+      const antiga = peer.rxPc
+      peer.rxPc = pc
+      peer.stream = stream
+      tocarAudioRemoto(usuarioId, stream)
+      monitorarAssinatura(peer, pc)
+      if (antiga && antiga !== pc) {
+        antiga.onconnectionstatechange = null
+        try { antiga.close() } catch { /* ignore */ }
+      }
+      notificarPeers()
+    } catch (e) {
+      console.warn('[CALL][WHEP] troca de assinatura falhou, assinando de novo', { usuarioId, e })
+      await reassinarPeer(usuarioId)
+    }
+  }
+
   async function reassinarPeer(usuarioId: number) {
     const peer = peers.value.get(usuarioId)
     if (!peer || estado.value !== 'ativa') return
@@ -1118,15 +1165,12 @@ export const useCallStore = defineStore('call', () => {
     const screenTrack = telaStream.getVideoTracks()[0]
     if (!screenTrack) return
 
-    // Quem entrou sem microfone nem camera ainda nao tem stream local
-    if (!streamLocal.value) streamLocal.value = new MediaStream()
-
     // Salva track da câmera para restaurar depois
-    trackCamera = streamLocal.value.getVideoTracks()[0] || null
+    trackCamera = streamLocal.value?.getVideoTracks()[0] || null
 
-    // Atualiza streamLocal para o tile local mostrar a tela
-    if (trackCamera) streamLocal.value.removeTrack(trackCamera)
-    streamLocal.value.addTrack(screenTrack)
+    // Stream novo (e não a troca da trilha no mesmo) para o tile local se
+    // religar e mostrar a tela: trocando no mesmo, ele seguia com a câmera
+    streamLocal.value = new MediaStream([...(streamLocal.value?.getAudioTracks() ?? []), screenTrack])
 
     streamTela.value = telaStream
     compartilhandoTela.value = true
@@ -1156,8 +1200,6 @@ export const useCallStore = defineStore('call', () => {
   async function pararCompartilhamento() {
     if (!compartilhandoTela.value || !streamLocal.value) return
 
-    const screenTrack = streamTela.value?.getVideoTracks()[0]
-
     // Restaura track da câmera ou adquire nova
     if (!trackCamera) {
       try {
@@ -1171,9 +1213,8 @@ export const useCallStore = defineStore('call', () => {
     // Troca de volta na publicação WHIP
     await transceiverVideoPublicado()?.sender.replaceTrack(trackCamera)
 
-    // Atualiza streamLocal
-    if (screenTrack) streamLocal.value.removeTrack(screenTrack)
-    if (trackCamera) streamLocal.value.addTrack(trackCamera)
+    // Volta a câmera no tile local, também num stream novo
+    streamLocal.value = new MediaStream([...streamLocal.value.getAudioTracks(), ...(trackCamera ? [trackCamera] : [])])
 
     // Volta só o microfone na transmissão
     await desfazerMisturaAudio()
@@ -1236,6 +1277,20 @@ export const useCallStore = defineStore('call', () => {
     chamada.value = await api.chamadaDados(chamada.value.id)
   }
 
+  async function chamarNovamente(usuarioId: number) {
+    if (!chamada.value) return
+    chamada.value = await api.chamadaChamarNovamente(chamada.value.id, usuarioId)
+  }
+
+  async function atualizarDadosChamada(chamadaId: number) {
+    try {
+      const dados = await api.chamadaDados(chamadaId)
+      if (chamada.value?.id === chamadaId) chamada.value = dados
+    } catch {
+      // segue com a lista que tinha
+    }
+  }
+
   // --- Iniciar transmissao local (receptor que quer comecar a transmitir) ---
 
   async function iniciarTransmissaoLocal(opcoes?: { video?: boolean }) {
@@ -1270,24 +1325,31 @@ export const useCallStore = defineStore('call', () => {
   // duas câmeras, e a transmissão com dois vídeos é recusada
   let ativandoVideo = false
 
-  async function upgradeParaVideo(notificar = true) {
+  // Etapa de ligar o vídeo numa chamada de áudio, para a janela mostrar o andamento
+  const etapaVideo = ref<EtapaVideo | null>(null)
+
+  // transmitir: false abre a câmera desligada (só assistir; dá para ligar depois)
+  async function upgradeParaVideo(notificar = true, transmitir = true) {
     if (tipoChamada.value !== TipoChamada.Audio || estado.value !== 'ativa' || ativandoVideo) return
     ativandoVideo = true
     try {
-      await ativarVideo(notificar)
+      await ativarVideo(notificar, transmitir)
     } finally {
       ativandoVideo = false
+      etapaVideo.value = null
     }
   }
 
-  async function ativarVideo(notificar: boolean) {
+  // Sem derrubar a chamada: a transmissão nova (com o vídeo) é publicada antes
+  // de fechar a antiga, e cada assinatura é trocada só quando a nova está pronta.
+  async function ativarVideo(notificar: boolean, transmitir: boolean) {
+    etapaVideo.value = 'camera'
     // Tenta adquirir video, mas continua sem webcam para poder assistir
     try {
-      const videoStream = await navigator.mediaDevices.getUserMedia({ video: constraintsVideo() })
-      const videoTrack = videoStream.getVideoTracks()[0]
-
-      if (streamLocal.value && videoTrack) {
-        streamLocal.value.addTrack(videoTrack)
+      if (streamLocal.value) {
+        const videoTrack = (await navigator.mediaDevices.getUserMedia({ video: constraintsVideo() })).getVideoTracks()[0]
+        // Stream novo, para o tile local se religar com o vídeo
+        if (videoTrack) streamLocal.value = new MediaStream([...streamLocal.value.getAudioTracks(), videoTrack])
       } else {
         streamLocal.value = await adquirirMidiaLocal(TipoChamada.Video)
       }
@@ -1296,23 +1358,50 @@ export const useCallStore = defineStore('call', () => {
       // para receber streams de video dos outros participantes
       console.warn('[CALL] Webcam indisponivel, entrando em modo somente recepcao de video')
     }
+    if (!transmitir) {
+      streamLocal.value?.getVideoTracks().forEach(t => { t.enabled = false })
+      cameraMutada.value = true
+    }
 
     tipoChamada.value = TipoChamada.Video
 
-    // Reconecta peers para receber/enviar video
-    const peersAtuais = Array.from(peers.value.entries()).map(([id, p]) => ({
-      id,
-      nome: p.usuarioNome
-    }))
-    desconectarTodosPeers()
-    for (const peer of peersAtuais) {
-      await conectarPeer(peer.id, peer.nome)
+    if (streamLocal.value?.getVideoTracks().length) {
+      etapaVideo.value = 'enviando'
+      await republicarSemInterromper()
     }
 
     // Notifica outros participantes sobre o upgrade
     if (notificar && chamada.value) {
       api.chamadaVideo(chamada.value.id).catch(() => { /* ignore */ })
     }
+
+    etapaVideo.value = 'recebendo'
+    await Promise.all(Array.from(peers.value.keys()).map(id => trocarAssinatura(id)))
+  }
+
+  // Publica de novo no mesmo caminho: o MediaMTX troca a transmissão antiga pela
+  // nova, sem intervalo. Se ele recusar a troca, fecha a antiga e publica.
+  async function republicarSemInterromper() {
+    const antiga = pcPublicacaoLocal
+    // A antiga cai quando a nova entra: não é para tentar restabelecer
+    if (antiga) antiga.onconnectionstatechange = null
+    let nova: RTCPeerConnection
+    try {
+      nova = await publicarLocalNaSala()
+    } catch (e) {
+      if (!antiga) throw e
+      console.warn('[CALL][WHIP] troca recusada, publicando depois de fechar a antiga', e)
+      encerrarPublicacaoLocal()
+      nova = await publicarLocalNaSala()
+    }
+    if (antiga && pcPublicacaoLocal === antiga) {
+      try { antiga.close() } catch { /* ignore */ }
+    }
+    pcPublicacaoLocal = nova
+    for (const [, peer] of peers.value) {
+      peer.txPc = nova
+    }
+    notificarPeers()
   }
 
   async function responderUpgradeVideo(transmitir: boolean) {
@@ -1323,15 +1412,11 @@ export const useCallStore = defineStore('call', () => {
       videoAtivadoTimeout = null
     }
 
-    // Sempre faz upgrade completo (adquire camera + reconecta) sem notificar
-    await upgradeParaVideo(false)
+    // Sempre faz upgrade completo (adquire camera + reconecta) sem notificar.
+    // Apenas assistir: a câmera vai desligada, usuario pode ativar depois pelo botao
+    await upgradeParaVideo(false, transmitir)
 
     if (!transmitir) {
-      // Apenas assistir: desabilita camera, usuario pode ativar depois pelo botao
-      if (streamLocal.value) {
-        streamLocal.value.getVideoTracks().forEach(t => { t.enabled = false })
-      }
-      cameraMutada.value = true
       telaUnicaSolicitada.value = quemAtivou
     }
   }
@@ -1427,6 +1512,11 @@ export const useCallStore = defineStore('call', () => {
 
     if (dados.acao === 'chat') {
       definirChatChamada(dados.conversa_id)
+      return
+    }
+
+    if (dados.acao === 'participantes') {
+      if (chamada.value) void atualizarDadosChamada(chamada.value.id)
       return
     }
 
@@ -1619,12 +1709,11 @@ export const useCallStore = defineStore('call', () => {
 
       case TipoEventoSocket.VideoAtivado: {
         if (chamada.value?.id === evento.chamada_id && eventoUsuarioId !== meuUsuarioId) {
-          // Ja estou em video: nao ha o que perguntar, so reassinar a
-          // transmissao do outro, que acabou de ser republicada.
-          if (tipoChamada.value === TipoChamada.Video) {
-            void reassinarPeer(eventoUsuarioId!)
-            break
-          }
+          // A transmissao do outro acabou de ser republicada: assina a nova
+          // na hora, para voltar a ouvi-lo (e ver, se ja estou em video).
+          void trocarAssinatura(eventoUsuarioId!)
+          // Ja estou em video: nao ha o que perguntar
+          if (tipoChamada.value === TipoChamada.Video) break
           // Busca nome do usuario que ativou video
           const peer = peers.value.get(eventoUsuarioId!)
           const nome = peer?.usuarioNome
@@ -1695,6 +1784,8 @@ export const useCallStore = defineStore('call', () => {
     participantesAtivos,
     chamadaRemetente,
     contatosNaoNaChamada,
+    participantesAguardando,
+    chamarNovamente,
     somenteRecepcao,
     duracaoChamadaFormatada,
     iniciarChamada,
@@ -1711,6 +1802,7 @@ export const useCallStore = defineStore('call', () => {
     adicionarUsuario,
     iniciarTransmissaoLocal,
     upgradeParaVideo,
+    etapaVideo,
     videoAtivadoPor,
     telaUnicaSolicitada,
     responderUpgradeVideo,

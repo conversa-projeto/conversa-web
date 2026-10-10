@@ -59,7 +59,7 @@ function rotasDaSessao() {
   rota('GET', '/mensagens', [mensagemApi(10), mensagemApi(11)])
   rota('GET', '/sip', {})
   rota('GET', '/chamadas/pendentes', [])
-  rota('GET', '/contatos/online', [])
+  rota('GET', '/contatos/presenca', [])
   rota('GET', '/atividades/novas', { quantidade: 0 })
   rota('GET', '/mensagens/novas', [])
   rota('GET', '/conversa/usuarios', [{ id: 1, usuario_id: EU, nome: 'Eu' }, { id: 2, usuario_id: 3, nome: 'Carla' }])

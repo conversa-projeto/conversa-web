@@ -32,6 +32,7 @@ export const TipoEventoSocket = {
   Digitando: 4,
   GravandoAudio: 5,
   ReacaoMensagem: 7,
+  ConfirmacaoLeitura: 8,
   ConversaAtualizada: 40,
   ChamadaRecebida: 51,
   ChamadaFinalizada: 52,
@@ -43,6 +44,7 @@ export const TipoEventoSocket = {
   StatusUsuario: 60,
   NovaAtividade: 61,
   EnqueteAtualizada: 62,
+  Presenca: 63,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -117,6 +119,10 @@ export interface Conversa {
   // Posição entre as fixadas (nula quando não fixada) e quando foi arquivada
   fixada_ordem?: number | null
   arquivada_em?: Date | null
+  // Chat criado pelo painel de uma chamada
+  chamada?: boolean
+  // Grupo: emoji no lugar da primeira letra (a imagem vem em avatar_url)
+  emoji?: string | null
 }
 
 export interface ConteudoMensagem {
@@ -177,6 +183,20 @@ export interface Reacao {
   usuarios?: ReacaoUsuario[]
 }
 
+export interface ConfirmacaoUsuario {
+  usuario_id: number
+  nome: string
+  avatar_url?: string | null
+  confirmada_em: Date
+}
+
+// Mensagem que pede confirmação de leitura: destinatários (total) e quem confirmou
+export interface ConfirmacaoLeitura {
+  total: number
+  confirmou: boolean
+  usuarios: ConfirmacaoUsuario[]
+}
+
 export interface Mensagem {
   id: number
   remetente_id: number
@@ -200,6 +220,7 @@ export interface Mensagem {
   conteudos: ConteudoMensagem[]
   mensagem_referencia?: MensagemReferencia | null
   reacoes?: Reacao[]
+  confirmacao?: ConfirmacaoLeitura
   enviando?: boolean
 }
 
@@ -354,6 +375,10 @@ export interface ParametrosSistema {
   transcritor_idioma: string
   gravacao_dias: number
   s3_bucket: string
+  ia_url: string
+  ia_modelo: string
+  // O token nunca volta: só se está preenchido
+  ia_token_configurado: boolean
 }
 
 export interface AlteracaoParametros {
@@ -364,6 +389,38 @@ export interface AlteracaoParametros {
   transcritor_url?: string
   transcritor_idioma?: string
   gravacao_dias?: number
+  ia_url?: string
+  ia_token?: string
+  ia_modelo?: string
+}
+
+/** Resposta de POST /parametros/ia/testar */
+export interface TesteIa {
+  ok: boolean
+  resposta: string
+  erro: string
+  milissegundos: number
+}
+
+export type PeriodoResumo = '24h' | '7d' | '30d' | 'recentes'
+
+/** Assunto do resumo da conversa, com as mensagens de onde saiu */
+export interface AssuntoResumo {
+  titulo: string
+  resumo: string
+  pendencias: string[]
+  mensagens: number[]
+}
+
+/** Resumo da conversa pela IA, feito em segundo plano (consulta até sair de "processando") */
+export interface ResumoConversa {
+  id: string
+  conversa_id: number
+  periodo: PeriodoResumo
+  status: 'processando' | 'concluido' | 'erro'
+  mensagens: number
+  assuntos: AssuntoResumo[]
+  erro: string
 }
 
 /** O que aconteceu com o usuário: reagiram, responderam, mencionaram, chamada perdida */
@@ -401,12 +458,13 @@ export interface Atividade {
  * Sinal entre os participantes de uma chamada, repassado pelo servidor sem
  * gravar: quem está compartilhando a tela e o ponteiro sobre ela (x e y de 0 a
  * 1 sobre a imagem; null quando o ponteiro sai). O servidor avisa quando o
- * chat da chamada é criado.
+ * chat da chamada é criado e quando alguém que não atendeu é chamado de novo.
  */
 export type SinalChamada =
   | { acao: 'tela'; ativa: boolean }
   | { acao: 'ponteiro'; alvo: number; x: number | null; y: number | null }
   | { acao: 'chat'; conversa_id: number }
+  | { acao: 'participantes' }
 
 // Status de uma mensagem para cada destinatário (horários ou null)
 export interface StatusDestinatario {
@@ -436,6 +494,29 @@ export interface EventoSocket {
   mensagem_id?: number
   emoji?: string
   acao?: string
+  // Confirmação de leitura: quem confirmou e quando
+  nome?: string
+  confirmada_em?: string
+  // Presença: estado do contato, quando esteve ativo e se abriu a conversa
+  online?: boolean
+  estado?: EstadoPresenca
+  visto_em?: string | null
+  aberta?: boolean
+}
+
+// Ativo: com o Conversa visível e em uso; ausente: conectado, mas escondido ou parado
+export type EstadoPresenca = 'ativo' | 'ausente' | 'offline'
+
+export interface PresencaContato {
+  estado: EstadoPresenca
+  visto_em: Date | null
+}
+
+// O que o usuário mostra aos outros (Configurações > Privacidade)
+export interface Privacidade {
+  mostrar_visto_em: boolean
+  mostrar_na_conversa: boolean
+  aparecer_offline: boolean
 }
 
 /**

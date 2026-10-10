@@ -11,6 +11,8 @@ const CAMPOS_DATA = new Set([
   'visivel_em',
   'encerra_em',
   'encerrada_em',
+  'confirmada_em',
+  'visto_em',
   'criado_em',
   'atualizado_em',
   'ultima_mensagem',

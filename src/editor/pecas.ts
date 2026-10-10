@@ -141,13 +141,14 @@ export interface OpcoesTeclas {
   aoEnter: () => boolean
 }
 
-// Enter envia, Shift+Enter quebra a linha, Tab põe espaços (Shift+Tab sai do campo)
+// Enter (ou Ctrl+Enter) envia, Shift+Enter quebra a linha, Tab põe espaços (Shift+Tab sai do campo)
 const Teclas = Extension.create<OpcoesTeclas>({
   name: 'teclasDoCampo',
   addOptions: () => ({ aoEnter: () => false }),
   addKeyboardShortcuts() {
     return {
       Enter: () => this.options.aoEnter(),
+      'Mod-Enter': () => this.options.aoEnter(),
       'Shift-Enter': () => this.editor.commands.setHardBreak(),
       Tab: () => this.editor.commands.insertContent({ type: 'text', text: '    ' }),
     }

@@ -58,6 +58,7 @@
             @go-to-message="irParaReferencia"
             @reagir="reagir"
             @excluir="excluirMensagem"
+            @confirmar-leitura="confirmarLeitura"
           />
         </template>
       </div>
@@ -178,6 +179,14 @@ async function reagir(mensagemId: number, emoji: string) {
     await chat.reagirMensagem(mensagemId, emoji)
   } catch (e) {
     void dialogo.avisar({ titulo: 'Não foi possível reagir', mensagem: e instanceof Error ? e.message : 'Erro ao reagir' })
+  }
+}
+
+async function confirmarLeitura(msg: Mensagem) {
+  try {
+    await chat.confirmarLeitura(msg)
+  } catch (e) {
+    void dialogo.avisar({ titulo: 'Não foi possível confirmar a leitura', mensagem: e instanceof Error ? e.message : 'Erro ao confirmar' })
   }
 }
 

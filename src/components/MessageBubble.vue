@@ -114,12 +114,55 @@
         <div v-else-if="isOwn && mensagem.id > 0 && ehChamada" class="w-3.5 shrink-0" />
       </div>
 
-      <!-- Reações existentes abaixo da bolha -->
+      <!-- Reações existentes e a confirmação de leitura abaixo da bolha -->
       <div
-        v-if="mensagem.reacoes && mensagem.reacoes.length > 0 && !ehExcluida"
+        v-if="((mensagem.reacoes && mensagem.reacoes.length > 0) || mensagem.confirmacao) && !ehExcluida"
         class="mt-0.5 flex flex-wrap gap-1 px-1"
         :class="isOwn ? 'mr-[19px] justify-end self-end pr-0' : 'justify-start self-start pl-0'"
       >
+        <!-- Confirmação de leitura: quem recebe marca; quem enviou vê quantos confirmaram -->
+        <div v-if="mensagem.confirmacao" class="group/confirmacao relative">
+          <label
+            v-if="!isOwn"
+            class="flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition"
+            :class="mensagem.confirmacao.confirmou ? 'reacao-reagiu cursor-default' : 'reacao-normal cursor-pointer'"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              class="h-3.5 w-3.5 accent-primary-600"
+              :checked="mensagem.confirmacao.confirmou"
+              :disabled="mensagem.confirmacao.confirmou"
+              @change="confirmarLeitura"
+            />
+            <span class="text-surface-600">{{ mensagem.confirmacao.confirmou ? 'Leitura confirmada' : 'Confirmar leitura' }}</span>
+          </label>
+          <span
+            v-else
+            class="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs reacao-normal"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+            <span class="text-surface-600">{{ textoConfirmacoes }}</span>
+          </span>
+
+          <!-- Quem já confirmou -->
+          <div
+            v-if="mensagem.confirmacao.usuarios.length"
+            class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden w-max -translate-x-1/2 rounded-lg border border-surface-300 bg-surface-100 px-2 py-1.5 shadow-lg group-hover/confirmacao:block dark:border-surface-500 dark:bg-surface-200"
+          >
+            <div class="flex flex-col gap-1">
+              <div v-for="u in mensagem.confirmacao.usuarios" :key="u.usuario_id" class="flex items-center gap-2">
+                <div class="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-[9px] font-semibold text-primary-700">
+                  <img v-if="u.avatar_url" :src="u.avatar_url" alt="" class="h-full w-full object-cover" />
+                  <span v-else>{{ inicialNome(u.nome) }}</span>
+                </div>
+                <span class="text-xs text-surface-700 dark:text-surface-600">{{ u.nome }}</span>
+                <span class="text-[10px] text-surface-500">{{ formatarHoraReacao(u.confirmada_em) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div
           v-for="reacao in reacoesVisiveis"
           :key="reacao.emoji"
@@ -232,6 +275,7 @@ const emit = defineEmits<{
   'go-to-message': [mensagemId: number, conversaId?: number]
   'reagir': [mensagemId: number, emoji: string]
   'excluir': [mensagem: Mensagem]
+  'confirmar-leitura': [mensagem: Mensagem]
 }>()
 
 const wrapperRef = ref<HTMLElement>()
@@ -385,6 +429,20 @@ const REACOES_A_MOSTRA = 5
 const reacoesVisiveis = computed(() => props.mensagem.reacoes?.slice(0, REACOES_A_MOSTRA) ?? [])
 const reacoesExtras = computed(() => props.mensagem.reacoes?.slice(REACOES_A_MOSTRA) ?? [])
 const ehExcluida = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Excluida)
+
+// Quem enviou: quantos confirmaram (o total chega do servidor; na mensagem recém-enviada ainda não)
+const textoConfirmacoes = computed(() => {
+  const confirmacao = props.mensagem.confirmacao
+  if (!confirmacao?.usuarios.length) return 'Aguardando confirmação'
+  const quantos = confirmacao.usuarios.length
+  return confirmacao.total ? `Confirmada por ${quantos} de ${confirmacao.total}` : `Confirmada por ${quantos}`
+})
+
+// A caixa só fica marcada quando o servidor confirma (mensagem.confirmacao.confirmou)
+function confirmarLeitura(event: Event) {
+  ;(event.target as HTMLInputElement).checked = false
+  emit('confirmar-leitura', props.mensagem)
+}
 
 const agora = useAgora(() => props.mensagem.visivel_em)
 

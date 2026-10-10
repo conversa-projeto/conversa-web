@@ -178,15 +178,16 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 ## 8. MÓDULOS IMPLEMENTADOS
 
 - **Autenticação**: login, cadastro, logout, alteração de senha, perfil com avatar
-- **Conversas**: listagem, criação (direta e grupo), sidebar com busca
+- **Conversas**: listagem, criação (direta e grupo), sidebar com busca; chats de chamada e arquivadas em seções recolhíveis no fim da lista
 - **Mensagens**: envio (texto, imagem, arquivo, áudio, gravação), recebimento em tempo real via WebSocket, paginação bidirecional
 - **Referências**: responder e encaminhar mensagens
 - **Reações**: emoji reactions nas mensagens; até 5 emojis diferentes por pessoa na mesma mensagem (o servidor confere); na bolha, 5 à mostra e o resto num "+N". Ctrl + clique direito na mensagem abre só os emojis, junto do clique; o clique direito abre o menu completo, e no celular o toque longo também
 - **Mensagens agendadas**: as que ainda não saíram ficam fora do chat (`chat.agendadasAtivas`); com o campo vazio, um relógio ao lado do microfone abre a lista da conversa, com cancelar (`MensagensAgendadasModal`)
-- **Painel do grupo**: o avatar (ou o botão de participantes) do grupo abre à direita o `PainelGrupo`: nome, participantes (adicionar/remover) e anexos da conversa com filtro por tipo
-- **Anexos**: upload com deduplicação SHA-256, preview de imagem, visualizador de imagem fullscreen, player de áudio
+- **Painel do grupo**: o avatar (ou o botão de participantes) do grupo abre à direita o `PainelGrupo`: imagem ou emoji do grupo (no lugar da primeira letra), nome, participantes (adicionar/remover) e anexos da conversa com filtro por tipo
+- **Confirmação de leitura**: "+" > Confirmar leitura marca a próxima mensagem (`chat.pedirConfirmacao`); na bolha, junto das reações, quem recebe tem a caixa de confirmar e quem enviou vê quantos confirmaram (aviso pelo WebSocket tipo 8)
+- **Anexos**: upload com deduplicação SHA-256, preview de imagem, visualizador de imagem fullscreen, player de áudio; "Transcrever" só aparece com o transcritor configurado (`useRecursos`, `GET /recursos`)
 - **Code blocks**: destaque de sintaxe com highlight.js, modal com CodeMirror
-- **Chamadas WebRTC**: áudio e vídeo, multi-participante (mesh), compartilhamento de tela, janela flutuante, popup externo
+- **Chamadas WebRTC**: áudio e vídeo, multi-participante (mesh), compartilhamento de tela, janela flutuante, popup externo; quem não atendeu aparece na grade com "Chamar de novo"
 - **Ponteiro remoto**: quem assiste aponta na tela compartilhada; posição repassada pelo WebSocket (sinal da chamada, tipo 57)
 - **Chat da chamada**: grupo criado na primeira mensagem enviada pelo painel da chamada (`PUT /chamada/chat`)
 - **Figurinhas**: animações Lottie em `public/figurinhas`, geradas por `scripts/gerar-figurinhas.ts`; a mensagem leva só `pacote/nome` (conteúdo tipo 7)
@@ -195,6 +196,8 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Chat da chamada completo**: na janela principal, o painel da chamada usa o `MessageList` e o `MessageInput` do chat (a conversa do grupo vira a ativa enquanto o painel está aberto)
 - **Atividades**: reações, respostas, menções e chamadas perdidas do usuário, com contador de novas na barra; tabela `atividade` no backend, gravada quando o evento acontece (store `atividades`, aviso pelo WebSocket tipo 61)
 - **Permissões e configurações do sistema**: abas Sistema (parâmetros do servidor) e Acessos (quem tem cada permissão) nas Configurações, visíveis só com a permissão (`auth.temPermissao`); o servidor confere em cada rota
+- **Presença**: cada aba avisa pelo WebSocket (tipo 63) se está visível e em uso (5 min sem mexer = parada) e qual conversa está aberta; a API junta as abas: ativo (verde), ausente (amarelo) ou offline, com "visto por último" e "nesta conversa" no cabeçalho (`IndicadorPresenca`, `chat.presencaDe`). O próprio avatar na barra mostra como os outros te veem. Configurações > Privacidade: aparecer offline, mostrar visto por último, mostrar quando está na conversa
+- **IA e resumo da conversa**: em Configurações > Sistema o administrador põe endereço, modelo e token de um servidor no padrão da OpenAI (vLLM, Ollama ou OpenAI), com "Testar conexão"; com a IA ligada (`useRecursos().recursos.ia`), o cabeçalho tem "Resumir conversa" (`ResumoConversaModal`): por período, a API resume em segundo plano separando por assunto, com pendências e "Ver na conversa"
 - **Telefonia SIP**: registro, discador, chamadas PSTN via sip.js
 - **Push notifications**: Firebase Cloud Messaging
 - **Tema**: dark/light mode com CSS variables

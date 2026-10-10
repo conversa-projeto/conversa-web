@@ -8,7 +8,7 @@
       <div v-if="conversaSelecionada" class="mt-2 flex items-center gap-2 rounded-full border border-surface-300 bg-surface-100 px-3 py-1 text-sm text-surface-700 w-fit">
         <div class="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-[10px] font-semibold text-surface-700">
           <img v-if="avatarConversa(conversaSelecionada)" :src="avatarConversa(conversaSelecionada)" alt="" class="h-full w-full object-cover" />
-          <span v-else>{{ inicialConversa(conversaSelecionada) }}</span>
+          <span v-else :class="conversaSelecionada.emoji ? 'text-sm' : ''">{{ inicialConversa(conversaSelecionada) }}</span>
         </div>
         <span class="truncate max-w-[200px]">{{ tituloConversa(conversaSelecionada) }}</span>
         <button
@@ -56,7 +56,7 @@
         >
           <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-sm font-semibold text-surface-700">
             <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa)" alt="" class="h-full w-full object-cover" />
-            <span v-else>{{ inicialConversa(conversa) }}</span>
+            <span v-else :class="conversa.emoji ? 'text-xl' : ''">{{ inicialConversa(conversa) }}</span>
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 text-sm font-medium text-surface-800">
@@ -140,7 +140,7 @@ function tituloConversa(conversa: Conversa): string {
 
 function inicialConversa(conversa: Conversa): string {
   const nome = tituloConversa(conversa).trim()
-  return inicialNome(nome, 'C')
+  return conversa.emoji || inicialNome(nome, 'C')
 }
 
 function avatarConversa(conversa: Conversa): string {

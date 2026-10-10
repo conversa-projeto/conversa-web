@@ -1,4 +1,4 @@
-import type { AlteracaoParametros, AnexoItem, AnexoResponse, Atividade, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, AnexoResponse, Atividade, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteIa } from '../types/api'
 import { api, dados } from './eden'
 
 // Chamadas da API pelo cliente Eden: caminho, corpo, consulta e resposta sao
@@ -25,7 +25,7 @@ export function alterarSenha(senhaAtual: string, senhaNova: string) {
   return dados(api()['alterar-senha'].post({ senha_atual: senhaAtual, senha: senhaNova }))
 }
 
-export function atualizarUsuario(id: number, alteracoes: { nome?: string; email?: string; telefone?: string | null; avatar_anexo_id?: number | null }) {
+export function atualizarUsuario(id: number, alteracoes: { nome?: string; email?: string; telefone?: string | null; avatar_anexo_id?: number | null } & Partial<Privacidade>) {
   return dados(api().usuario.patch({ id, ...alteracoes }))
 }
 
@@ -33,8 +33,29 @@ export function getContatos(): Promise<Contato[]> {
   return dados(api().usuario.contatos.get())
 }
 
-export function getContatosOnline(): Promise<number[]> {
-  return dados(api().contatos.online.get())
+export function getContatosPresenca(): Promise<Array<{ usuario_id: number } & PresencaContato>> {
+  return dados(api().contatos.presenca.get())
+}
+
+// Membros com a conversa aberta agora
+export function getPresentesConversa(conversaId: number): Promise<number[]> {
+  return dados(api().conversa.presentes.get({ query: { conversa: conversaId } }))
+}
+
+export function testarIa(servidor: { url: string; modelo: string; token?: string }): Promise<TesteIa> {
+  return dados(api().parametros.ia.testar.post(servidor))
+}
+
+export function pedirResumo(conversaId: number, periodo: PeriodoResumo): Promise<ResumoConversa> {
+  return dados(api().conversa.resumo.post({ conversa_id: conversaId, periodo }))
+}
+
+export function consultarResumo(id: string): Promise<ResumoConversa> {
+  return dados(api().conversa.resumo.get({ query: { id } }))
+}
+
+export function getPrivacidade(): Promise<Privacidade> {
+  return dados(api().usuario.privacidade.get())
 }
 
 export function getConversas(): Promise<Conversa[]> {
@@ -62,7 +83,7 @@ export function createConversa(descricao: string, tipo: TipoConversa) {
   return dados(api().conversa.put({ descricao, tipo }))
 }
 
-export function atualizarConversa(conversaId: number, alteracoes: { descricao: string }) {
+export function atualizarConversa(conversaId: number, alteracoes: { descricao?: string; avatar_anexo_id?: number | null; emoji?: string | null }) {
   return dados(api().conversa.patch({ id: conversaId, ...alteracoes }))
 }
 
@@ -86,13 +107,19 @@ export function enviarMensagem(
   conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>,
   mensagemReferencia?: { tipo: number; origem_mensagem_id: number },
   visivelEm?: Date | null,
+  pedeConfirmacao = false,
 ): Promise<{ id: number; conversa_id: number; usuario_id: number }> {
   return dados(api().mensagem.put({
     conversa_id: conversaId,
     conteudos,
     ...(mensagemReferencia ? { mensagem_referencia: mensagemReferencia } : {}),
-    ...(visivelEm ? { visivel_em: visivelEm.toISOString() } : {})
+    ...(visivelEm ? { visivel_em: visivelEm.toISOString() } : {}),
+    ...(pedeConfirmacao ? { pede_confirmacao: true } : {})
   }))
+}
+
+export function confirmarLeitura(mensagemId: number) {
+  return dados(api().mensagem.confirmar.post({ mensagem_id: mensagemId }))
 }
 
 export function deletarMensagem(id: number) {
@@ -251,6 +278,10 @@ export function getMinhasPermissoes(): Promise<string[]> {
   return dados(api().usuario.permissoes.get())
 }
 
+export function getRecursos(): Promise<{ transcricao: boolean; ia: boolean }> {
+  return dados(api().recursos.get())
+}
+
 export function getPermissoes(): Promise<PermissoesSistema> {
   return dados(api().permissoes.get())
 }
@@ -305,6 +336,11 @@ export function chamadaChat(chamadaId: number): Promise<{ conversa_id: number }>
 
 export function chamadaAdicionarUsuario(chamadaId: number, usuarioId: number): Promise<{ id: number }> {
   return dados(api().chamada.usuario.put({ chamada_id: chamadaId, usuario_id: usuarioId }))
+}
+
+// Quem recusou ou não atendeu volta a tocar
+export function chamadaChamarNovamente(chamadaId: number, usuarioId: number): Promise<Chamada> {
+  return dados(api().chamada['chamar-novamente'].post({ chamada_id: chamadaId, usuario_id: usuarioId }))
 }
 
 export function chamadaVideo(chamadaId: number) {

@@ -6,6 +6,7 @@ import ChatHeader from '@/components/ChatHeader.vue'
 import ChamadaHistorico from '@/components/ChamadaHistorico.vue'
 import DateInput from '@/components/DateInput.vue'
 import { useChatStore } from '@/stores/chat'
+import { useRecursos } from '@/composables/useRecursos'
 import { useCallStore } from '@/stores/call'
 import { TipoConversa, type Contato, type Conversa } from '@/types/api'
 import { aguardar, pedidosDe, rota, SocketFalso } from './apiFalsa'
@@ -64,6 +65,18 @@ describe('barra de navegação', () => {
     expect(desktop(tela).find('span.rounded-full.border-2').exists()).toBe(false)
   })
 
+  test('o próprio avatar mostra como os outros me veem; sem aviso do servidor, offline', async () => {
+    localStorage.setItem('conversa.user', JSON.stringify({ id: 7, nome: 'Eu', login: 'eu' }))
+    const tela = montar(NavBar, { props })
+    const status = () => desktop(tela).find('span[title^="Para os outros"]')
+    expect(status().attributes('title')).toBe('Para os outros você aparece offline')
+    expect(status().classes()).toContain('bg-surface-400')
+    useChatStore().presencas = new Map([[7, { estado: 'ativo', visto_em: null }]])
+    await tela.vm.$nextTick()
+    expect(status().attributes('title')).toBe('Para os outros você aparece ativo')
+    expect(status().classes()).toContain('bg-success-500')
+  })
+
   test('foto do perfil; se falhar, avisa quem montou', async () => {
     const tela = montar(NavBar, { props: { ...props, avatarUrl: 'https://localhost/storage/eu' } })
     expect(tela.findAll('img[alt="Perfil"]')).toHaveLength(2)
@@ -78,7 +91,7 @@ describe('cabeçalho da conversa', () => {
     chat.contatos = extras.contatos ?? [contato(2, 'Bruno'), contato(3, 'Carla')]
     chat.conversas = [ativa]
     chat.conversaAtivaId = ativa.id
-    chat.usuariosOnline = new Set(extras.online ?? [])
+    chat.presencas = new Map((extras.online ?? []).map((id) => [id, { estado: 'ativo', visto_em: null }]))
     return montar(ChatHeader)
   }
 
@@ -90,6 +103,44 @@ describe('cabeçalho da conversa', () => {
     expect(tela.find('button[title="Participantes e anexos"]').exists()).toBe(false)
     await tela.find('button.h-10').trigger('click')
     expect(document.body.textContent).toContain('bruno@t')
+  })
+
+  test('conversa direta mostra se a pessoa está na conversa, ativa, ausente ou quando foi vista', async () => {
+    const tela = montarCabecalho(conversa(1, { descricao: 'Bruno', destinatario_id: 2 }), { online: [2] })
+    const chat = useChatStore()
+    const subtitulo = () => tela.find('p.text-xs').text()
+    expect(subtitulo()).toBe('ativo agora')
+    chat.presentesPorConversa = new Map([[1, new Set([2])]])
+    await tela.vm.$nextTick()
+    expect(subtitulo()).toBe('nesta conversa')
+    chat.presentesPorConversa = new Map()
+    chat.presencas = new Map([[2, { estado: 'ausente', visto_em: null }]])
+    await tela.vm.$nextTick()
+    expect(tela.find('span.bg-warning-500').exists()).toBe(true)
+    expect(subtitulo()).toBe('ausente')
+    const ontem = new Date()
+    ontem.setDate(ontem.getDate() - 1)
+    ontem.setHours(14, 32)
+    chat.presencas = new Map([[2, { estado: 'offline', visto_em: ontem }]])
+    await tela.vm.$nextTick()
+    expect(subtitulo()).toBe('visto por último ontem às 14:32')
+    expect(tela.find('span.bg-warning-500').exists()).toBe(false)
+    chat.presencas = new Map()
+    await tela.vm.$nextTick()
+    expect(tela.find('p.text-xs').exists()).toBe(false)
+  })
+
+  test('com a IA ligada no servidor, o cabeçalho oferece o resumo da conversa', async () => {
+    rota('GET', '/recursos', { transcricao: false, ia: false })
+    await useRecursos().recarregar()
+    const sem = montarCabecalho(conversa(1, { descricao: 'Bruno', destinatario_id: 2 }))
+    expect(sem.find('button[title="Resumir conversa"]').exists()).toBe(false)
+    sem.unmount()
+    rota('GET', '/recursos', { transcricao: false, ia: true })
+    await useRecursos().recarregar()
+    const tela = montarCabecalho(conversa(1, { descricao: 'Bruno', destinatario_id: 2 }))
+    await tela.find('button[title="Resumir conversa"]').trigger('click')
+    expect(document.body.querySelector('[role="dialog"][aria-label="Resumo da conversa"]')).not.toBeNull()
   })
 
   test('foto que falha vira a inicial', async () => {

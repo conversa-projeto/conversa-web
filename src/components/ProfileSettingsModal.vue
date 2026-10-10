@@ -308,6 +308,8 @@
             </section>
           </div>
 
+          <ConfiguracaoPrivacidade v-else-if="props.abaAtiva === 'privacidade'" />
+
           <ConfiguracaoCores v-else-if="props.abaAtiva === 'cores'" />
 
           <ConfiguracaoChamadas v-else-if="props.abaAtiva === 'chamadas'" />
@@ -385,11 +387,12 @@ import { CodigoPermissao, TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import { useTheme } from '../composables/useTheme'
 import ConfiguracaoCores from './ConfiguracaoCores.vue'
+import ConfiguracaoPrivacidade from './ConfiguracaoPrivacidade.vue'
 import ConfiguracaoChamadas from './ConfiguracaoChamadas.vue'
 import ConfiguracaoSistema from './ConfiguracaoSistema.vue'
 import ConfiguracaoAcessos from './ConfiguracaoAcessos.vue'
 
-type AbaId = 'usuario' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos'
+type AbaId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos'
 
 type DispositivoMidiaItem = {
   id: string
@@ -430,6 +433,7 @@ const auth = useAuthStore()
 
 const abasDeTodos: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'usuario', titulo: 'Usuario', descricao: 'Nome, email, avatar e senha' },
+  { id: 'privacidade', titulo: 'Privacidade', descricao: 'Status, visto por último e aparecer offline' },
   { id: 'dispositivos', titulo: 'Dispositivos', descricao: 'Sessao atual e perifericos locais' },
   { id: 'permissoes', titulo: 'Permissoes', descricao: 'Notificacoes, microfone e camera' },
   { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario' },

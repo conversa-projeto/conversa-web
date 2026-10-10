@@ -81,7 +81,7 @@ describe('store de votações', () => {
     rota('GET', '/enquete', enqueteApi())
     rota('GET', '/usuario/contatos', [])
     rota('GET', '/conversas', [])
-    rota('GET', '/contatos/online', [])
+    rota('GET', '/contatos/presenca', [])
     rota('GET', '/atividades/novas', { quantidade: 0 })
     const chat = useChatStore()
     await chat.inicializar()

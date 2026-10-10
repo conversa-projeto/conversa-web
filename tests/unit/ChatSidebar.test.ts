@@ -59,6 +59,22 @@ describe('lista de conversas', () => {
     expect(barra.find('.overflow-auto').classes()).toEqual(expect.arrayContaining(['flex', 'flex-col']))
   })
 
+  test('chats de chamada ficam numa seção própria, antes das arquivadas; fixado ou arquivado sai dela', async () => {
+    await montar([
+      conversa(1),
+      conversa(2, { chamada: true }),
+      conversa(3, { chamada: true }),
+      conversa(4, { chamada: true, fixada_ordem: 1 }),
+      conversa(5, { chamada: true, arquivada_em: new Date() }),
+    ])
+    expect(ordem()).toEqual(['Conversa 4', 'Conversa 1', '[Chamadas (2)]', '[Arquivadas (1)]'])
+    const agrupador = barra.findAll('button').find((b) => b.text().includes('Chamadas'))!
+    expect(agrupador.classes()).toContain('mt-auto')
+    await agrupador.trigger('click')
+    expect(ordem()).toEqual(['Conversa 4', 'Conversa 1', '[Chamadas (2)]', 'Conversa 3', 'Conversa 2', '[Arquivadas (1)]'])
+    expect(barra.findAll('button').find((b) => b.text().includes('Arquivadas'))!.classes()).not.toContain('mt-auto')
+  })
+
   test('sem arquivadas não mostra o agrupador', async () => {
     await montar([conversa(1)])
     expect(barra.text()).not.toContain('Arquivadas')

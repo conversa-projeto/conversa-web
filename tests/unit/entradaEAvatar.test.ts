@@ -335,6 +335,26 @@ describe('campo com imagens, áudio, arquivos e figurinhas no meio do texto', ()
     expect(chamadas).toEqual([['oi\ntudo bem?', [], null]])
   })
 
+  test('"+" > Confirmar leitura mostra o aviso; o X desfaz', async () => {
+    const campo = await montarCampo()
+    await campo.find('button[title="Anexar"]').trigger('click')
+    await campo.findAll('button').find((b) => b.text() === 'Confirmar leitura')!.trigger('click')
+    expect(useChatStore().pedirConfirmacao).toBe(true)
+    expect(campo.text()).toContain('A mensagem vai pedir confirmação de leitura')
+    await campo.find('button[title="Não pedir confirmação"]').trigger('click')
+    expect(useChatStore().pedirConfirmacao).toBe(false)
+    expect(campo.text()).not.toContain('A mensagem vai pedir confirmação de leitura')
+  })
+
+  test('Ctrl+Enter também envia', async () => {
+    const campo = await montarCampo()
+    const chamadas = capturarEnvios()
+    digitar(campo, 'oi')
+    teclar(campo, 'Enter', { ctrlKey: true })
+    await aguardar()
+    expect(chamadas).toEqual([['oi', [], null]])
+  })
+
   test('@ digitado abre a lista de contatos; escolher vira menção', async () => {
     const campo = await montarCampo(TipoConversa.Grupo)
     const chat = useChatStore()

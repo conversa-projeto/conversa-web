@@ -20,11 +20,12 @@
               @click="isGrupo ? emit('open-group-members') : abrirUsuarioInfo(perfilConversaAtiva)"
             >
               <img v-if="avatarConversa" :src="avatarConversa" alt="Avatar" class="h-full w-full object-cover" @error="ocultarAvatar = true" />
-              <span v-else>{{ inicialConversa }}</span>
+              <span v-else :class="chat.conversaAtiva?.emoji ? 'text-xl' : ''">{{ inicialConversa }}</span>
             </button>
-            <span
-              v-if="destinatarioOnline"
-              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success-500 ring-[1.5px] ring-surface-50"
+            <IndicadorPresenca
+              v-if="destinatarioId"
+              :usuario-id="destinatarioId"
+              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-[1.5px] ring-surface-50"
             />
           </div>
           <div class="group relative min-w-0">
@@ -46,6 +47,13 @@
               class="max-w-[300px] truncate text-xs text-surface-500"
             >
               {{ nomesMembrosGrupo }}
+            </p>
+            <p
+              v-else-if="!atividadeVisivel && textoPresenca"
+              class="max-w-[300px] truncate text-xs"
+              :class="naConversa ? 'text-primary-600' : 'text-surface-500'"
+            >
+              {{ textoPresenca }}
             </p>
             <div
               v-if="isGrupo && chat.usuariosConversaAtiva.length"
@@ -111,6 +119,14 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25Z" /></svg>
           </button>
           <button
+            v-if="recursos.ia"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200"
+            title="Resumir conversa"
+            @click="mostrarResumo = true"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
+          </button>
+          <button
             v-if="isGrupo"
             class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200"
             title="Participantes e anexos"
@@ -162,6 +178,13 @@
       </div>
     </div>
 
+    <ResumoConversaModal
+      v-if="mostrarResumo && chat.conversaAtivaId"
+      :conversa-id="chat.conversaAtivaId"
+      @close="mostrarResumo = false"
+      @go-to-message="(id) => { mostrarResumo = false; emit('go-to-message', id) }"
+    />
+
     <UserInfoModal
       :aberta="mostrarUsuarioInfo"
       :usuario="usuarioSelecionado"
@@ -182,6 +205,9 @@ import type { TipoChamada } from '../types/api'
 import { resolverUsuarioDaConversa } from '../utils/userProfile'
 import type { UsuarioPopup } from '../utils/userProfile'
 import UserInfoModal from './UserInfoModal.vue'
+import ResumoConversaModal from './ResumoConversaModal.vue'
+import { useRecursos } from '../composables/useRecursos'
+import IndicadorPresenca from './IndicadorPresenca.vue'
 
 const props = withDefaults(defineProps<{
   popout?: boolean
@@ -201,6 +227,9 @@ const call = useCallStore()
 
 const isGrupo = computed(() => chat.conversaAtiva?.tipo === TipoConversa.Grupo)
 const ocultarAvatar = ref(false)
+const { recursos } = useRecursos()
+const mostrarResumo = ref(false)
+watch(() => chat.conversaAtivaId, () => { mostrarResumo.value = false })
 const mostrarUsuarioInfo = ref(false)
 const usuarioSelecionado = ref<UsuarioPopup | null>(null)
 
@@ -216,13 +245,37 @@ const perfilConversaAtiva = computed(() => {
 
 const inicialConversa = computed(() => {
   const nome = chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id || ''}`
-  return inicialNome(nome, 'C')
+  return chat.conversaAtiva?.emoji || inicialNome(nome, 'C')
 })
 
-const destinatarioOnline = computed(() => {
+const destinatarioId = computed(() => {
   const conv = chat.conversaAtiva
-  return conv && !isGrupo.value && conv.destinatario_id ? chat.estaOnline(conv.destinatario_id) : false
+  return conv && !isGrupo.value && conv.destinatario_id ? conv.destinatario_id : null
 })
+
+const naConversa = computed(() => destinatarioId.value !== null && chat.estaNaConversa(destinatarioId.value, chat.conversaAtivaId))
+
+// Conversa direta: se a pessoa está com ela aberta, ativa, ausente ou quando foi vista
+const textoPresenca = computed(() => {
+  if (destinatarioId.value === null) return ''
+  if (naConversa.value) return 'nesta conversa'
+  const { estado, visto_em } = chat.presencaDe(destinatarioId.value)
+  if (estado === 'ativo') return 'ativo agora'
+  if (estado === 'ausente') return 'ausente'
+  return visto_em ? `visto por último ${formatarVistoEm(visto_em)}` : ''
+})
+
+function formatarVistoEm(data: Date) {
+  const hora = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const dia = new Date(data)
+  dia.setHours(0, 0, 0, 0)
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const dias = Math.round((hoje.getTime() - dia.getTime()) / 86_400_000)
+  if (dias === 0) return `hoje às ${hora}`
+  if (dias === 1) return `ontem às ${hora}`
+  return `em ${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...(data.getFullYear() !== hoje.getFullYear() ? { year: 'numeric' } : {}) })} às ${hora}`
+}
 
 const nomesMembrosGrupo = computed(() => {
   return chat.usuariosConversaAtiva.map((u: { nome: string }) => u.nome).join(', ')

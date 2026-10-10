@@ -15,9 +15,18 @@
           v-if="secaoAtiva === 'config'"
           class="absolute inset-y-0 left-0 w-px bg-primary-500"
         />
-        <span class="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-base font-semibold text-primary-700">
-          <img v-if="avatarUrl" :src="avatarUrl" alt="Perfil" class="h-full w-full object-cover" @error="emit('avatar-error')" />
-          <span v-else>{{ inicialUsuario }}</span>
+        <span class="relative">
+          <span class="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-base font-semibold text-primary-700">
+            <img v-if="avatarUrl" :src="avatarUrl" alt="Perfil" class="h-full w-full object-cover" @error="emit('avatar-error')" />
+            <span v-else>{{ inicialUsuario }}</span>
+          </span>
+          <IndicadorPresenca
+            v-if="meuId"
+            :usuario-id="meuId"
+            com-offline
+            :titulo="tituloMeuStatus"
+            class="absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-surface-200"
+          />
         </span>
       </button>
 
@@ -69,9 +78,18 @@
         v-if="secaoAtiva === 'config'"
         class="absolute bottom-0 inset-x-0 h-px bg-primary-500"
       />
-      <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-        <img v-if="avatarUrl" :src="avatarUrl" alt="Perfil" class="h-full w-full object-cover" @error="emit('avatar-error')" />
-        <span v-else>{{ inicialUsuario }}</span>
+      <span class="relative">
+        <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
+          <img v-if="avatarUrl" :src="avatarUrl" alt="Perfil" class="h-full w-full object-cover" @error="emit('avatar-error')" />
+          <span v-else>{{ inicialUsuario }}</span>
+        </span>
+        <IndicadorPresenca
+          v-if="meuId"
+          :usuario-id="meuId"
+          com-offline
+          :titulo="tituloMeuStatus"
+          class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-surface-200"
+        />
       </span>
     </button>
 
@@ -111,6 +129,9 @@
 
 <script setup lang="ts">
 import { computed, h } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { useChatStore } from '../stores/chat'
+import IndicadorPresenca from './IndicadorPresenca.vue'
 
 const props = defineProps<{
   secaoAtiva: string
@@ -121,6 +142,15 @@ const props = defineProps<{
   // Atividades que chegaram desde a última vez que a tela foi aberta
   atividadesNovas: number
 }>()
+
+// Meu status como os outros veem (o servidor manda também para mim)
+const auth = useAuthStore()
+const chat = useChatStore()
+const meuId = computed(() => auth.user?.id ?? null)
+const tituloMeuStatus = computed(() => {
+  const estado = meuId.value ? chat.presencaDe(meuId.value).estado : 'offline'
+  return `Para os outros você aparece ${estado === 'ativo' ? 'ativo' : estado === 'ausente' ? 'ausente' : 'offline'}`
+})
 
 const emit = defineEmits<{
   'update:secaoAtiva': [secao: string]

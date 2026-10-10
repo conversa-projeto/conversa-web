@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { TipoConversa, TipoConteudo, TipoEventoSocket, TipoMensagemReferencia } from '../types/api'
-import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem, SinalChamada } from '../types/api'
+import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem, PresencaContato, SinalChamada } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
@@ -42,6 +42,9 @@ export const useChatStore = defineStore('chat', () => {
   const mensagemRespondendo = ref<Mensagem | null>(null)
   // Resposta comum, ou Encaminhada quando a resposta é no privado
   const tipoReferenciaPendente = ref<TipoMensagemReferencia>(TipoMensagemReferencia.Resposta)
+  // A próxima mensagem enviada pede confirmação de leitura; vale só para a conversa aberta
+  const pedirConfirmacao = ref(false)
+  watch(conversaAtivaId, () => { pedirConfirmacao.value = false })
   const usuariosConversa = ref<Record<number, Array<{ id: number; usuario_id: number; nome: string; avatar_url?: string | null }>>>({})
 
   let digitandoDebounceTimer: number | null = null
@@ -56,7 +59,10 @@ export const useChatStore = defineStore('chat', () => {
   let ultimoGravandoEnviado = 0
   const gravandoPorConversa = ref<Map<number, Map<number, number>>>(new Map())
 
-  const usuariosOnline = ref<Set<number>>(new Set())
+  // Estado de cada contato de conversa direta (quem não está aqui está offline)
+  const presencas = ref<Map<number, PresencaContato>>(new Map())
+  // Quem está com cada conversa aberta agora
+  const presentesPorConversa = ref<Map<number, Set<number>>>(new Map())
 
   /**
    * Cursor de sincronizacao incremental — timestamp ISO-8601 do ultimo ponto
@@ -316,6 +322,15 @@ export const useChatStore = defineStore('chat', () => {
     await carregarConversas()
   }
 
+  // Imagem ou emoji no lugar da primeira letra; um tira o outro
+  async function alterarAvatarGrupo(conversaId: number, avatar: { anexoId: number } | { emoji: string } | null) {
+    await api.atualizarConversa(conversaId, {
+      avatar_anexo_id: avatar && 'anexoId' in avatar ? avatar.anexoId : null,
+      emoji: avatar && 'emoji' in avatar ? avatar.emoji : null,
+    })
+    await carregarConversas()
+  }
+
   type ConteudoArquivoEntrada = {
     blob: Blob
     nomeArquivo: string
@@ -488,6 +503,8 @@ export const useChatStore = defineStore('chat', () => {
       : undefined
     mensagemRespondendo.value = null
     tipoReferenciaPendente.value = TipoMensagemReferencia.Resposta
+    const pedeConfirmacao = pedirConfirmacao.value
+    pedirConfirmacao.value = false
 
     // Adiciona mensagem otimista ? UI imediatamente (antes dos uploads)
     const optimisticMsg: Mensagem = {
@@ -503,6 +520,7 @@ export const useChatStore = defineStore('chat', () => {
       reproduzida: false,
       enviando: true,
       conteudos: conteudosOptimistas,
+      ...(pedeConfirmacao ? { confirmacao: { total: 0, confirmou: false, usuarios: [] } } : {}),
       ...(mensagemReferencia && respostaMsg ? {
         mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, tipoReferencia),
       } : {})
@@ -529,7 +547,7 @@ export const useChatStore = defineStore('chat', () => {
         })
       }
 
-      const resp = await api.enviarMensagem(conversaId, conteudosApi, mensagemReferencia, visivelEm)
+      const resp = await api.enviarMensagem(conversaId, conteudosApi, mensagemReferencia, visivelEm, pedeConfirmacao)
 
       const conteudosFinais = conteudosOptimistas.map((conteudo) => {
         if (conteudo.tipo === TipoConteudo.Texto) {
@@ -761,6 +779,10 @@ export const useChatStore = defineStore('chat', () => {
       )
       // Quem entrou ou saiu enquanto o socket estava fora não gerou aviso
       void carregarContatosOnline()
+      ultimaPresenca = ''
+      acompanharPresenca()
+      enviarPresenca()
+      if (conversaAtivaId.value) void carregarPresentes(conversaAtivaId.value)
       // Nem as atividades que chegaram nesse tempo
       void useAtividadesStore().atualizarNovas()
       if (_tratarEventoChamada) {
@@ -780,6 +802,13 @@ export const useChatStore = defineStore('chat', () => {
     socket.onclose = () => {
       conectadoTempoReal.value = false
       socket = null
+      // Sem conexão, o próprio status (que vem do servidor) fica desconhecido
+      const eu = useAuthStore().user?.id
+      if (eu && presencas.value.has(eu)) {
+        const novo = new Map(presencas.value)
+        novo.delete(eu)
+        presencas.value = novo
+      }
       agendarReconexaoWebSocket()
     }
   }
@@ -875,6 +904,11 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    if (evento.tipo === TipoEventoSocket.ConfirmacaoLeitura) {
+      tratarConfirmacaoSocket(evento)
+      return
+    }
+
     if (evento.tipo === TipoEventoSocket.ConversaAtualizada) {
       await carregarConversas()
       return
@@ -891,7 +925,12 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     if (evento.tipo === TipoEventoSocket.StatusUsuario && evento.usuario_id != null) {
-      tratarStatusUsuario(evento.usuario_id, !!(evento as Record<string, unknown>).online)
+      tratarStatusUsuario(evento)
+      return
+    }
+
+    if (evento.tipo === TipoEventoSocket.Presenca) {
+      tratarPresencaConversa(evento)
       return
     }
 
@@ -1248,6 +1287,27 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  async function confirmarLeitura(msg: Mensagem) {
+    if (!msg.confirmacao || msg.confirmacao.confirmou) return
+    await api.confirmarLeitura(msg.id)
+    const auth = useAuthStore()
+    if (auth.user) adicionarConfirmacaoLocal(msg, auth.user.id, new Date())
+  }
+
+  function adicionarConfirmacaoLocal(msg: Mensagem, usuarioId: number, confirmadaEm: Date, nome?: string) {
+    if (!msg.confirmacao) return
+    if (usuarioId === useAuthStore().user?.id) msg.confirmacao.confirmou = true
+    if (msg.confirmacao.usuarios.some((u) => u.usuario_id === usuarioId)) return
+    const info = resolverNomeUsuario(usuarioId)
+    msg.confirmacao.usuarios.push({ usuario_id: usuarioId, nome: nome || info.nome, avatar_url: info.avatar_url, confirmada_em: confirmadaEm })
+  }
+
+  function tratarConfirmacaoSocket(evento: EventoSocket) {
+    if (!evento.conversa_id || !evento.mensagem_id || !evento.usuario_id) return
+    const msg = mensagensPorConversa.value[evento.conversa_id]?.find(m => m.id === evento.mensagem_id)
+    if (msg) adicionarConfirmacaoLocal(msg, evento.usuario_id, evento.confirmada_em ? new Date(evento.confirmada_em) : new Date(), evento.nome)
+  }
+
   function tratarReacaoSocket(evento: EventoSocket) {
     if (!evento.conversa_id || !evento.mensagem_id || !evento.emoji || !evento.acao || !evento.usuario_id) return
 
@@ -1260,27 +1320,101 @@ export const useChatStore = defineStore('chat', () => {
     atualizarReacaoLocal(msg, evento.emoji, evento.usuario_id, evento.acao)
   }
 
-  function tratarStatusUsuario(usuarioId: number, online: boolean) {
-    const novoSet = new Set(usuariosOnline.value)
-    if (online) {
-      novoSet.add(usuarioId)
-    } else {
-      novoSet.delete(usuarioId)
-    }
-    usuariosOnline.value = novoSet
+  function tratarStatusUsuario(evento: EventoSocket) {
+    const usuarioId = evento.usuario_id!
+    const estado = evento.estado ?? (evento.online ? 'ativo' : 'offline')
+    const novo = new Map(presencas.value)
+    // O visto por último só vem quando muda; sem ele, fica o que já se sabia
+    novo.set(usuarioId, { estado, visto_em: evento.visto_em ? new Date(evento.visto_em) : presencas.value.get(usuarioId)?.visto_em ?? null })
+    presencas.value = novo
+  }
+
+  function presencaDe(usuarioId: number): PresencaContato {
+    return presencas.value.get(usuarioId) ?? { estado: 'offline', visto_em: null }
   }
 
   function estaOnline(usuarioId: number): boolean {
-    return usuariosOnline.value.has(usuarioId)
+    return presencaDe(usuarioId).estado !== 'offline'
   }
 
   async function carregarContatosOnline() {
     try {
-      const ids = await api.getContatosOnline()
-      usuariosOnline.value = new Set(ids)
+      const lista = await api.getContatosPresenca()
+      presencas.value = new Map(lista.map(({ usuario_id, estado, visto_em }) => [usuario_id, { estado, visto_em }]))
     } catch {
       // Silently fail — status is non-critical
     }
+  }
+
+  // --- Presença desta aba: visível e em uso, e a conversa aberta ---
+
+  const TEMPO_OCIOSO_MS = 5 * 60 * 1000
+  let ocioso = false
+  let timerOcioso: number | null = null
+  let ultimaPresenca = ''
+
+  function enviarPresenca() {
+    if (socket?.readyState !== WebSocket.OPEN) return
+    const ativo = document.visibilityState === 'visible' && !ocioso
+    const dados = { tipo: TipoEventoSocket.Presenca, ativo, conversa_id: ativo ? conversaAtivaId.value : null }
+    const texto = JSON.stringify(dados)
+    if (texto === ultimaPresenca) return
+    ultimaPresenca = texto
+    socket.send(texto)
+  }
+
+  // Sem mexer na página por 5 minutos, a aba deixa de contar como ativa
+  function marcarUso() {
+    if (timerOcioso !== null) window.clearTimeout(timerOcioso)
+    timerOcioso = window.setTimeout(() => {
+      ocioso = true
+      enviarPresenca()
+    }, TEMPO_OCIOSO_MS)
+    if (ocioso) {
+      ocioso = false
+      enviarPresenca()
+    }
+  }
+
+  let acompanhandoPresenca = false
+  function acompanharPresenca() {
+    if (acompanhandoPresenca) return
+    acompanhandoPresenca = true
+    document.addEventListener('visibilitychange', enviarPresenca)
+    for (const evento of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) {
+      window.addEventListener(evento, marcarUso, { passive: true })
+    }
+    marcarUso()
+  }
+
+  watch(conversaAtivaId, (id) => {
+    enviarPresenca()
+    if (id) void carregarPresentes(id)
+  })
+
+  async function carregarPresentes(conversaId: number) {
+    try {
+      const ids = await api.getPresentesConversa(conversaId)
+      const novo = new Map(presentesPorConversa.value)
+      novo.set(conversaId, new Set(ids))
+      presentesPorConversa.value = novo
+    } catch {
+      // só deixa de mostrar quem está na conversa
+    }
+  }
+
+  function tratarPresencaConversa(evento: EventoSocket) {
+    if (!evento.conversa_id || !evento.usuario_id) return
+    const novo = new Map(presentesPorConversa.value)
+    const presentes = new Set(novo.get(evento.conversa_id))
+    if (evento.aberta) presentes.add(evento.usuario_id)
+    else presentes.delete(evento.usuario_id)
+    novo.set(evento.conversa_id, presentes)
+    presentesPorConversa.value = novo
+  }
+
+  function estaNaConversa(usuarioId: number, conversaId: number | null) {
+    return conversaId !== null && !!presentesPorConversa.value.get(conversaId)?.has(usuarioId)
   }
 
   function encerrarTempoReal() {
@@ -1321,6 +1455,9 @@ export const useChatStore = defineStore('chat', () => {
     encaminharMensagemParaContato,
     criarGrupo,
     renomearGrupo,
+    pedirConfirmacao,
+    confirmarLeitura,
+    alterarAvatarGrupo,
     enviarTexto,
     enviarArquivo,
     enviarFigurinha,
@@ -1358,8 +1495,11 @@ export const useChatStore = defineStore('chat', () => {
     removerMembroGrupo,
     reagirMensagem,
     recarregarMensagensRecentes,
-    usuariosOnline,
-    estaOnline
+    presencas,
+    presentesPorConversa,
+    presencaDe,
+    estaOnline,
+    estaNaConversa
   }
 })
 

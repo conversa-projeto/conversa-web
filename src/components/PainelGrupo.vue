@@ -12,8 +12,46 @@
       </button>
     </div>
 
-    <!-- Nome e participantes -->
+    <!-- Imagem ou emoji, nome e participantes -->
     <div class="max-h-[50%] shrink-0 overflow-y-auto border-b border-surface-300 px-4 py-3">
+      <div class="mb-3 flex items-center gap-3">
+        <span class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-xl font-semibold text-surface-700">
+          <img v-if="chat.conversaAtiva?.avatar_url" :src="chat.conversaAtiva.avatar_url" alt="Imagem do grupo" class="h-full w-full object-cover" />
+          <span v-else :class="chat.conversaAtiva?.emoji ? 'text-3xl' : ''">{{ chat.conversaAtiva?.emoji || inicialNome(chat.conversaAtiva?.descricao || '', 'G') }}</span>
+        </span>
+        <div class="flex flex-wrap gap-1">
+          <button
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-white/10"
+            :disabled="alterandoAvatar"
+            @click="seletorImagem?.click()"
+          >
+            Imagem
+          </button>
+          <input ref="seletorImagem" type="file" accept="image/*" class="hidden" aria-label="Imagem do grupo" @change="escolherImagem" />
+          <button
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-white/10"
+            :disabled="alterandoAvatar"
+            @click.stop="escolhendoEmoji = !escolhendoEmoji"
+          >
+            Emoji
+          </button>
+          <button
+            v-if="chat.conversaAtiva?.avatar_url || chat.conversaAtiva?.emoji"
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium text-danger-600 hover:bg-danger-50 disabled:opacity-50 dark:text-danger-400 dark:hover:bg-white/10"
+            :disabled="alterandoAvatar"
+            @click="alterarAvatar(null)"
+          >
+            Remover
+          </button>
+          <span v-if="alterandoAvatar" class="self-center text-xs text-surface-500">Salvando...</span>
+        </div>
+      </div>
+      <!-- 320px do seletor não cabem no painel: aqui ele ocupa a largura toda -->
+      <EmojiPicker v-if="escolhendoEmoji" estatico class="mb-3 !w-full" @selecionar="(emoji) => alterarAvatar({ emoji })" @close="escolhendoEmoji = false" />
+
       <div class="flex gap-2">
         <input
           v-model.trim="nomeGrupo"
@@ -88,13 +126,14 @@
               <img v-if="membro.avatar_url" :src="membro.avatar_url" alt="" class="h-full w-full object-cover" />
               <span v-else>{{ inicialNome(membro.nome) }}</span>
             </span>
-            <span
-              v-if="chat.estaOnline(membro.usuario_id)"
-              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success-500 ring-[1.5px] ring-surface-base"
+            <IndicadorPresenca
+              :usuario-id="membro.usuario_id"
+              class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-[1.5px] ring-surface-base"
             />
           </span>
           <span class="min-w-0 flex-1 truncate text-surface-700">
             {{ membro.nome }}<span v-if="membro.usuario_id === auth.user?.id" class="text-surface-500"> (você)</span>
+            <span v-else-if="chat.estaNaConversa(membro.usuario_id, chat.conversaAtivaId)" class="text-xs text-primary-600"> · nesta conversa</span>
           </span>
           <button
             v-if="membro.usuario_id !== auth.user?.id"
@@ -131,9 +170,13 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
-import type { AnexoItem, Contato } from '../types/api'
+import { uploadAnexo } from '../services/conversaApi'
+import { TipoConteudo, type AnexoItem, type Contato } from '../types/api'
 import { inicialNome } from '../utils/formatters'
+import { redimensionarImagem } from '../utils/imageResize'
 import AnexosLista from './AnexosLista.vue'
+import IndicadorPresenca from './IndicadorPresenca.vue'
+import EmojiPicker from './EmojiPicker.vue'
 
 // Painel à direita do chat, aberto pelo avatar (ou pelo botão de membros) de
 // um grupo: nome, participantes e anexos da conversa
@@ -155,6 +198,9 @@ const renomeando = ref(false)
 const removendo = ref<number | null>(null)
 const erro = ref('')
 const sucesso = ref('')
+const seletorImagem = ref<HTMLInputElement | null>(null)
+const escolhendoEmoji = ref(false)
+const alterandoAvatar = ref(false)
 
 const contatosDisponiveis = computed(() => {
   const idsAtuais = new Set(chat.usuariosConversaAtiva.map((u: { usuario_id: number }) => u.usuario_id))
@@ -178,6 +224,7 @@ watch(() => chat.conversaAtiva?.id, () => {
   erro.value = ''
   sucesso.value = ''
   adicionandoPessoas.value = false
+  escolhendoEmoji.value = false
   if (conversa) {
     void chat.carregarUsuariosConversa(conversa.id, true)
   }
@@ -202,6 +249,37 @@ async function renomear() {
     erro.value = e instanceof Error ? e.message : 'Erro ao renomear o grupo'
   } finally {
     renomeando.value = false
+  }
+}
+
+// Imagem ou emoji no lugar da primeira letra do nome (null tira os dois)
+async function alterarAvatar(avatar: { anexoId: number } | { emoji: string } | null) {
+  if (!chat.conversaAtiva) return
+  erro.value = ''
+  sucesso.value = ''
+  escolhendoEmoji.value = false
+  alterandoAvatar.value = true
+  try {
+    await chat.alterarAvatarGrupo(chat.conversaAtiva.id, avatar)
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao alterar a imagem do grupo'
+  } finally {
+    alterandoAvatar.value = false
+  }
+}
+
+async function escolherImagem(event: Event) {
+  const campo = event.target as HTMLInputElement
+  const arquivo = campo.files?.[0]
+  campo.value = ''
+  if (!arquivo) return
+  alterandoAvatar.value = true
+  try {
+    const anexo = await uploadAnexo(TipoConteudo.Imagem, 'avatar.jpg', 'jpg', await redimensionarImagem(arquivo))
+    await alterarAvatar({ anexoId: anexo.id })
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao enviar a imagem do grupo'
+    alterandoAvatar.value = false
   }
 }
 

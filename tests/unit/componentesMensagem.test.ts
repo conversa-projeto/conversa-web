@@ -16,6 +16,7 @@ import ReferenciaRecursiva from '@/components/ReferenciaRecursiva.vue'
 import DetalheStatusMensagem from '@/components/DetalheStatusMensagem.vue'
 import PesquisaAvancada from '@/components/PesquisaAvancada.vue'
 import TranscricaoAudio from '@/components/TranscricaoAudio.vue'
+import { useRecursos } from '@/composables/useRecursos'
 import { useChatStore } from '@/stores/chat'
 import { useUploadProgress } from '@/composables/useUploadProgress'
 import { StatusTranscricao, TipoConteudo, TipoConversa, TipoMensagemReferencia, type Contato, type Conversa, type MensagemReferencia } from '@/types/api'
@@ -468,8 +469,20 @@ describe('pesquisa em todos os chats', () => {
 
 describe('transcrição de áudio', () => {
   let relogio: ReturnType<typeof relogioFalso>
-  beforeEach(() => (relogio = relogioFalso()))
+  beforeEach(async () => {
+    rota('GET', '/recursos', { transcricao: true })
+    await useRecursos().recarregar()
+    relogio = relogioFalso()
+  })
   afterEach(() => relogio.restaurar())
+
+  test('sem transcritor no servidor, não oferece transcrever; o que já foi transcrito aparece', async () => {
+    rota('GET', '/recursos', { transcricao: false })
+    await useRecursos().recarregar()
+    expect(montar(TranscricaoAudio, { props: { identificador: 'aud-1' } }).text()).toBe('')
+    expect(montar(TranscricaoAudio, { props: { identificador: 'aud-1', statusInicial: StatusTranscricao.Erro } }).find('button').exists()).toBe(false)
+    expect(montar(TranscricaoAudio, { props: { identificador: 'a', statusInicial: StatusTranscricao.Concluida, textoInicial: 'pronto' } }).text()).toBe('pronto')
+  })
 
   test('pedir a transcrição; acompanha até concluir', async () => {
     rota('PUT', '/anexo/transcricao', { status: StatusTranscricao.Processando, texto: '', erro: '' })

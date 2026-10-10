@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-1 w-0 min-w-full text-xs">
+  <div v-if="visivel" class="mt-1 w-0 min-w-full text-xs">
     <p v-if="status === StatusTranscricao.Concluida" class="whitespace-pre-wrap break-words opacity-90">
       {{ texto || '(nenhuma fala reconhecida)' }}
     </p>
@@ -11,7 +11,7 @@
       Transcrevendo...
     </span>
     <button
-      v-else
+      v-else-if="recursos.transcricao"
       type="button"
       class="underline decoration-dotted underline-offset-2 opacity-80 transition hover:opacity-100 disabled:opacity-50"
       :disabled="enviando"
@@ -24,7 +24,8 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRecursos } from '../composables/useRecursos'
 import { getTranscricao, transcreverAudio } from '../services/conversaApi'
 import { StatusTranscricao, type TranscricaoAudio } from '../types/api'
 
@@ -41,6 +42,11 @@ const texto = ref(props.textoInicial ?? '')
 const mensagemErro = ref('')
 const enviando = ref(false)
 let consulta: number | null = null
+const { recursos } = useRecursos()
+
+// Sem transcritor configurado, só aparece o que já foi transcrito (ou está em andamento)
+const visivel = computed(() =>
+  recursos.value.transcricao || status.value === StatusTranscricao.Concluida || status.value === StatusTranscricao.Processando)
 
 function pararConsulta() {
   if (consulta !== null) {

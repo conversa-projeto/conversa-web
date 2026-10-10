@@ -71,6 +71,57 @@
       </section>
 
       <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
+        <h4 class="text-sm font-semibold text-surface-800">Inteligência artificial</h4>
+        <p class="mt-1 text-xs text-surface-500">
+          Servidor no padrão da OpenAI (vLLM, Ollama ou OpenAI), usado no resumo das conversas.
+          As mensagens resumidas são enviadas a ele: prefira um servidor da sua rede.
+        </p>
+        <div class="mt-3 space-y-3">
+          <label class="block text-sm text-surface-700">
+            Endereço
+            <input v-model="form.ia_url" type="text" :class="[CAMPO, 'w-full']" placeholder="http://ollama:11434/v1" autocomplete="off" />
+            <span class="block text-xs text-surface-500">Com ou sem o /v1. Em branco desliga os recursos de IA.</span>
+          </label>
+          <label class="block text-sm text-surface-700">
+            Modelo
+            <input v-model="form.ia_modelo" type="text" :class="[CAMPO, 'w-full']" placeholder="llama3.1, qwen2.5:14b, gpt-4o-mini..." autocomplete="off" />
+          </label>
+          <label class="block text-sm text-surface-700">
+            Token
+            <span class="ml-1 text-xs" :class="tokenIaConfigurado ? 'text-success-600' : 'text-surface-500'">
+              {{ tokenIaConfigurado ? (removerTokenIa ? '(será removido)' : '(configurado)') : '(sem token)' }}
+            </span>
+            <input
+              v-model="novoTokenIa"
+              type="password"
+              :class="[CAMPO, 'w-full']"
+              :placeholder="tokenIaConfigurado ? 'Deixe em branco para manter o atual' : 'Só se o servidor pedir (Ollama não pede)'"
+              autocomplete="new-password"
+            />
+            <span class="block text-xs text-surface-500">
+              O token salvo nunca é mostrado.
+              <button v-if="tokenIaConfigurado" type="button" class="underline" @click="removerTokenIa = !removerTokenIa; novoTokenIa = ''">
+                {{ removerTokenIa ? 'Manter o token' : 'Remover o token' }}
+              </button>
+            </span>
+          </label>
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              class="rounded-xl border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-200 disabled:opacity-50"
+              :disabled="testandoIa || !form.ia_url.trim() || !form.ia_modelo.trim()"
+              @click="testarIa"
+            >
+              {{ testandoIa ? 'Testando...' : 'Testar conexão' }}
+            </button>
+            <span v-if="testeIa" class="text-xs" :class="testeIa.ok ? 'text-success-600' : 'text-danger-600'">
+              {{ testeIa.ok ? `Funcionando (${(testeIa.milissegundos / 1000).toFixed(1)} s): "${testeIa.resposta}"` : testeIa.erro }}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
         <h4 class="text-sm font-semibold text-surface-800">Armazenamento</h4>
         <p class="mt-2 text-sm text-surface-700">Bucket dos anexos: <span class="font-mono">{{ form.s3_bucket || '(vazio)' }}</span></p>
         <p class="mt-1 text-xs text-surface-500">Não muda por aqui: os anexos já enviados ficariam no bucket anterior.</p>
@@ -95,7 +146,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import * as api from '../services/conversaApi'
-import type { AlteracaoParametros, ParametrosSistema } from '../types/api'
+import { useRecursos } from '../composables/useRecursos'
+import type { AlteracaoParametros, ParametrosSistema, TesteIa } from '../types/api'
 
 const CAMPO = 'mt-1 block rounded-xl border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
 
@@ -108,8 +160,13 @@ const salvo = ref(false)
 const erro = ref('')
 
 const chaveConfigurada = computed(() => !!original.value?.fcm_private_key_configurada)
+const novoTokenIa = ref('')
+const removerTokenIa = ref(false)
+const tokenIaConfigurado = computed(() => !!original.value?.ia_token_configurado)
+const testandoIa = ref(false)
+const testeIa = ref<TesteIa | null>(null)
 
-const CAMPOS = ['fcm_project_id', 'fcm_client_email', 'turn_forcar_relay', 'transcritor_url', 'transcritor_idioma', 'gravacao_dias'] as const
+const CAMPOS = ['fcm_project_id', 'fcm_client_email', 'turn_forcar_relay', 'transcritor_url', 'transcritor_idioma', 'gravacao_dias', 'ia_url', 'ia_modelo'] as const
 
 // Só o que mudou vai para o servidor; a chave, só se foi digitada
 const alteracao = computed<AlteracaoParametros>(() => {
@@ -121,6 +178,8 @@ const alteracao = computed<AlteracaoParametros>(() => {
     }
   }
   if (novaChave.value.trim()) mudancas.fcm_private_key = novaChave.value
+  if (novoTokenIa.value.trim()) mudancas.ia_token = novoTokenIa.value
+  else if (removerTokenIa.value) mudancas.ia_token = ''
   return mudancas
 })
 
@@ -130,6 +189,26 @@ function aplicar(parametros: ParametrosSistema) {
   original.value = parametros
   form.value = { ...parametros }
   novaChave.value = ''
+  novoTokenIa.value = ''
+  removerTokenIa.value = false
+}
+
+// Testa o que está na tela, antes de salvar; token em branco usa o salvo
+async function testarIa() {
+  if (!form.value) return
+  testandoIa.value = true
+  testeIa.value = null
+  try {
+    testeIa.value = await api.testarIa({
+      url: form.value.ia_url,
+      modelo: form.value.ia_modelo,
+      ...(novoTokenIa.value.trim() ? { token: novoTokenIa.value } : {}),
+    })
+  } catch (e) {
+    testeIa.value = { ok: false, resposta: '', erro: e instanceof Error ? e.message : 'Erro ao testar', milissegundos: 0 }
+  } finally {
+    testandoIa.value = false
+  }
 }
 
 onMounted(async () => {
@@ -142,6 +221,8 @@ onMounted(async () => {
   }
 })
 
+const { recarregar: recarregarRecursos } = useRecursos()
+
 async function salvar() {
   if (!alterado.value) return
   salvando.value = true
@@ -150,6 +231,7 @@ async function salvar() {
   try {
     aplicar(await api.alterarParametros(alteracao.value))
     salvo.value = true
+    void recarregarRecursos()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao salvar as configurações'
   } finally {

@@ -40,17 +40,18 @@
           </div>
         </div>
         <div class="flex flex-1 flex-col overflow-auto bg-surface-200">
-          <template v-for="{ chave, conversa } in itensLista" :key="chave">
+          <template v-for="{ chave, conversa, secao } in itensLista" :key="chave">
           <button
             v-if="!conversa"
             type="button"
-            class="mt-auto flex w-full shrink-0 items-center gap-1.5 border-y border-surface-300 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-surface-500 transition hover:bg-surface-300"
-            @click="mostrarArquivadas = !mostrarArquivadas"
+            class="flex w-full shrink-0 items-center gap-1.5 border-b border-surface-300 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-surface-500 transition hover:bg-surface-300"
+            :class="secao === primeiraSecao ? 'mt-auto border-t' : ''"
+            @click="secoesAbertas[secao!] = !secoesAbertas[secao!]"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transition-transform" :class="mostrarArquivadas ? 'rotate-90' : ''">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transition-transform" :class="secoesAbertas[secao!] ? 'rotate-90' : ''">
               <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
             </svg>
-            Arquivadas ({{ totalArquivadas }})
+            {{ TITULO_SECAO[secao!] }} ({{ totaisSecao[secao!] }})
           </button>
           <div
             v-else
@@ -84,15 +85,16 @@
                   @click.stop="abrirUsuarioInfo(perfilConversa(conversa), conversa.id)"
                 >
                   <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
-                  <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
+                  <span v-if="!avatarConversa(conversa)" :class="conversa.emoji ? 'text-lg' : ''">{{ inicialConversa(conversa) }}</span>
                 </button>
                 <div v-else class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
                   <img v-if="avatarConversa(conversa)" :src="avatarConversa(conversa) || ''" alt="Avatar" class="h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
-                  <span v-if="!avatarConversa(conversa)">{{ inicialConversa(conversa) }}</span>
+                  <span v-if="!avatarConversa(conversa)" :class="conversa.emoji ? 'text-lg' : ''">{{ inicialConversa(conversa) }}</span>
                 </div>
-                <span
-                  v-if="conversa.destinatario_id && chat.estaOnline(conversa.destinatario_id)"
-                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success-500 ring-[1.5px] ring-surface-base"
+                <IndicadorPresenca
+                  v-if="conversa.destinatario_id"
+                  :usuario-id="conversa.destinatario_id"
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-surface-base"
                 />
               </div>
               <div class="min-w-0 flex-1">
@@ -179,9 +181,9 @@
                   {{ inicialNome(contato.nome || '', 'C') }}
                   <img v-if="avatarContato(contato)" :src="avatarContato(contato)" alt="Avatar" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />
                 </div>
-                <span
-                  v-if="chat.estaOnline(contato.id)"
-                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success-500 ring-[1.5px] ring-surface-base"
+                <IndicadorPresenca
+                  :usuario-id="contato.id"
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-surface-base"
                 />
               </div>
               <span class="truncate text-sm font-medium text-surface-800">{{ contato.nome }}</span>
@@ -234,6 +236,7 @@ import { criarUsuarioPopup, resolverUsuarioDaConversa } from '../utils/userProfi
 import type { UsuarioPopup } from '../utils/userProfile'
 
 import UserInfoModal from './UserInfoModal.vue'
+import IndicadorPresenca from './IndicadorPresenca.vue'
 import PesquisaAvancada from './PesquisaAvancada.vue'
 
 defineProps<{
@@ -280,12 +283,28 @@ const conversasFiltradas = computed(() => {
   return lista.sort((a, b) => (b.mensagem_id ?? 0) - (a.mensagem_id ?? 0))
 })
 
-const mostrarArquivadas = ref(false)
-const totalArquivadas = computed(() => chat.conversas.filter((c) => c.arquivada_em).length)
+type Secao = 'chamadas' | 'arquivadas'
+const TITULO_SECAO: Record<Secao, string> = { chamadas: 'Chamadas', arquivadas: 'Arquivadas' }
+const secoesAbertas = ref<Record<Secao, boolean>>({ chamadas: false, arquivadas: false })
+
+// Chat de chamada vai para a seção dele, a não ser que esteja fixado ou arquivado
+const secaoDaConversa = (c: Conversa): Secao | null =>
+  c.arquivada_em ? 'arquivadas' : c.chamada && c.fixada_ordem == null ? 'chamadas' : null
+
+const totaisSecao = computed(() => {
+  const totais: Record<Secao, number> = { chamadas: 0, arquivadas: 0 }
+  for (const c of chat.conversas) {
+    const secao = secaoDaConversa(c)
+    if (secao) totais[secao]++
+  }
+  return totais
+})
+
+const primeiraSecao = computed(() => itensLista.value.find((i) => i.secao)?.secao ?? null)
 
 // Fixadas primeiro, na ordem escolhida; depois as demais pela mensagem mais
-// recente. Sem pesquisa, as arquivadas ficam numa seção recolhível no fim
-// (item sem conversa é o cabeçalho dela); pesquisando, aparecem junto.
+// recente. Sem pesquisa, os chats de chamada e as arquivadas ficam em seções
+// recolhíveis no fim (item sem conversa é o cabeçalho); pesquisando, aparecem junto.
 const itensLista = computed(() => {
   const porRecente = (a: Conversa, b: Conversa) => (b.mensagem_id ?? 0) - (a.mensagem_id ?? 0)
   const fixada = (c: Conversa) => c.fixada_ordem != null && !c.arquivada_em
@@ -293,14 +312,15 @@ const itensLista = computed(() => {
     ...lista.filter(fixada).sort((a, b) => a.fixada_ordem! - b.fixada_ordem!),
     ...lista.filter((c) => !fixada(c)).sort(porRecente),
   ]
-  const item = (conversa: Conversa): { chave: string; conversa: Conversa | null } => ({ chave: String(conversa.id), conversa })
+  const item = (conversa: Conversa): { chave: string; conversa: Conversa | null; secao?: Secao } => ({ chave: String(conversa.id), conversa })
 
   if (filtroConversa.value.trim()) return ordenar(conversasFiltradas.value).map(item)
-  const itens = ordenar(conversasFiltradas.value.filter((c) => !c.arquivada_em)).map(item)
-  const arquivadas = conversasFiltradas.value.filter((c) => c.arquivada_em).sort(porRecente)
-  if (arquivadas.length) {
-    itens.push({ chave: 'arquivadas', conversa: null })
-    if (mostrarArquivadas.value) itens.push(...arquivadas.map(item))
+  const itens = ordenar(conversasFiltradas.value.filter((c) => !secaoDaConversa(c))).map(item)
+  for (const secao of ['chamadas', 'arquivadas'] as const) {
+    const daSecao = conversasFiltradas.value.filter((c) => secaoDaConversa(c) === secao).sort(porRecente)
+    if (!daSecao.length) continue
+    itens.push({ chave: secao, conversa: null, secao })
+    if (secoesAbertas.value[secao]) itens.push(...daSecao.map(item))
   }
   return itens
 })
@@ -436,7 +456,7 @@ function tituloConversa(conversa: Conversa) {
 
 function inicialConversa(conversa: Conversa) {
   const nome = tituloConversa(conversa).trim()
-  return inicialNome(nome, 'C')
+  return conversa.emoji || inicialNome(nome, 'C')
 }
 
 function avatarConversa(conversa: Conversa) {

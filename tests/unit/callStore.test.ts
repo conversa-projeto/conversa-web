@@ -6,7 +6,7 @@ import { useConfigChamada } from '@/composables/useConfigChamada'
 import { StatusUsuarioChamada, TipoChamada } from '@/types/api'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
 import { relogioFalso } from './relogioFalso'
-import { aparelhos, audiosTocando, conexoes, instalarWebrtcFalso, pedidosMidia, TrilhaFalsa } from './webrtcFalso'
+import { aparelhos, audiosTocando, ConexaoFalsa, conexoes, instalarWebrtcFalso, pedidosMidia, TrilhaFalsa } from './webrtcFalso'
 
 const EU = 7
 const ANA = 2
@@ -375,6 +375,38 @@ describe('vídeo ligado no meio de uma chamada de áudio', () => {
     expect(pedidosDe('POST', '/chamada/video')).toHaveLength(1)
   })
 
+  test('eu ligo o vídeo sem cortar o áudio: o novo entra antes de o antigo fechar, mostrando a etapa', async () => {
+    const call = await emChamadaDeAudio()
+    rota('POST', '/chamada/video', {})
+    const publicacaoAntiga = conexoes.find((c) => c.transceivers.some((t) => t.direction === 'sendrecv'))!
+    const assinaturaAntiga = call.peers.get(ANA)!.rxPc as unknown as ConexaoFalsa
+    const visto: Record<string, unknown> = {}
+    rota('POST', `/webrtc/call-1-u-${EU}/whip`, () => {
+      visto.whip = { etapa: call.etapaVideo, antigaFechada: publicacaoAntiga.fechada }
+      return new Response('v=0\r\nm=audio\r\nm=video')
+    })
+    rota('POST', `/webrtc/call-1-u-${ANA}/whep`, () => {
+      visto.whep = { etapa: call.etapaVideo, antigaFechada: assinaturaAntiga.fechada }
+      return new Response('v=0\r\nm=audio\r\nm=video')
+    })
+    const ligando = call.upgradeParaVideo()
+    expect(call.etapaVideo).toBe('camera')
+    await relogio.rodar(ligando)
+    expect(visto).toEqual({ whip: { etapa: 'enviando', antigaFechada: false }, whep: { etapa: 'recebendo', antigaFechada: false } })
+    expect(publicacaoAntiga.fechada).toBe(true)
+    expect(assinaturaAntiga.fechada).toBe(true)
+    expect(call.peers.get(ANA)!.stream!.getVideoTracks()).toHaveLength(1)
+    expect(call.etapaVideo).toBeNull()
+  })
+
+  test('aviso de vídeo numa chamada de áudio já assina de novo quem ligou, antes da resposta', async () => {
+    const call = await emChamadaDeAudio()
+    const antes = call.peers.get(ANA)!.rxPc
+    await relogio.rodar(call.tratarEventoChamada({ tipo: 56, chamada_id: 1, usuario_id: ANA }))
+    expect(call.videoAtivadoPor).toEqual({ usuarioId: ANA, usuarioNome: 'Ana' })
+    expect(call.peers.get(ANA)!.rxPc).not.toBe(antes)
+  })
+
   test('já em vídeo, o aviso só refaz a assinatura de quem republicou', async () => {
     mediamtx()
     const call = await receber(TipoChamada.Video)
@@ -467,14 +499,21 @@ describe('compartilhar a tela', () => {
     mediamtx()
     const call = await receber(TipoChamada.Video)
     await atender(call)
+    const antes = call.streamLocal
     await call.compartilharTela()
     expect(call.compartilhandoTela).toBe(true)
     const publicacao = conexoes.find((c) => c.transceivers.some((t) => t.direction === 'sendrecv'))!
     const video = publicacao.transceivers.find((t) => t.receiver.track.kind === 'video')!
     expect((video.sender.track as TrilhaFalsa).label).toBe('tela')
+    // O tile local vê a tela num stream novo (no mesmo, o <video> seguia na câmera)
+    expect(call.streamLocal).not.toBe(antes)
+    expect(call.streamLocal!.getTracks().map((t) => t.label)).toEqual(['microfone', 'tela'])
+    const compartilhando = call.streamLocal
     await call.pararCompartilhamento()
     expect(call.compartilhandoTela).toBe(false)
     expect((video.sender.track as TrilhaFalsa).label).toBe('camera')
+    expect(call.streamLocal).not.toBe(compartilhando)
+    expect(call.streamLocal!.getTracks().map((t) => t.label)).toEqual(['microfone', 'camera'])
   })
 
   test('com o som do computador, mistura com o microfone numa trilha só', async () => {
@@ -536,6 +575,14 @@ describe('ponteiro na tela compartilhada', () => {
     await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: false } })
     expect(call.telasRemotas.size).toBe(0)
     expect(call.ponteiros.size).toBe(0)
+  })
+
+  test('aviso de participantes recarrega a lista da chamada', async () => {
+    const { call } = await emChamada()
+    rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou, [[CARLA, 'Carla', StatusUsuarioChamada.Pendente]]))
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'participantes' } })
+    await aguardar(5)
+    expect(call.participantesAguardando.map((u) => u.usuario_nome)).toEqual(['Carla'])
   })
 
   test('ponteiro parado some sozinho; sinal de outra chamada é ignorado', async () => {

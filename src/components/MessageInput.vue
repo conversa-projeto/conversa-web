@@ -43,6 +43,17 @@
         </button>
       </div>
 
+      <!-- A próxima mensagem pede confirmação de leitura -->
+      <div v-if="chat.pedirConfirmacao" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+        <span class="min-w-0 flex-1 text-xs text-surface-700">A mensagem vai pedir confirmação de leitura</span>
+        <button class="shrink-0 text-surface-400 hover:text-surface-600" title="Não pedir confirmação" @click="chat.pedirConfirmacao = false">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+          </svg>
+        </button>
+      </div>
+
       <!-- Composer bar -->
       <div class="relative flex items-end gap-2">
         <!-- Linha de digitando/gravando: sempre encostada na borda de cima do campo,
@@ -73,6 +84,7 @@
               @arquivo="abrirFilePicker()"
               @codigo="mostrarAnexo = false; mostrarCodigo = true"
               @votacao="mostrarAnexo = false; mostrarEnquete = true"
+              @confirmacao="mostrarAnexo = false; chat.pedirConfirmacao = true"
               @close="mostrarAnexo = false"
             />
           </div>

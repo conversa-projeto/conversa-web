@@ -153,6 +153,40 @@ describe('status, agendamento e reações', () => {
   })
 })
 
+describe('confirmação de leitura', () => {
+  const confirmacao = (extras = {}) => ({ total: 2, confirmou: false, usuarios: [], ...extras })
+
+  test('quem recebe vê a caixa; marcar pede a confirmação, sem marcar antes do servidor', async () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao() }))
+    const caixa = tela.find('input[type="checkbox"]')
+    expect(tela.text()).toContain('Confirmar leitura')
+    await caixa.setValue(true)
+    expect(tela.emitted('confirmar-leitura')![0]![0]).toMatchObject({ id: 9 })
+    expect((caixa.element as HTMLInputElement).checked).toBe(false)
+  })
+
+  test('já confirmada fica marcada e travada, com quem confirmou', () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao({ confirmou: true, usuarios: [{ usuario_id: 7, nome: 'Eu', confirmada_em: new Date() }] }) }))
+    const caixa = tela.find('input[type="checkbox"]').element as HTMLInputElement
+    expect(caixa.checked).toBe(true)
+    expect(caixa.disabled).toBe(true)
+    expect(tela.text()).toContain('Leitura confirmada')
+  })
+
+  test('quem enviou vê quantos confirmaram, sem a caixa', () => {
+    const aguardando = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao() }), { isOwn: true })
+    expect(aguardando.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(aguardando.text()).toContain('Aguardando confirmação')
+    const uma = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao({ usuarios: [{ usuario_id: 2, nome: 'Bruno', confirmada_em: new Date() }] }) }), { isOwn: true })
+    expect(uma.text()).toContain('Confirmada por 1 de 2')
+    expect(uma.text()).toContain('Bruno')
+  })
+
+  test('mensagem comum não tem confirmação', () => {
+    expect(bolha(mensagem({ id: 9, conteudos: [texto('x')] })).text()).not.toContain('Confirmar leitura')
+  })
+})
+
 describe('menu de contexto', () => {
   const contextmenu = (tela: VueWrapper, extras: MouseEventInit = {}) =>
     tela.find('[class~="group/bubble"]').element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 300, clientY: 200, ...extras }))

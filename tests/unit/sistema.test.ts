@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import ProfileSettingsModal from '@/components/ProfileSettingsModal.vue'
 import ConfiguracaoSistema from '@/components/ConfiguracaoSistema.vue'
 import ConfiguracaoAcessos from '@/components/ConfiguracaoAcessos.vue'
+import ConfiguracaoPrivacidade from '@/components/ConfiguracaoPrivacidade.vue'
 import { useAuthStore } from '@/stores/auth'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
 
@@ -24,6 +25,7 @@ afterEach(() => {
 const parametrosApi = (extras: Record<string, unknown> = {}) => ({
   fcm_project_id: 'projeto', fcm_client_email: 'conta@projeto.iam', fcm_private_key_configurada: true,
   turn_forcar_relay: false, transcritor_url: '', transcritor_idioma: 'pt', gravacao_dias: 90, s3_bucket: 'chat',
+  ia_url: '', ia_modelo: '', ia_token_configurado: false,
   ...extras,
 })
 
@@ -118,6 +120,40 @@ describe('tela Sistema', () => {
     expect(tela!.text()).not.toContain('Configurações salvas.')
   })
 
+  test('IA: endereço e modelo salvam; o token só vai se digitado, ou vazio para remover', async () => {
+    rota('PATCH', '/parametros', (pedido: { corpo: Record<string, unknown> }) => parametrosApi({ ...pedido.corpo, ia_token_configurado: true }))
+    await abrir()
+    const campo = (placeholder: string) => tela!.find(`input[placeholder^="${placeholder}"]`)
+    await campo('http://ollama').setValue('http://ollama:11434/v1')
+    await campo('llama3.1').setValue('llama3.1')
+    await tela!.find('input[type="password"]').setValue('segredo')
+    await salvar()
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/parametros')[0]!.corpo).toEqual({ ia_url: 'http://ollama:11434/v1', ia_modelo: 'llama3.1', ia_token: 'segredo' })
+    expect((tela!.find('input[type="password"]').element as HTMLInputElement).value).toBe('')
+    expect(tela!.text()).toContain('(configurado)')
+
+    await tela!.findAll('button').find((b) => b.text() === 'Remover o token')!.trigger('click')
+    expect(tela!.text()).toContain('(será removido)')
+    await salvar()
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/parametros')[1]!.corpo).toEqual({ ia_token: '' })
+  })
+
+  test('IA: testar usa o que está na tela, antes de salvar, e mostra o resultado', async () => {
+    rota('POST', '/parametros/ia/testar', { ok: true, resposta: 'ok', erro: '', milissegundos: 1234 })
+    await abrir(parametrosApi({ ia_url: 'http://ollama:11434', ia_modelo: 'llama3.1' }))
+    const testar = () => tela!.findAll('button').find((b) => b.text().startsWith('Testar'))!
+    await testar().trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('POST', '/parametros/ia/testar')[0]!.corpo).toEqual({ url: 'http://ollama:11434', modelo: 'llama3.1' })
+    expect(tela!.text()).toContain('Funcionando (1.2 s): "ok"')
+    rota('POST', '/parametros/ia/testar', { ok: false, resposta: '', erro: 'O servidor de IA respondeu 401', milissegundos: 10 })
+    await testar().trigger('click')
+    await aguardar(10)
+    expect(tela!.text()).toContain('O servidor de IA respondeu 401')
+  })
+
   test('sem permissão, mostra o motivo', async () => {
     rota('GET', '/parametros', erro(403, 'Acesso negado!'))
     tela = mount(ConfiguracaoSistema, { attachTo: document.body })
@@ -191,5 +227,32 @@ describe('tela Acessos', () => {
     await caixa('Sistema para Eu Mesmo').setValue(false)
     await aguardar(10)
     expect(useAuthStore().permissoes).toEqual(['permissoes'])
+  })
+})
+
+describe('privacidade', () => {
+  const caixa = (titulo: string) => tela!.findAll('label').find((l) => l.text().includes(titulo))!.find('input')
+
+  test('carrega, salva cada opção na hora; aparecendo offline as outras ficam travadas', async () => {
+    rota('GET', '/usuario/privacidade', { mostrar_visto_em: true, mostrar_na_conversa: false, aparecer_offline: false })
+    rota('PATCH', '/usuario', {})
+    tela = mount(ConfiguracaoPrivacidade, { attachTo: document.body })
+    await flushPromises()
+    expect((caixa('Mostrar quando estou na conversa').element as HTMLInputElement).checked).toBe(false)
+    await caixa('Aparecer offline').setValue(true)
+    await aguardar(5)
+    expect(pedidosDe('PATCH', '/usuario')[0]!.corpo).toEqual({ id: EU, aparecer_offline: true })
+    expect(caixa('Mostrar o visto por último').attributes('disabled')).toBeDefined()
+  })
+
+  test('erro ao salvar volta a opção e avisa', async () => {
+    rota('GET', '/usuario/privacidade', { mostrar_visto_em: true, mostrar_na_conversa: true, aparecer_offline: false })
+    rota('PATCH', '/usuario', erro(500, 'Falhou'))
+    tela = mount(ConfiguracaoPrivacidade, { attachTo: document.body })
+    await flushPromises()
+    await caixa('Mostrar o visto por último').setValue(false)
+    await aguardar(5)
+    expect(tela.text()).toContain('Falhou')
+    expect((caixa('Mostrar o visto por último').element as HTMLInputElement).checked).toBe(true)
   })
 })

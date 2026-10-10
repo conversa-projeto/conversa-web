@@ -128,6 +128,35 @@ describe('enviar', () => {
     expect(pedidos.find((p) => p.metodo === 'PUT')!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'olá' }] })
   })
 
+  test('pedido de confirmação vai só na próxima mensagem; trocar de conversa desfaz', async () => {
+    rota('PUT', '/mensagem', { id: 97 })
+    rota('GET', '/conversas', [conversaApi(1)])
+    const chat = novaStore()
+    chat.conversaAtivaId = 1
+    chat.pedirConfirmacao = true
+    await chat.enviarTexto('leiam')
+    expect(pedidos.filter((p) => p.metodo === 'PUT')[0]!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'leiam' }], pede_confirmacao: true })
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toEqual({ total: 0, confirmou: false, usuarios: [] })
+    expect(chat.pedirConfirmacao).toBe(false)
+    await chat.enviarTexto('outra')
+    expect(pedidos.filter((p) => p.metodo === 'PUT')[1]!.corpo).not.toHaveProperty('pede_confirmacao')
+
+    chat.pedirConfirmacao = true
+    chat.conversaAtivaId = 2
+    await aguardar()
+    expect(chat.pedirConfirmacao).toBe(false)
+  })
+
+  test('confirmar a leitura marca a mensagem com quem confirmou', async () => {
+    rota('POST', '/mensagem/confirmar', { mensagem_id: 30 })
+    const chat = novaStore()
+    chat.definirMensagens(1, [mensagem({ id: 30, confirmacao: { total: 2, confirmou: false, usuarios: [] } })])
+    chat.conversaAtivaId = 1
+    await chat.confirmarLeitura(chat.mensagensAtivas[0]!)
+    expect(pedidos.find((p) => p.metodo === 'POST')!.corpo).toEqual({ mensagem_id: 30 })
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toMatchObject({ confirmou: true, usuarios: [{ usuario_id: EU, nome: 'Eu' }] })
+  })
+
   test('figurinha vai sozinha, com o identificador, e aparece na hora', async () => {
     rota('PUT', '/mensagem', { id: 98 })
     rota('GET', '/conversas', [conversaApi(1)])
@@ -457,7 +486,8 @@ describe('tempo real (WebSocket)', () => {
   async function conectado() {
     rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Bruno' }])
     rota('GET', '/conversas', [conversaApi(1, { destinatario_id: 2 })])
-    rota('GET', '/contatos/online', [2])
+    rota('GET', '/contatos/presenca', [{ usuario_id: 2, estado: 'ativo', visto_em: null }])
+    rota('GET', '/conversa/presentes', [])
     const chat = novaStore()
     await chat.inicializar()
     const socket = SocketFalso.ultimo()
@@ -469,9 +499,45 @@ describe('tempo real (WebSocket)', () => {
   test('conecta, faz login pelo socket e carrega quem está online', async () => {
     const { chat, socket } = await conectado()
     expect(socket.url).toBe('wss://localhost/ws/')
-    expect(socket.enviados).toEqual([{ tipo: 1, token: 'token' }])
+    expect(socket.enviados).toEqual([{ tipo: 1, token: 'token' }, { tipo: 63, ativo: true, conversa_id: null }])
     expect(chat.conectadoTempoReal).toBe(true)
     expect(chat.estaOnline(2)).toBe(true)
+  })
+
+  test('avisa a presença da aba: conversa aberta, aba escondida e 5 minutos parado', async () => {
+    const { chat, socket } = await conectado()
+    rota('GET', '/conversa/presentes', [2])
+    chat.conversaAtivaId = 1
+    await aguardar()
+    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: true, conversa_id: 1 })
+    expect(pedidosDe('GET', '/conversa/presentes').at(-1)!.consulta).toEqual({ conversa: '1' })
+    expect(chat.estaNaConversa(2, 1)).toBe(true)
+
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: false, conversa_id: null })
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: true, conversa_id: 1 })
+
+    const quantos = socket.enviados.length
+    relogio.avancar(5 * 60 * 1000)
+    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: false, conversa_id: null })
+    window.dispatchEvent(new Event('keydown'))
+    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: true, conversa_id: 1 })
+    expect(socket.enviados).toHaveLength(quantos + 2)
+  })
+
+  test('estado, visto por último e quem está na conversa pelos eventos', async () => {
+    const { chat, socket } = await conectado()
+    socket.receber({ tipo: 60, usuario_id: 2, online: true, estado: 'ausente', visto_em: '2026-10-09T12:00:00.000Z' })
+    expect(chat.presencaDe(2)).toEqual({ estado: 'ausente', visto_em: new Date('2026-10-09T12:00:00.000Z') })
+    socket.receber({ tipo: 60, usuario_id: 2, online: false, estado: 'offline', visto_em: null })
+    expect(chat.presencaDe(2)).toEqual({ estado: 'offline', visto_em: new Date('2026-10-09T12:00:00.000Z') })
+    socket.receber({ tipo: 63, conversa_id: 1, usuario_id: 2, aberta: true })
+    expect(chat.estaNaConversa(2, 1)).toBe(true)
+    socket.receber({ tipo: 63, conversa_id: 1, usuario_id: 2, aberta: false })
+    expect(chat.estaNaConversa(2, 1)).toBe(false)
   })
 
   test('aviso de atividade nova atualiza o contador; ao conectar também lê', async () => {
@@ -497,7 +563,7 @@ describe('tempo real (WebSocket)', () => {
     const { chat, socket } = await conectado()
     socket.cair()
     expect(chat.conectadoTempoReal).toBe(false)
-    rota('GET', '/contatos/online', [])
+    rota('GET', '/contatos/presenca', [{ usuario_id: 2, estado: 'offline', visto_em: null }])
     relogio.avancar(1000)
     SocketFalso.ultimo().abrir()
     await aguardar()
@@ -549,6 +615,17 @@ describe('tempo real (WebSocket)', () => {
     expect(simples(chat.mensagensAtivas[0]!.reacoes)).toMatchObject([{ emoji: '👍', quantidade: 1, reagiu: false, usuarios: [{ nome: 'Bruno' }] }])
     socket.receber({ tipo: 7, conversa_id: 1, mensagem_id: 30, usuario_id: 2, emoji: '👍', acao: 'remove' })
     expect(chat.mensagensAtivas[0]!.reacoes).toEqual([])
+  })
+
+  test('confirmação de leitura de outra pessoa entra na mensagem uma vez', async () => {
+    const { chat, socket } = await conectado()
+    chat.definirMensagens(1, [mensagem({ id: 30, confirmacao: { total: 2, confirmou: false, usuarios: [] } })])
+    chat.conversaAtivaId = 1
+    const evento = { tipo: 8, conversa_id: 1, mensagem_id: 30, usuario_id: 2, nome: 'Bruno Silva', confirmada_em: '2026-10-09T12:00:00.000Z' }
+    socket.receber(evento)
+    socket.receber(evento)
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toMatchObject({ confirmou: false, usuarios: [{ usuario_id: 2, nome: 'Bruno Silva' }] })
+    expect(chat.mensagensAtivas[0]!.confirmacao!.usuarios).toHaveLength(1)
   })
 
   test('status de mensagens atualiza as que estão na tela', async () => {
@@ -614,7 +691,7 @@ describe('nova mensagem', () => {
   test('recarrega a conversa aberta e para o "digitando" de quem enviou', async () => {
     rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Bruno' }])
     rota('GET', '/conversas', [conversaApi(1)])
-    rota('GET', '/contatos/online', [])
+    rota('GET', '/contatos/presenca', [])
     const chat = novaStore()
     await chat.inicializar()
     const socket = SocketFalso.ultimo()

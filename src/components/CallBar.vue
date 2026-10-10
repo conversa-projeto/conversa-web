@@ -10,7 +10,11 @@
     <span v-if="call.estado === 'ativa'" class="font-mono text-[10px] text-success-400">
       {{ call.duracaoChamadaFormatada }}
     </span>
-    <span class="whitespace-nowrap rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-chamada-300">
+    <span v-if="call.etapaVideo" role="status" class="flex items-center gap-1 whitespace-nowrap rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-chamada-300">
+      <svg class="h-3 w-3 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+      {{ TEXTO_ETAPA_VIDEO[call.etapaVideo] }}
+    </span>
+    <span v-else class="whitespace-nowrap rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-chamada-300">
       {{ call.tipoChamada === 2 ? 'Vídeo' : 'Áudio' }}
     </span>
     <span class="whitespace-nowrap rounded-full bg-chamada-700 px-2 py-0.5 text-[10px] text-success-400">
@@ -130,7 +134,7 @@
 
 <script setup lang="ts">
 import { useAuthStore } from '../stores/auth'
-import { useCallStore } from '../stores/call'
+import { TEXTO_ETAPA_VIDEO, useCallStore } from '../stores/call'
 import { useChatStore } from '../stores/chat'
 import { TipoConversa } from '../types/api'
 import { iniciaisUsuario } from '../utils/formatters'
