@@ -211,12 +211,14 @@ describe('prazo e encerramento', () => {
 })
 
 describe('criar votação', () => {
-  test('o "+" só oferece Votação em grupo', () => {
+  test('o "+" só oferece Votação e Postagem em grupo', () => {
     tela = mount(AnexoPopup, { attachTo: document.body })
     expect(tela.text()).not.toContain('Votação')
+    expect(tela.text()).not.toContain('Postagem')
     tela.unmount()
     tela = mount(AnexoPopup, { props: { comVotacao: true }, attachTo: document.body })
     expect(tela.text()).toContain('Votação')
+    expect(tela.text()).toContain('Postagem')
   })
 
   test('precisa de pergunta e duas opções; cria e recarrega a conversa', async () => {

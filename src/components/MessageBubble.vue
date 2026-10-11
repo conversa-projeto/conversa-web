@@ -263,6 +263,7 @@ import BolhaFigurinha from './BolhaFigurinha.vue'
 import BolhaEnquete from './BolhaEnquete.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
 import BolhaChamada from './BolhaChamada.vue'
+import BolhaPostagem from './BolhaPostagem.vue'
 import BolhaExcluida from './BolhaExcluida.vue'
 import DetalheStatusMensagem from './DetalheStatusMensagem.vue'
 import { copiarImagem, type AlvoCopia } from '../utils/copiarImagem'
@@ -422,6 +423,7 @@ const tipoExibicao = computed(() => classificarMensagem(props.mensagem))
 const componenteMap = {
   [TipoExibicaoMensagem.Excluida]: BolhaExcluida,
   [TipoExibicaoMensagem.Chamada]: BolhaChamada,
+  [TipoExibicaoMensagem.Postagem]: BolhaPostagem,
   [TipoExibicaoMensagem.Imagem]: BolhaImagem,
   [TipoExibicaoMensagem.Figurinha]: BolhaFigurinha,
   [TipoExibicaoMensagem.Enquete]: BolhaEnquete,

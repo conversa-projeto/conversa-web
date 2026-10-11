@@ -1,6 +1,8 @@
 // Figurinhas animadas (Lottie). As animações ficam em public/figurinhas,
-// geradas por scripts/gerar-figurinhas.ts; a mensagem leva só o identificador
-// pacote/nome.
+// baixadas por scripts/baixar-figurinhas-noto.ts; a mensagem leva só o
+// identificador pacote/nome.
+import { PACOTE_NOTO } from './figurinhasNoto'
+
 export interface Figurinha {
   id: string
   nome: string
@@ -9,53 +11,13 @@ export interface Figurinha {
 export interface PacoteFigurinhas {
   id: string
   nome: string
+  /** Pacote de terceiros: o crédito que a licença pede, mostrado no seletor */
+  credito?: { texto: string; link: string }
   figurinhas: Figurinha[]
 }
 
-export const PACOTES_FIGURINHAS: PacoteFigurinhas[] = [
-  {
-    id: 'basico',
-    nome: 'Básico',
-    figurinhas: [
-      { id: 'basico/coracao', nome: 'Coração' },
-      { id: 'basico/sorriso', nome: 'Sorriso' },
-      { id: 'basico/risada', nome: 'Risada' },
-      { id: 'basico/estrela', nome: 'Estrela' },
-      { id: 'basico/feito', nome: 'Feito' },
-      { id: 'basico/festa', nome: 'Festa' },
-      { id: 'basico/sono', nome: 'Sono' },
-      { id: 'basico/pontinhos', nome: 'Pontinhos' },
-    ],
-  },
-  {
-    id: 'rostos',
-    nome: 'Rostos',
-    figurinhas: [
-      { id: 'rostos/piscadinha', nome: 'Piscadinha' },
-      { id: 'rostos/apaixonado', nome: 'Apaixonado' },
-      { id: 'rostos/beijo', nome: 'Beijo' },
-      { id: 'rostos/legal', nome: 'Legal' },
-      { id: 'rostos/surpreso', nome: 'Surpreso' },
-      { id: 'rostos/triste', nome: 'Triste' },
-      { id: 'rostos/bravo', nome: 'Bravo' },
-    ],
-  },
-  {
-    id: 'coisas',
-    nome: 'Coisas',
-    figurinhas: [
-      { id: 'coisas/joinha', nome: 'Joinha' },
-      { id: 'coisas/fogo', nome: 'Fogo' },
-      { id: 'coisas/coracao-partido', nome: 'Coração partido' },
-      { id: 'coisas/presente', nome: 'Presente' },
-      { id: 'coisas/bolo', nome: 'Bolo' },
-      { id: 'coisas/balao', nome: 'Balão' },
-      { id: 'coisas/cafe', nome: 'Café' },
-      { id: 'coisas/sol', nome: 'Sol' },
-      { id: 'coisas/chuva', nome: 'Chuva' },
-    ],
-  },
-]
+// Emojis animados do Google, baixados por scripts/baixar-figurinhas-noto.ts
+export const PACOTES_FIGURINHAS: PacoteFigurinhas[] = [PACOTE_NOTO]
 
 export function urlFigurinha(id: string) {
   return `/figurinhas/${id}.json`

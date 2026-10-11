@@ -10,6 +10,7 @@ import BolhaTextoCurto from '@/components/BolhaTextoCurto.vue'
 import BolhaPadrao from '@/components/BolhaPadrao.vue'
 import BolhaChamada from '@/components/BolhaChamada.vue'
 import BolhaExcluida from '@/components/BolhaExcluida.vue'
+import BolhaPostagem from '@/components/BolhaPostagem.vue'
 import MensagemAcoes from '@/components/MensagemAcoes.vue'
 import { TipoConteudo, TipoMensagemReferencia, type Mensagem } from '@/types/api'
 import { comReferencia, conteudo, mensagem, texto } from './fabrica'
@@ -41,6 +42,7 @@ describe('despachante de bolhas', () => {
     ['texto curto', mensagem({ conteudos: [texto('oi')] }), BolhaTextoCurto],
     ['texto longo', mensagem({ conteudos: [texto('uma linha\noutra linha')] }), BolhaPadrao],
     ['chamada', mensagem({ conteudos: [conteudo(TipoConteudo.Chamada, JSON.stringify({ chamada_id: 1, tipo: 1, status: 4, duracao: 65, participantes: [] }))] }), BolhaChamada],
+    ['postagem', mensagem({ conteudos: [texto('oi')], postagem: { titulo: null, respostas: 0, nao_lidas: 0, ultimas: [] } }), BolhaPostagem],
   ]
 
   test.each(casos)('%s usa a bolha certa, e só ela', (_nome, m, esperado) => {
@@ -152,6 +154,54 @@ describe('status, agendamento e reações', () => {
     expect(tela.findAll('button').some((b) => b.text().startsWith('🙏'))).toBe(true)
     await extra.trigger('click')
     expect(tela.emitted('reagir')).toEqual([[9, '🎉']])
+  })
+})
+
+describe('postagem', () => {
+  const resposta = (id: number, autor: string, frase: string, remetente_id = 2) => mensagem({ id, remetente_id, remetente: autor, conteudos: [texto(frase)] })
+  const postagem = (extras: Partial<NonNullable<Mensagem['postagem']>> = {}) => mensagem({
+    id: 30,
+    conversa_id: 5,
+    remetente: 'Ana',
+    conteudos: [texto('Reunião amanhã às 9h')],
+    postagem: { titulo: 'Aviso', respostas: 3, nao_lidas: 0, ultimas: [resposta(41, 'Bruno', 'Eu também'), resposta(42, 'Eu', 'Vou atrasar', 7)], ...extras },
+  })
+
+  test('cartão com título, conteúdo e as últimas respostas; "ver todas" busca o resto', async () => {
+    rota('GET', '/postagem/respostas', [resposta(40, 'Carla', 'Estarei lá', 3), resposta(41, 'Bruno', 'Eu também'), resposta(42, 'Eu', 'Vou atrasar', 7)])
+    const tela = bolha(postagem(), { isGroup: true })
+    const cartao = tela.find('[data-postagem]')
+    expect(cartao.find('h4').text()).toBe('Aviso')
+    expect(cartao.text()).toContain('Reunião amanhã às 9h')
+    expect(cartao.text()).toContain('3 respostas')
+    expect(tela.findAll('[data-resposta]').map((r) => r.text())).toEqual([expect.stringContaining('Eu também'), expect.stringContaining('Você')])
+    await tela.findAll('button').find((b) => b.text() === 'Ver todas as 3')!.trigger('click')
+    await aguardar(5)
+    expect(pedidosDe('GET', '/postagem/respostas')[0]!.consulta).toEqual({ id: '30' })
+    expect(tela.findAll('[data-resposta]')).toHaveLength(3)
+    expect(tela.text()).toContain('Estarei lá')
+  })
+
+  test('responder pela própria postagem envia como resposta dela', async () => {
+    rota('PUT', '/mensagem', { id: 50 })
+    rota('GET', '/postagem/respostas', [])
+    rota('GET', '/conversas', [])
+    const tela = bolha(postagem({ respostas: 0, ultimas: [] }), { isGroup: true })
+    expect(tela.text()).toContain('Nenhuma resposta ainda')
+    await tela.find('textarea[aria-label="Responder à postagem"]').setValue('Combinado')
+    await tela.find('textarea[aria-label="Responder à postagem"]').trigger('keydown', { key: 'Enter' })
+    await aguardar(5)
+    expect(pedidosDe('PUT', '/mensagem')[0]!.corpo).toEqual({ conversa_id: 5, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'Combinado' }], postagem_id: 30 })
+  })
+
+  test('com a conversa aberta, respostas novas contam como vistas', async () => {
+    rota('POST', '/postagem/visualizar', { vistas: 2 })
+    rota('GET', '/conversas', [])
+    useChatStore().conversaAtivaId = 5
+    const tela = bolha(postagem({ nao_lidas: 2 }), { isGroup: true })
+    expect(tela.text()).toContain('2 novas')
+    await aguardar(5)
+    expect(pedidosDe('POST', '/postagem/visualizar')[0]!.corpo).toEqual({ postagem_id: 30 })
   })
 })
 

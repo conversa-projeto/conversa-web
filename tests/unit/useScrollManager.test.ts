@@ -80,10 +80,37 @@ describe('ir até uma mensagem (pesquisa, resposta)', () => {
       await montar([1, 2, 3])
       expect(await gerente.irParaMensagem(2)).toBe(true)
       expect(rolagens).toEqual([{ id: 'msg-2', comportamento: 'smooth' }])
-      expect(document.getElementById('msg-2')!.classList.contains('ring-2')).toBe(true)
-      relogio.avancar(1200)
-      expect(document.getElementById('msg-2')!.classList.contains('ring-2')).toBe(false)
+      // Faixa da largura da lista, que esmaece e some
+      const classes = () => document.getElementById('msg-2')!.classList
+      expect(classes().contains('bg-surface-800/15')).toBe(true)
+      expect(classes().contains('[clip-path:inset(0_-100vmax)]')).toBe(true)
+      relogio.avancar(1500)
+      expect(classes().contains('bg-surface-800/15')).toBe(false)
+      expect(classes().contains('duration-700')).toBe(true)
+      relogio.avancar(700)
+      expect(classes().contains('[clip-path:inset(0_-100vmax)]')).toBe(false)
+      expect(classes().contains('duration-700')).toBe(false)
       expect(pedidosDe('GET', '/mensagens')).toHaveLength(0)
+    } finally {
+      relogio.restaurar()
+    }
+  })
+
+  test('escolher outra mensagem antes de o destaque sumir limpa a anterior', async () => {
+    const relogio = relogioFalso()
+    try {
+      await montar([1, 2, 3])
+      const destacada = (id: number) => document.getElementById(`msg-${id}`)!.classList.contains('[clip-path:inset(0_-100vmax)]')
+      await gerente.irParaMensagem(1)
+      relogio.avancar(300)
+      await gerente.irParaMensagem(2)
+      relogio.avancar(1600)
+      await gerente.irParaMensagem(3)
+      expect(destacada(1)).toBe(false)
+      expect(destacada(2)).toBe(false)
+      expect(destacada(3)).toBe(true)
+      relogio.avancar(2200)
+      expect([1, 2, 3].some(destacada)).toBe(false)
     } finally {
       relogio.restaurar()
     }

@@ -16,6 +16,9 @@ export interface Contas {
   bruno: Conta
 }
 
+// Grupo das duas contas, criado pelo preparar.ts
+export const GRUPO_E2E = 'Grupo E2E'
+
 const ARQUIVO = fileURLToPath(new URL('./.contas.json', import.meta.url))
 
 export function lerContas(): Contas {

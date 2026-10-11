@@ -6,7 +6,7 @@ import EmojiPicker from '@/components/EmojiPicker.vue'
 import FigurinhaLottie from '@/components/FigurinhaLottie.vue'
 import BolhaFigurinha from '@/components/BolhaFigurinha.vue'
 import { PACOTES_FIGURINHAS } from '@/utils/figurinhas'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import MencaoDropdown from '@/components/MencaoDropdown.vue'
 import MencaoLink from '@/components/MencaoLink.vue'
@@ -201,14 +201,48 @@ describe('ações da mensagem', () => {
 })
 
 describe('seletor de emoji', () => {
-  test('categorias com nomes em português; escolher emite', async () => {
+  const catalogo = () => JSON.parse(readFileSync(join(import.meta.dir, '..', '..', 'public', 'emojis', 'pt.json'), 'utf8'))
+
+  test('recentes começam pelos mais comuns; escolher emite e vai para o começo dos recentes', async () => {
+    localStorage.removeItem('conversa.emojisRecentes')
     const tela = montar(EmojiPicker)
-    expect(tela.text()).toContain('Populares')
-    expect(tela.text()).toContain('Objetos')
+    expect(tela.text()).toContain('Recentes')
     const joia = tela.findAll('button').find((b) => b.text() === '👍')!
     expect(joia.attributes('title')).toBeTruthy()
     await joia.trigger('click')
     expect(tela.emitted('selecionar')![0]).toEqual(['👍'])
+    expect(JSON.parse(localStorage.getItem('conversa.emojisRecentes')!)[0]).toBe('👍')
+  })
+
+  test('todas as categorias do catálogo, com a fileira que leva a cada uma, e pesquisa sem acento', async () => {
+    rota('GET', '/emojis/pt.json', catalogo())
+    const tela = montar(EmojiPicker)
+    await aguardar(10)
+    for (const nome of ['Carinhas e emoções', 'Pessoas e corpo', 'Animais e natureza', 'Comida e bebida', 'Viagens e lugares', 'Atividades', 'Objetos', 'Símbolos']) {
+      expect(tela.text()).toContain(nome)
+      expect(tela.find(`button[aria-label="${nome}"]`).exists()).toBe(true)
+    }
+    expect(tela.findAll('[data-categoria] button').length).toBeGreaterThan(1500)
+
+    const campo = tela.find('input[aria-label="Pesquisar emoji"]')
+    await campo.setValue('coracao')
+    expect(tela.findAll('button').some((b) => b.text() === '❤️')).toBe(true)
+    // Nomes do próprio app também valem
+    await campo.setValue('joinha')
+    expect(tela.findAll('button').map((b) => b.text())).toContain('👍')
+    await campo.setValue('cachorro')
+    expect(tela.findAll('button').some((b) => b.text() === '🐶')).toBe(true)
+    await campo.setValue('zzzxx')
+    expect(tela.text()).toContain('Nenhum emoji encontrado')
+  })
+
+  test('o catálogo gerado não tem tons de pele, componentes nem bandeiras', () => {
+    expect(catalogo().categorias.map((c: { id: string }) => c.id)).not.toContain('bandeiras')
+    const emojis: string[] = catalogo().categorias.flatMap((c: { emojis: [string][] }) => c.emojis.map((e) => e[0]))
+    expect(emojis.length).toBeGreaterThan(1500)
+    expect(emojis.some((e) => /[\u{1F3FB}-\u{1F3FF}]/u.test(e))).toBe(false)
+    // Os mesmos das reações rápidas, para a reação não se dividir em duas
+    for (const rapido of ['👍', '❤️', '😂', '😮', '😢', '👏', '🔥']) expect(emojis).toContain(rapido)
   })
 
   test('posição conforme as props; estático sem posição', () => {
@@ -543,12 +577,12 @@ describe('figurinhas', () => {
   test('o seletor abre nos emojis; a aba de figurinhas só aparece onde se pode enviar', async () => {
     expect(montar(EmojiPicker).text()).not.toContain('Figurinhas')
     const tela = montar(EmojiPicker, { props: { comFigurinhas: true } })
-    expect(tela.text()).toContain('Populares')
+    expect(tela.text()).toContain('Recentes')
     await botao(tela, 'Figurinhas').trigger('click')
-    expect(tela.text()).not.toContain('Populares')
+    expect(tela.text()).not.toContain('Recentes')
     expect(tela.findAllComponents(FigurinhaLottie).length).toBeGreaterThan(0)
     await tela.find('button[title="Coração"]').trigger('click')
-    expect(tela.emitted('figurinha')).toEqual([['basico/coracao']])
+    expect(tela.emitted('figurinha')).toEqual([['noto/coracao']])
   })
 
   test('cada figurinha do catálogo tem a animação gerada, e cada animação está no catálogo', () => {
@@ -560,15 +594,15 @@ describe('figurinhas', () => {
   })
 
   test('figurinha que não carrega mostra o nome no lugar', async () => {
-    rota('GET', '/figurinhas/basico/nao-existe.json', erro(404, 'x'))
-    const tela = montar(FigurinhaLottie, { props: { id: 'basico/nao-existe' } })
+    rota('GET', '/figurinhas/noto/nao-existe.json', erro(404, 'x'))
+    const tela = montar(FigurinhaLottie, { props: { id: 'noto/nao-existe' } })
     await aguardar(20)
     expect(tela.text()).toBe('Figurinha')
   })
 
   test('na bolha, mostra a figurinha da mensagem', () => {
-    const m = mensagem({ conteudos: [{ ...conteudo(TipoConteudo.Figurinha), conteudo: 'basico/estrela' }] })
+    const m = mensagem({ conteudos: [{ ...conteudo(TipoConteudo.Figurinha), conteudo: 'noto/brilhos' }] })
     const tela = montar(BolhaFigurinha, { props: { mensagem: m, isOwn: false, isGroup: false, getAnexoUrl: () => '' } })
-    expect(tela.findComponent(FigurinhaLottie).props('id')).toBe('basico/estrela')
+    expect(tela.findComponent(FigurinhaLottie).props('id')).toBe('noto/brilhos')
   })
 })

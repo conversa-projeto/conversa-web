@@ -201,21 +201,46 @@ describe('cabeçalho da conversa', () => {
     expect(tela.find('button[title="Chamada de voz"]').exists()).toBe(false)
   })
 
-  test('pesquisa: Enter busca, resultados do mais antigo ao mais novo, clique vai à mensagem, X limpa', async () => {
-    rota('GET', '/pesquisar', [mensagem({ id: 11, conversa_id: 1, conteudos: [texto('primeiro oi')] }), mensagem({ id: 10, conversa_id: 1, conteudos: [texto('oi antigo')] }), mensagem({ id: 50, conversa_id: 2 })])
+  test('pesquisa: Enter busca; resultados do mais antigo ao mais novo, com quem, quando e o termo destacado; clique vai à mensagem, X limpa', async () => {
+    localStorage.setItem('conversa.user', JSON.stringify({ id: 7, nome: 'Eu' }))
+    const ontem = new Date(Date.now() - 86_400_000)
+    rota('GET', '/pesquisar', [
+      mensagem({ id: 11, conversa_id: 1, remetente_id: 7, remetente: 'Eu', conteudos: [texto('primeiro OI')] }),
+      mensagem({ id: 10, conversa_id: 1, remetente_id: 2, remetente: 'Bruno', inserida: ontem, conteudos: [texto(`${'texto longo antes '.repeat(4)}oi depois`)] }),
+      mensagem({ id: 50, conversa_id: 2 }),
+    ])
     const tela = montarCabecalho(conversa(1, { destinatario_id: 2 }))
     const campo = tela.find('input[placeholder="Pesquisar..."]')
     await campo.setValue('oi')
     await campo.trigger('keyup', { key: 'Enter' })
     await aguardar(10)
     expect(pedidosDe('GET', '/pesquisar')[0]!.consulta).toEqual({ texto: 'oi', conversa: '1' })
-    const resultados = tela.findAll('.border-warning-200 button')
-    expect(resultados.map((r) => r.text())).toEqual(['#10 - oi antigo', '#11 - primeiro oi'])
+    const painel = tela.find('[data-resultados-busca]')
+    expect(painel.text()).toContain('2 resultados para “oi”')
+    expect(painel.text()).not.toContain('#10')
+    const resultados = painel.findAll('button')
+    expect(resultados[0]!.text()).toContain('Bruno')
+    expect(resultados[0]!.text()).toContain(ontem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }))
+    // Trecho começa pouco antes do termo
+    expect(resultados[0]!.text()).toContain('…')
+    expect(resultados[1]!.text()).toContain('Você')
+    expect(resultados[1]!.findAll('mark').map((m) => m.text())).toEqual(['OI'])
     await resultados[0]!.trigger('click')
     expect(tela.emitted('go-to-message')).toEqual([[10]])
     await campo.element.nextElementSibling!.dispatchEvent(new Event('click'))
     await tela.vm.$nextTick()
     expect(useChatStore().resultadosBuscaConversa).toEqual([])
+    expect(tela.find('[data-resultados-busca]').exists()).toBe(false)
+  })
+
+  test('pesquisa sem resultado avisa', async () => {
+    rota('GET', '/pesquisar', [])
+    const tela = montarCabecalho(conversa(1, { destinatario_id: 2 }))
+    const campo = tela.find('input[placeholder="Pesquisar..."]')
+    await campo.setValue('xyz')
+    await campo.trigger('keyup', { key: 'Enter' })
+    await aguardar(10)
+    expect(tela.find('[data-resultados-busca]').text()).toBe('Nenhuma mensagem com “xyz”')
   })
 
   test('pesquisa no celular: abre o painel, busca pelo botão e fecha limpando', async () => {
@@ -225,7 +250,7 @@ describe('cabeçalho da conversa', () => {
     await tela.find('input[placeholder="Pesquisar nesta conversa"]').setValue('achou')
     await tela.find('.mt-2.md\\:hidden button').trigger('click')
     await aguardar(10)
-    expect(tela.text()).toContain('#3 - achou')
+    expect(tela.find('[data-resultados-busca]').text()).toContain('achou')
     await tela.find('button[title="Pesquisar na conversa"]').trigger('click')
     expect(tela.find('input[placeholder="Pesquisar nesta conversa"]').exists()).toBe(false)
     expect(useChatStore().resultadosBuscaConversa).toEqual([])

@@ -460,15 +460,15 @@ describe('campo com imagens, áudio, arquivos e figurinhas no meio do texto', ()
       await campo.find('button[title="Emoji"]').trigger('click')
       return campo.findComponent({ name: 'EmojiPicker' })
     }
-    ;(await seletor()).vm.$emit('figurinha', 'basico/coracao')
+    ;(await seletor()).vm.$emit('figurinha', 'noto/coracao')
     await aguardar()
-    expect(figurinhas).toEqual(['basico/coracao'])
+    expect(figurinhas).toEqual(['noto/coracao'])
 
     digitar(campo, 'olha')
-    ;(await seletor()).vm.$emit('figurinha', 'basico/festa')
+    ;(await seletor()).vm.$emit('figurinha', 'noto/festa')
     await aguardar()
-    expect(figurinhas).toEqual(['basico/coracao'])
-    expect(editavel(campo).querySelector<HTMLElement>('[data-figurinha]')!.dataset.figurinha).toBe('basico/festa')
+    expect(figurinhas).toEqual(['noto/coracao'])
+    expect(editavel(campo).querySelector<HTMLElement>('[data-figurinha]')!.dataset.figurinha).toBe('noto/festa')
   })
 
   test('arquivo escolhido no "+" e arrastado para a conversa entram no campo', async () => {

@@ -20,7 +20,7 @@ describe('classificarMensagem', () => {
   })
 
   test('uma figurinha sem referência; com referência vai para a bolha de referência', () => {
-    const figurinha = { ...conteudo(TipoConteudo.Figurinha), conteudo: 'basico/coracao' }
+    const figurinha = { ...conteudo(TipoConteudo.Figurinha), conteudo: 'noto/coracao' }
     expect(classificarMensagem(mensagem({ conteudos: [figurinha] }))).toBe(TipoExibicaoMensagem.Figurinha)
     expect(classificarMensagem(mensagem({ conteudos: [figurinha], ...comReferencia([texto('oi')]) }))).toBe(TipoExibicaoMensagem.ComReferencia)
   })

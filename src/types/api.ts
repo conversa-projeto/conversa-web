@@ -45,6 +45,7 @@ export const TipoEventoSocket = {
   NovaAtividade: 61,
   EnqueteAtualizada: 62,
   Presenca: 63,
+  PostagemAtualizada: 64,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -199,6 +200,14 @@ export interface ConfirmacaoLeitura {
   usuarios: ConfirmacaoUsuario[]
 }
 
+// Postagem de grupo: título, quantas respostas (e quantas não vi) e as últimas
+export interface Postagem {
+  titulo: string | null
+  respostas: number
+  nao_lidas: number
+  ultimas: Mensagem[]
+}
+
 export interface Mensagem {
   id: number
   remetente_id: number
@@ -223,6 +232,7 @@ export interface Mensagem {
   mensagem_referencia?: MensagemReferencia | null
   reacoes?: Reacao[]
   confirmacao?: ConfirmacaoLeitura
+  postagem?: Postagem
   enviando?: boolean
 }
 
@@ -503,6 +513,7 @@ export interface EventoSocket {
   confirmada_em?: string
   // Presença: estado do contato, quando esteve ativo e se abriu a conversa
   online?: boolean
+  postagem_id?: number
   estado?: EstadoPresenca
   visto_em?: string | null
   aberta?: boolean

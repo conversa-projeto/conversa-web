@@ -1,5 +1,5 @@
 import { request, type FullConfig } from '@playwright/test'
-import { lerContas, type Conta } from './contas'
+import { GRUPO_E2E, lerContas, type Conta } from './contas'
 
 // Antes dos testes: as contas de teste existem e têm uma conversa direta entre
 // elas. Tudo pela API, no banco de desenvolvimento.
@@ -31,10 +31,15 @@ export default async function preparar(config: FullConfig) {
     const bruno = await entrar(contas.bruno)
     const comAna = { Authorization: `Bearer ${ana.token}` }
 
-    const conversas = await (await api.get('/api/conversas', { headers: comAna })).json() as { id: number; tipo: number; destinatario_id: number | null }[]
+    const conversas = await (await api.get('/api/conversas', { headers: comAna })).json() as { id: number; tipo: number; descricao: string | null; destinatario_id: number | null }[]
     if (!conversas.some((c) => c.tipo === 1 && c.destinatario_id === bruno.id)) {
       const conversa = await (await api.put('/api/conversa', { headers: comAna, data: { descricao: null, tipo: 1 } })).json() as { id: number }
       await api.put('/api/conversa/usuario', { headers: comAna, data: { conversa_id: conversa.id, usuario_id: bruno.id } })
+    }
+    // Grupo dos dois, para o que só existe em grupo (postagens, votação)
+    if (!conversas.some((c) => c.tipo === 2 && c.descricao === GRUPO_E2E)) {
+      const grupo = await (await api.put('/api/conversa', { headers: comAna, data: { descricao: GRUPO_E2E, tipo: 2 } })).json() as { id: number }
+      await api.put('/api/conversa/usuario', { headers: comAna, data: { conversa_id: grupo.id, usuario_id: bruno.id } })
     }
   } finally {
     await api.dispose()

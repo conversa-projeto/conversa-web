@@ -149,13 +149,40 @@ export function useScrollManager() {
       if (reNode) reNode.scrollIntoView({ behavior: 'instant', block: 'center' })
     }
 
-    node.classList.add('ring-2', 'ring-warning-400')
-    if (highlightTimer) window.clearTimeout(highlightTimer)
-    highlightTimer = window.setTimeout(() => {
-      node!.classList.remove('ring-2', 'ring-warning-400')
-      highlightTimer = 0
-    }, 1200)
+    destacarMensagem(node)
     return true
+  }
+
+  // Destaque da mensagem encontrada: uma faixa da altura dela e da largura toda
+  // da lista (a sombra sai para os lados e o clip-path corta em cima e embaixo;
+  // a lista corta o que passa dela). surface-800 é escuro no tema claro e claro
+  // no escuro. Some aos poucos.
+  const COR_DESTAQUE = ['bg-surface-800/15', 'shadow-[0_0_0_100vmax_color-mix(in_srgb,var(--color-surface-800)_15%,transparent)]']
+  const DESTAQUE = [...COR_DESTAQUE, '[clip-path:inset(0_-100vmax)]']
+  const TRANSICAO_DESTAQUE = ['transition-[background-color,box-shadow]', 'duration-700']
+
+  // Mensagem destacada agora: escolher outra antes de o destaque sumir
+  // limpa a anterior (o temporizador é um só)
+  let destacada: HTMLElement | null = null
+
+  function limparDestaque() {
+    if (highlightTimer) window.clearTimeout(highlightTimer)
+    highlightTimer = 0
+    destacada?.classList.remove(...DESTAQUE, ...TRANSICAO_DESTAQUE)
+    destacada = null
+  }
+
+  function destacarMensagem(node: HTMLElement) {
+    limparDestaque()
+    destacada = node
+    // Aparece na hora; a transição entra só para sumir
+    node.classList.remove(...TRANSICAO_DESTAQUE)
+    node.classList.add(...DESTAQUE)
+    highlightTimer = window.setTimeout(() => {
+      node.classList.add(...TRANSICAO_DESTAQUE)
+      node.classList.remove(...COR_DESTAQUE)
+      highlightTimer = window.setTimeout(limparDestaque, 700)
+    }, 1500)
   }
 
   // =====================================================================
@@ -989,10 +1016,7 @@ export function useScrollManager() {
       cancelAnimationFrame(frameValidacaoVisualizacao)
       frameValidacaoVisualizacao = 0
     }
-    if (highlightTimer) {
-      window.clearTimeout(highlightTimer)
-      highlightTimer = 0
-    }
+    limparDestaque()
     pararObservadorAberturaScroll()
   })
 

@@ -113,14 +113,26 @@ export function enviarMensagem(
   mensagemReferencia?: { tipo: number; origem_mensagem_id: number },
   visivelEm?: Date | null,
   pedeConfirmacao = false,
+  // Postagem (com título opcional) ou resposta a uma postagem
+  postagem?: { titulo: string | null } | { respondendo: number },
 ): Promise<{ id: number; conversa_id: number; usuario_id: number }> {
   return dados(api().mensagem.put({
     conversa_id: conversaId,
     conteudos,
     ...(mensagemReferencia ? { mensagem_referencia: mensagemReferencia } : {}),
     ...(visivelEm ? { visivel_em: visivelEm.toISOString() } : {}),
-    ...(pedeConfirmacao ? { pede_confirmacao: true } : {})
+    ...(pedeConfirmacao ? { pede_confirmacao: true } : {}),
+    ...(postagem && 'titulo' in postagem ? { postagem: { titulo: postagem.titulo } } : {}),
+    ...(postagem && 'respondendo' in postagem ? { postagem_id: postagem.respondendo } : {})
   }))
+}
+
+export function getRespostasPostagem(postagemId: number): Promise<Mensagem[]> {
+  return dados(api().postagem.respostas.get({ query: { id: postagemId } }))
+}
+
+export function visualizarPostagem(postagemId: number) {
+  return dados(api().postagem.visualizar.post({ postagem_id: postagemId }))
 }
 
 export function confirmarLeitura(mensagemId: number) {

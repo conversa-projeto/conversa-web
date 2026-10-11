@@ -22,7 +22,16 @@
 
     <div v-if="aba === 'figurinhas'" class="max-h-[280px] overflow-y-auto p-2">
       <template v-for="pacote in PACOTES_FIGURINHAS" :key="pacote.id">
-        <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">{{ pacote.nome }}</p>
+        <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">
+          {{ pacote.nome }}
+          <a
+            v-if="pacote.credito"
+            :href="pacote.credito.link"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ml-1 font-normal underline decoration-dotted underline-offset-2 hover:text-surface-600"
+          >{{ pacote.credito.texto }}</a>
+        </p>
         <div class="mb-2 grid grid-cols-4 gap-1">
           <button
             v-for="figurinha in pacote.figurinhas"
@@ -38,30 +47,62 @@
       </template>
     </div>
 
-    <div v-else class="max-h-[280px] overflow-y-auto p-2">
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Populares</p>
-      <div class="mb-2 grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisPopulares" :key="'pop-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" :title="emojiNome(emoji)" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+    <template v-else>
+      <div class="border-b border-surface-200 p-2">
+        <input
+          v-model="busca"
+          type="search"
+          placeholder="Pesquisar emoji"
+          aria-label="Pesquisar emoji"
+          class="w-full rounded-full bg-surface-100 px-3 py-1 text-sm text-surface-800 outline-none placeholder:text-surface-500 focus:ring-1 focus:ring-primary-400"
+        />
       </div>
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Rostos</p>
-      <div class="mb-2 grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisRostos" :key="'ros-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" :title="emojiNome(emoji)" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+
+      <!-- Categorias: leva até ela; a atual fica marcada ao rolar -->
+      <div v-if="!busca.trim()" class="flex justify-between border-b border-surface-200 px-1 py-1">
+        <button
+          v-for="categoria in navegacao"
+          :key="categoria.id"
+          type="button"
+          class="flex h-7 w-7 items-center justify-center rounded text-base transition"
+          :class="categoriaAtual === categoria.id ? 'bg-primary-100 dark:bg-primary-900' : 'opacity-60 hover:bg-surface-100 hover:opacity-100'"
+          :title="categoria.nome"
+          :aria-label="categoria.nome"
+          @click="irPara(categoria.id)"
+        >{{ categoria.icone }}</button>
       </div>
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Gestos</p>
-      <div class="mb-2 grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisGestos" :key="'ges-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" :title="emojiNome(emoji)" @click="emit('selecionar', emoji)">{{ emoji }}</button>
+
+      <div ref="rolagem" class="relative h-[260px] overflow-y-auto p-2" @scroll="acompanharRolagem">
+        <template v-if="busca.trim()">
+          <div v-if="resultados.length" class="grid grid-cols-8 gap-0.5">
+            <button v-for="item in resultados" :key="'res-' + item.emoji" type="button" class="rounded p-1 text-xl hover:bg-surface-100" :title="item.nome" @click="escolher(item.emoji)">{{ item.emoji }}</button>
+          </div>
+          <p v-else class="py-8 text-center text-sm text-surface-500">{{ carregado ? 'Nenhum emoji encontrado' : 'Carregando os emojis...' }}</p>
+        </template>
+        <template v-else>
+          <section data-categoria="recentes">
+            <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Recentes</p>
+            <div class="mb-2 grid grid-cols-8 gap-0.5">
+              <button v-for="emoji in recentes" :key="'rec-' + emoji" type="button" class="rounded p-1 text-xl hover:bg-surface-100" :title="nomeDo(emoji)" @click="escolher(emoji)">{{ emoji }}</button>
+            </div>
+          </section>
+          <section v-for="categoria in categorias" :key="categoria.id" :data-categoria="categoria.id">
+            <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">{{ categoria.nome }}</p>
+            <div class="mb-2 grid grid-cols-8 gap-0.5">
+              <button v-for="item in categoria.emojis" :key="item.emoji" type="button" class="rounded p-1 text-xl hover:bg-surface-100" :title="item.nome" @click="escolher(item.emoji)">{{ item.emoji }}</button>
+            </div>
+          </section>
+          <p v-if="!carregado" class="py-4 text-center text-xs text-surface-500">Carregando os emojis...</p>
+        </template>
       </div>
-      <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">Objetos</p>
-      <div class="grid grid-cols-8 gap-0.5">
-        <button v-for="emoji in emojisObjetos" :key="'obj-'+emoji" class="rounded p-1 text-xl hover:bg-surface-100" :title="emojiNome(emoji)" @click="emit('selecionar', emoji)">{{ emoji }}</button>
-      </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { emojiNome } from '../utils/emojiNomes'
+import { useEmojis } from '../composables/useEmojis'
 import { PACOTES_FIGURINHAS } from '../utils/figurinhas'
 import FigurinhaLottie from './FigurinhaLottie.vue'
 
@@ -90,10 +131,43 @@ const aba = ref<(typeof abas)[number]['id']>('emojis')
 
 const popupRef = ref<HTMLElement>()
 
-const emojisPopulares = ['😂', '❤️', '😍', '🤣', '😊', '🙏', '😭', '😘', '👍', '😅', '🔥', '🥰', '😎', '💕', '🎉', '✨']
-const emojisRostos = ['😀', '😃', '😄', '😁', '😆', '🥹', '😋', '😛', '😜', '🤪', '😝', '🤗', '🤭', '🫢', '🤫', '🤔', '🫡', '🤐', '🤨', '😐', '😑', '😶', '🫠', '😏', '😒', '🙄', '😬', '😮‍💨', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🥵', '🥶', '🥴', '😵', '🤯', '😱', '😨', '😰', '😢']
-const emojisGestos = ['👋', '🤚', '🖐️', '✋', '🖖', '🫱', '🫲', '👌', '🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '🫶', '👐', '🤲', '🤝', '💪', '🫂']
-const emojisObjetos = ['💯', '💢', '💬', '👁️‍🗨️', '🗨️', '💭', '💤', '🎵', '🎶', '❤️‍🔥', '💔', '💖', '💗', '💙', '💚', '💛', '🧡', '💜', '🖤', '🤍', '🤎', '⭐', '🌟', '💫', '🎈', '🎊', '🎁', '🏆', '⚽', '🎮', '📱', '💻', '📷', '🎬', '🎤', '🎧']
+// Todos os emojis, por categoria, com pesquisa (composables/useEmojis.ts)
+const { categorias, carregado, recentes, usarEmoji, pesquisar } = useEmojis()
+const busca = ref('')
+const resultados = computed(() => pesquisar(busca.value))
+const navegacao = computed(() => [{ id: 'recentes', nome: 'Recentes', icone: '🕒' }, ...categorias.value])
+const categoriaAtual = ref('recentes')
+const rolagem = ref<HTMLElement>()
+
+const nomes = computed(() => new Map(categorias.value.flatMap((categoria) => categoria.emojis.map((item) => [item.emoji, item.nome] as const))))
+
+function nomeDo(emoji: string) {
+  return nomes.value.get(emoji) ?? emojiNome(emoji)
+}
+
+function escolher(emoji: string) {
+  usarEmoji(emoji)
+  emit('selecionar', emoji)
+}
+
+function secoes() {
+  return [...(rolagem.value?.querySelectorAll<HTMLElement>('[data-categoria]') ?? [])]
+}
+
+function irPara(id: string) {
+  const secao = secoes().find((el) => el.dataset.categoria === id)
+  if (!secao || !rolagem.value) return
+  rolagem.value.scrollTop = secao.offsetTop - 8
+  categoriaAtual.value = id
+}
+
+// A categoria atual é a última que já começou acima do topo da rolagem
+function acompanharRolagem() {
+  if (!rolagem.value) return
+  const topo = rolagem.value.scrollTop + 16
+  const atual = secoes().filter((el) => el.offsetTop <= topo).pop()
+  if (atual?.dataset.categoria) categoriaAtual.value = atual.dataset.categoria
+}
 
 function onClickOutside(e: MouseEvent) {
   if (popupRef.value && !popupRef.value.contains(e.target as Node)) {

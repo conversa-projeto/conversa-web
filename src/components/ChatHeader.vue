@@ -89,7 +89,7 @@
             <button
               v-if="buscaNoChat"
               class="absolute right-3 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-surface-500 hover:text-surface-800"
-              @click="buscaNoChat = ''; chat.resultadosBuscaConversa = []"
+              @click="limparPesquisa"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
             </button>
@@ -138,7 +138,7 @@
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-surface-200 md:hidden"
             title="Pesquisar na conversa"
-            @click="painelBuscaChat = !painelBuscaChat; if (!painelBuscaChat) { buscaNoChat = ''; chat.resultadosBuscaConversa = [] }"
+            @click="painelBuscaChat = !painelBuscaChat; if (!painelBuscaChat) limparPesquisa()"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4 text-surface-600"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
           </button>
@@ -159,22 +159,44 @@
           <button class="flex items-center gap-1 rounded bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700" @click="pesquisarNoChat">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>
           </button>
-          <button class="flex items-center rounded px-2 py-1.5 text-sm text-surface-500 hover:bg-surface-100" @click="painelBuscaChat = false; buscaNoChat = ''; chat.resultadosBuscaConversa = []">
+          <button class="flex items-center rounded px-2 py-1.5 text-sm text-surface-500 hover:bg-surface-100" @click="painelBuscaChat = false; limparPesquisa()">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
           </button>
         </div>
       </div>
 
-      <!-- Resultados de busca -->
-      <div v-if="chat.resultadosBuscaConversa.length" class="mt-2 max-h-28 overflow-auto rounded border border-warning-200 bg-warning-50 dark:bg-warning-900 p-2 text-xs">
-        <button
-          v-for="item in resultadosBuscaOrdenados"
-          :key="`find-${item.id}`"
-          class="block w-full cursor-pointer truncate rounded px-2 py-1 text-left text-warning-800 dark:text-warning-300 hover:bg-surface-200 dark:hover:bg-warning-800"
-          @click="emit('go-to-message', item.id)"
-        >
-          #{{ item.id }} - {{ resumoMensagem(item) }}
-        </button>
+      <!-- Resultados da pesquisa: quem, quando e o trecho com o termo destacado -->
+      <div
+        v-if="termoPesquisado"
+        class="mt-2 overflow-hidden rounded-xl border border-surface-300 bg-surface-base shadow-lg"
+        data-resultados-busca
+      >
+        <p class="border-b border-surface-200 px-3 py-1.5 text-xs text-surface-500">
+          <template v-if="resultadosBusca.length">
+            {{ resultadosBusca.length }} {{ resultadosBusca.length === 1 ? 'resultado' : 'resultados' }} para “{{ termoPesquisado }}”
+          </template>
+          <template v-else>Nenhuma mensagem com “{{ termoPesquisado }}”</template>
+        </p>
+        <div v-if="resultadosBusca.length" class="max-h-64 overflow-y-auto py-1">
+          <button
+            v-for="item in resultadosBusca"
+            :key="`find-${item.id}`"
+            type="button"
+            class="block w-full px-3 py-1.5 text-left transition hover:bg-surface-100"
+            @click="emit('go-to-message', item.id)"
+          >
+            <span class="flex items-baseline gap-2">
+              <span class="truncate text-xs font-semibold text-surface-800">{{ item.autor }}</span>
+              <span class="ml-auto shrink-0 text-[11px] text-surface-500">{{ item.quando }}</span>
+            </span>
+            <span class="block truncate text-sm text-surface-600">
+              <template v-for="(parte, i) in item.partes" :key="i"><mark
+                v-if="parte.destaque"
+                class="rounded-sm bg-primary-100 px-0.5 text-primary-700 dark:bg-primary-900 dark:text-primary-300"
+              >{{ parte.texto }}</mark><template v-else>{{ parte.texto }}</template></template>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -198,10 +220,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
+import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/call'
-import { inicialNome, resumoMensagem } from '../utils/formatters'
-import { TipoConversa } from '../types/api'
-import type { TipoChamada } from '../types/api'
+import { formatarHora, inicialNome, resumoMensagem } from '../utils/formatters'
+import { TipoConteudo, TipoConversa } from '../types/api'
+import type { Mensagem, TipoChamada } from '../types/api'
 import { resolverUsuarioDaConversa } from '../utils/userProfile'
 import type { UsuarioPopup } from '../utils/userProfile'
 import UserInfoModal from './UserInfoModal.vue'
@@ -317,7 +340,50 @@ watch(() => chat.conversaAtiva, (conversa) => {
   }
 }, { immediate: true })
 
-const resultadosBuscaOrdenados = computed(() => [...chat.resultadosBuscaConversa].reverse())
+// Termo da última pesquisa feita (o campo pode ter mudado depois)
+const termoPesquisado = ref('')
+watch(() => chat.conversaAtivaId, () => { termoPesquisado.value = '' })
+
+const ESPACO_ANTES_DO_TERMO = 30
+
+function quandoFoi(data: Date) {
+  const hora = formatarHora(data)
+  return data.toDateString() === new Date().toDateString()
+    ? hora
+    : `${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...(data.getFullYear() !== new Date().getFullYear() ? { year: '2-digit' } : {}) })} ${hora}`
+}
+
+// Trecho da mensagem a partir de pouco antes do termo, com o termo destacado
+function partesDoTrecho(item: Mensagem, termo: string) {
+  const textoBruto = item.conteudos.find((c) => c.tipo === TipoConteudo.Texto)?.conteudo
+  const texto = textoBruto ? textoBruto.replace(/@\[([^\]]+)\]\(\d+\)/g, '@$1').replace(/\s+/g, ' ').trim() : resumoMensagem(item)
+  const alvo = termo.trim().toLowerCase()
+  const posicao = alvo ? texto.toLowerCase().indexOf(alvo) : -1
+  const inicio = posicao > ESPACO_ANTES_DO_TERMO ? posicao - ESPACO_ANTES_DO_TERMO : 0
+  const trecho = (inicio > 0 ? '…' : '') + texto.slice(inicio)
+  if (!alvo) return [{ texto: trecho, destaque: false }]
+  const partes: { texto: string; destaque: boolean }[] = []
+  const minusculo = trecho.toLowerCase()
+  let desde = 0
+  for (let achou = minusculo.indexOf(alvo); achou >= 0; achou = minusculo.indexOf(alvo, desde)) {
+    if (achou > desde) partes.push({ texto: trecho.slice(desde, achou), destaque: false })
+    partes.push({ texto: trecho.slice(achou, achou + alvo.length), destaque: true })
+    desde = achou + alvo.length
+  }
+  if (desde < trecho.length) partes.push({ texto: trecho.slice(desde), destaque: false })
+  return partes
+}
+
+// Do mais antigo ao mais novo, como na conversa
+const resultadosBusca = computed(() => {
+  const eu = useAuthStore().user?.id
+  return [...chat.resultadosBuscaConversa].reverse().map((item) => ({
+    id: item.id,
+    autor: item.remetente_id === eu ? 'Você' : item.remetente,
+    quando: quandoFoi(new Date(item.inserida)),
+    partes: partesDoTrecho(item, termoPesquisado.value),
+  }))
+})
 
 const painelBuscaChat = ref(false)
 const buscaNoChat = ref('')
@@ -346,7 +412,15 @@ function abrirChatComMembro(usuarioId: number) {
 }
 
 async function pesquisarNoChat() {
+  const termo = buscaNoChat.value.trim()
   await chat.buscarNaConversa(buscaNoChat.value)
+  termoPesquisado.value = termo
+}
+
+function limparPesquisa() {
+  buscaNoChat.value = ''
+  termoPesquisado.value = ''
+  chat.resultadosBuscaConversa = []
 }
 </script>
 

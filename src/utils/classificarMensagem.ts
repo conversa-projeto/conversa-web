@@ -6,6 +6,7 @@ import { isMensagemSoEmoji } from './formatters'
 export const TipoExibicaoMensagem = {
   Excluida: 'excluida',
   Chamada: 'chamada',
+  Postagem: 'postagem',
   Imagem: 'imagem',
   Figurinha: 'figurinha',
   Enquete: 'enquete',
@@ -29,6 +30,11 @@ export function classificarMensagem(mensagem: Mensagem): TipoExibicaoMensagem {
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Chamada) {
     return TipoExibicaoMensagem.Chamada
+  }
+
+  // Postagem de grupo: cartão com título, conteúdo e as respostas embaixo
+  if (mensagem.postagem) {
+    return TipoExibicaoMensagem.Postagem
   }
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Imagem && !temReferencia) {

@@ -101,7 +101,7 @@ describe('campo de mensagem no Tiptap', () => {
   })
 
   test('rascunho salvo pelo campo antigo (HTML) abre no editor, com peças e menção', async () => {
-    const { editor } = await montar('<p>oi</p><span data-anexo="anexo-1"></span><p><span data-mencao-id="2" data-nome="Ana">@Ana</span> tudo bem</p><span data-figurinha="basico/festa"></span>')
+    const { editor } = await montar('<p>oi</p><span data-anexo="anexo-1"></span><p><span data-mencao-id="2" data-nome="Ana">@Ana</span> tudo bem</p><span data-figurinha="noto/festa"></span>')
     const tipos = editor.getJSON().content!.map((no) => no.type)
     expect(tipos).toEqual(['paragraph', 'anexo', 'paragraph', 'figurinha'])
     expect(editor.getJSON().content![1]!.attrs).toEqual({ id: 'anexo-1' })

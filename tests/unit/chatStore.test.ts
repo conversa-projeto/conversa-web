@@ -147,6 +147,22 @@ describe('enviar', () => {
     expect(chat.pedirConfirmacao).toBe(false)
   })
 
+  test('postagem pendente vai na próxima mensagem com o título; trocar de conversa desfaz', async () => {
+    rota('PUT', '/mensagem', { id: 96 })
+    rota('GET', '/conversas', [conversaApi(1)])
+    const chat = novaStore()
+    chat.conversaAtivaId = 1
+    chat.postagemPendente = { titulo: '  Aviso  ' }
+    await chat.enviarTexto('Reunião amanhã')
+    expect(pedidos.filter((p) => p.metodo === 'PUT')[0]!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'Reunião amanhã' }], postagem: { titulo: 'Aviso' } })
+    expect(simples(chat.mensagensAtivas[0]!.postagem)).toEqual({ titulo: 'Aviso', respostas: 0, nao_lidas: 0, ultimas: [] })
+    expect(chat.postagemPendente).toBeNull()
+    chat.postagemPendente = { titulo: '' }
+    chat.conversaAtivaId = 2
+    await aguardar()
+    expect(chat.postagemPendente).toBeNull()
+  })
+
   test('confirmar a leitura marca a mensagem com quem confirmou', async () => {
     rota('POST', '/mensagem/confirmar', { mensagem_id: 30 })
     const chat = novaStore()
@@ -162,11 +178,11 @@ describe('enviar', () => {
     rota('GET', '/conversas', [conversaApi(1)])
     const chat = novaStore()
     chat.conversaAtivaId = 1
-    const envio = chat.enviarFigurinha('basico/festa')
-    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ enviando: true, conteudos: [{ tipo: 7, conteudo: 'basico/festa' }] })
+    const envio = chat.enviarFigurinha('noto/festa')
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ enviando: true, conteudos: [{ tipo: 7, conteudo: 'noto/festa' }] })
     await envio
-    expect(pedidos.find((p) => p.metodo === 'PUT')!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 7, conteudo: 'basico/festa' }] })
-    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ id: 98, enviando: false, conteudos: [{ tipo: 7, conteudo: 'basico/festa' }] })
+    expect(pedidos.find((p) => p.metodo === 'PUT')!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 7, conteudo: 'noto/festa' }] })
+    expect(simples(chat.mensagensAtivas[0])).toMatchObject({ id: 98, enviando: false, conteudos: [{ tipo: 7, conteudo: 'noto/festa' }] })
   })
 
   test('falha no envio tira a mensagem otimista e repassa o erro', async () => {
@@ -633,6 +649,19 @@ describe('tempo real (WebSocket)', () => {
     expect(simples(chat.mensagensAtivas[0]!.reacoes)).toMatchObject([{ emoji: '👍', quantidade: 1, reagiu: false, usuarios: [{ nome: 'Bruno' }] }])
     socket.receber({ tipo: 7, conversa_id: 1, mensagem_id: 30, usuario_id: 2, emoji: '👍', acao: 'remove' })
     expect(chat.mensagensAtivas[0]!.reacoes).toEqual([])
+  })
+
+  test('resposta nova numa postagem atualiza o resumo dela', async () => {
+    const { chat, socket } = await conectado()
+    chat.definirMensagens(1, [mensagem({ id: 30, postagem: { titulo: null, respostas: 0, nao_lidas: 0, ultimas: [] } })])
+    chat.conversaAtivaId = 1
+    rota('GET', '/postagem/respostas', [mensagem({ id: 31, remetente_id: 2, conteudos: [texto('a')] }), mensagem({ id: 32, remetente_id: 2, conteudos: [texto('b')] }), mensagem({ id: 33, remetente_id: 2, conteudos: [texto('c')] })])
+    socket.receber({ tipo: 64, conversa_id: 1, postagem_id: 30, usuario_id: 2 })
+    await aguardar(5)
+    const resumo = chat.mensagensAtivas[0]!.postagem!
+    expect(resumo.respostas).toBe(3)
+    expect(resumo.nao_lidas).toBe(3)
+    expect(resumo.ultimas.map((m) => m.id)).toEqual([32, 33])
   })
 
   test('confirmação de leitura de outra pessoa entra na mensagem uma vez', async () => {
