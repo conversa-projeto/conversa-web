@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { TipoConversa, TipoConteudo, TipoEventoSocket, TipoMensagemReferencia } from '../types/api'
-import type { Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem, PresencaContato, SinalChamada } from '../types/api'
+import type { ConfirmacaoLeitura, Contato, ConteudoMensagem, Conversa, EventoChamadaSocket, EventoSocket, Mensagem, PresencaContato, SinalChamada } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
 import { useCallStore } from './call'
@@ -44,11 +44,17 @@ export const useChatStore = defineStore('chat', () => {
   const tipoReferenciaPendente = ref<TipoMensagemReferencia>(TipoMensagemReferencia.Resposta)
   // A próxima mensagem enviada pede confirmação de leitura; vale só para a conversa aberta
   const pedirConfirmacao = ref(false)
+  // Quem precisa confirmar (null: todos os outros membros)
+  const confirmacaoUsuarios = ref<number[] | null>(null)
   // A próxima mensagem enviada é uma postagem (só em grupo), com título opcional
   const postagemPendente = ref<{ titulo: string } | null>(null)
+  // A próxima mensagem é uma resposta a esta postagem: vai para baixo dela, não para o fluxo
+  const postagemRespondendo = ref<Mensagem | null>(null)
   watch(conversaAtivaId, () => {
     pedirConfirmacao.value = false
+    confirmacaoUsuarios.value = null
     postagemPendente.value = null
+    postagemRespondendo.value = null
   })
   const usuariosConversa = ref<Record<number, Array<{ id: number; usuario_id: number; nome: string; avatar_url?: string | null }>>>({})
 
@@ -307,7 +313,8 @@ export const useChatStore = defineStore('chat', () => {
     await selecionarConversa(conversa.id)
   }
 
-  async function criarGrupo(nome: string, usuarioIds: number[]) {
+  // Com imagem (já enviada) ou emoji, o grupo já nasce com eles
+  async function criarGrupo(nome: string, usuarioIds: number[], avatar: { anexoId: number } | { emoji: string } | null = null) {
     const auth = useAuthStore()
     if (!auth.user) {
       throw new Error('Usuário não autenticado')
@@ -317,6 +324,12 @@ export const useChatStore = defineStore('chat', () => {
     const membros = Array.from(new Set([auth.user.id, ...usuarioIds]))
 
     await Promise.all(membros.map(usuarioId => api.addUsuarioConversa(criada.id, usuarioId)))
+    if (avatar) {
+      await api.atualizarConversa(criada.id, {
+        avatar_anexo_id: 'anexoId' in avatar ? avatar.anexoId : null,
+        emoji: 'emoji' in avatar ? avatar.emoji : null,
+      })
+    }
 
     await carregarConversas()
     await selecionarConversa(criada.id)
@@ -508,9 +521,14 @@ export const useChatStore = defineStore('chat', () => {
       : undefined
     mensagemRespondendo.value = null
     tipoReferenciaPendente.value = TipoMensagemReferencia.Resposta
-    const pedeConfirmacao = pedirConfirmacao.value
+    const pedeConfirmacao = pedirConfirmacao.value ? (confirmacaoUsuarios.value ?? true) : false
     pedirConfirmacao.value = false
-    const postagem = postagemPendente.value ? { titulo: postagemPendente.value.titulo.trim() || null } : null
+    confirmacaoUsuarios.value = null
+    const postagemAlvo = postagemRespondendo.value?.conversa_id === conversaId ? postagemRespondendo.value : null
+    postagemRespondendo.value = null
+    const postagem = postagemAlvo
+      ? { respondendo: postagemAlvo.id } as const
+      : postagemPendente.value ? { titulo: postagemPendente.value.titulo.trim() || null } as { titulo: string | null } : null
     postagemPendente.value = null
 
     // Adiciona mensagem otimista ? UI imediatamente (antes dos uploads)
@@ -527,8 +545,8 @@ export const useChatStore = defineStore('chat', () => {
       reproduzida: false,
       enviando: true,
       conteudos: conteudosOptimistas,
-      ...(pedeConfirmacao ? { confirmacao: { total: 0, confirmou: false, usuarios: [] } } : {}),
-      ...(postagem ? { postagem: { titulo: postagem.titulo, respostas: 0, nao_lidas: 0, ultimas: [] } } : {}),
+      ...(pedeConfirmacao ? { confirmacao: confirmacaoNova(conversaId, pedeConfirmacao) } : {}),
+      ...(postagem && 'titulo' in postagem ? { postagem: { titulo: postagem.titulo, respostas: 0, nao_lidas: 0, ultimas: [] } } : {}),
       ...(mensagemReferencia && respostaMsg ? {
         mensagem_referencia: criarMensagemReferenciaResumo(respostaMsg, tipoReferencia),
       } : {})
@@ -537,7 +555,8 @@ export const useChatStore = defineStore('chat', () => {
     if (!mensagensPorConversa.value[conversaId]) {
       mensagensPorConversa.value[conversaId] = []
     }
-    mensagensPorConversa.value[conversaId] = [...mensagensPorConversa.value[conversaId], optimisticMsg]
+    // Resposta de postagem não entra no fluxo: aparece embaixo dela quando o servidor gravar
+    if (!postagemAlvo) mensagensPorConversa.value[conversaId] = [...mensagensPorConversa.value[conversaId], optimisticMsg]
 
     const { iniciarUpload, finalizarUpload, limparTodos } = useUploadProgress()
 
@@ -585,6 +604,7 @@ export const useChatStore = defineStore('chat', () => {
         URL.revokeObjectURL(url)
       }
 
+      if (postagemAlvo) await atualizarPostagem(conversaId, postagemAlvo.id)
       void carregarConversas()
     } catch (e) {
       limparTodos()
@@ -669,8 +689,8 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     const resultado = await api.pesquisarMensagens(termo, conversaAtivaId.value!)
-    // Filtro no frontend como fallback caso o backend não filtre por conversa
-    resultadosBuscaConversa.value = resultado.filter((mensagem) => mensagem.conversa_id === conversaAtivaId.value)
+    // O servidor já filtra: a conversa e os chats das ligações feitas nela
+    resultadosBuscaConversa.value = resultado
   }
 
   async function buscarEmTodosChats(texto: string) {
@@ -919,6 +939,11 @@ export const useChatStore = defineStore('chat', () => {
 
     if (evento.tipo === TipoEventoSocket.ConfirmacaoLeitura) {
       tratarConfirmacaoSocket(evento)
+      return
+    }
+
+    if (evento.tipo === TipoEventoSocket.ConfirmacaoPedida) {
+      tratarConfirmacaoPedida(evento)
       return
     }
 
@@ -1325,12 +1350,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function responderPostagem(postagem: Mensagem, texto: string) {
-    const limpo = texto.trim()
-    if (!limpo) return
-    await api.enviarMensagem(postagem.conversa_id, [{ ordem: 1, tipo: TipoConteudo.Texto, conteudo: limpo }], undefined, null, false, { respondendo: postagem.id })
-    await atualizarPostagem(postagem.conversa_id, postagem.id)
-    void carregarConversas()
+  // "Responder" na postagem: a próxima mensagem do campo vai para baixo dela
+  function responderPostagem(postagem: Mensagem) {
+    mensagemRespondendo.value = null
+    postagemPendente.value = null
+    postagemRespondendo.value = postagem
   }
 
   // A postagem apareceu na tela: as respostas dela contam como vistas
@@ -1356,6 +1380,26 @@ export const useChatStore = defineStore('chat', () => {
     showNotification(conversaId, conversa?.descricao || 'Grupo', { body: `${nome} respondeu a uma postagem`, tag: `conversa-${conversaId}` })
   }
 
+  // Confirmação de uma mensagem que eu acabei de enviar: ninguém confirmou ainda
+  function confirmacaoNova(conversaId: number, lista: true | number[]): ConfirmacaoLeitura {
+    const meuId = useAuthStore().user?.id
+    const destinatarios = (usuariosConversa.value[conversaId] ?? [])
+      .filter((m) => m.usuario_id !== meuId && (lista === true || lista.includes(m.usuario_id)))
+      .map((m) => ({ usuario_id: m.usuario_id, nome: m.nome }))
+    return { total: destinatarios.length, confirmou: false, pode_confirmar: false, destinatarios, usuarios: [] }
+  }
+
+  // Pedir confirmação de leitura numa mensagem minha já enviada
+  async function pedirConfirmacaoDepois(msg: Mensagem, usuarios: number[] | null) {
+    msg.confirmacao = await api.pedirConfirmacao(msg.id, usuarios)
+  }
+
+  function tratarConfirmacaoPedida(evento: EventoSocket) {
+    if (!evento.conversa_id || !evento.mensagem_id || !evento.confirmacao) return
+    const msg = mensagensPorConversa.value[evento.conversa_id]?.find(m => m.id === evento.mensagem_id)
+    if (msg) msg.confirmacao = evento.confirmacao
+  }
+
   async function confirmarLeitura(msg: Mensagem) {
     if (!msg.confirmacao || msg.confirmacao.confirmou) return
     await api.confirmarLeitura(msg.id)
@@ -1366,6 +1410,7 @@ export const useChatStore = defineStore('chat', () => {
   function adicionarConfirmacaoLocal(msg: Mensagem, usuarioId: number, confirmadaEm: Date, nome?: string) {
     if (!msg.confirmacao) return
     if (usuarioId === useAuthStore().user?.id) msg.confirmacao.confirmou = true
+    if (usuarioId === useAuthStore().user?.id) msg.confirmacao.pode_confirmar = false
     if (msg.confirmacao.usuarios.some((u) => u.usuario_id === usuarioId)) return
     const info = resolverNomeUsuario(usuarioId)
     msg.confirmacao.usuarios.push({ usuario_id: usuarioId, nome: nome || info.nome, avatar_url: info.avatar_url, confirmada_em: confirmadaEm })
@@ -1530,11 +1575,14 @@ export const useChatStore = defineStore('chat', () => {
     criarGrupo,
     renomearGrupo,
     pedirConfirmacao,
+    confirmacaoUsuarios,
+    pedirConfirmacaoDepois,
     confirmarLeitura,
     postagemPendente,
     respostasPorPostagem,
     atualizarPostagem,
     responderPostagem,
+    postagemRespondendo,
     visualizarPostagem,
     alterarAvatarGrupo,
     enviarTexto,
@@ -1564,6 +1612,8 @@ export const useChatStore = defineStore('chat', () => {
     registrarHandlerChamada,
     removerHandlerChamada,
     usuariosConversaAtiva,
+    usuariosConversa,
+    resolverNomeUsuario,
     carregarUsuariosConversa,
     mensagemRespondendo,
     tipoReferenciaPendente,

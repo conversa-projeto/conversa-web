@@ -59,6 +59,7 @@
             @reagir="reagir"
             @excluir="excluirMensagem"
             @confirmar-leitura="confirmarLeitura"
+            @pedir-confirmacao="pedirConfirmacao"
           />
         </template>
       </div>
@@ -104,6 +105,14 @@
     </div>
 
     <DialogoConfirmacao :dialogo="dialogo.aberto.value" @responder="dialogo.responderDialogo" />
+    <!-- Pedir confirmação de leitura numa mensagem já enviada, em grupo -->
+    <ConfirmacaoLeituraModal
+      v-if="pedindoConfirmacao"
+      aberta
+      :conversa-id="pedindoConfirmacao.conversa_id"
+      @close="pedindoConfirmacao = null"
+      @escolher="(usuarios) => pedirConfirmacaoDe(pedindoConfirmacao!, usuarios)"
+    />
   </div>
 </template>
 
@@ -116,6 +125,7 @@ import { useScrollManager } from '../composables/useScrollManager'
 import { useAttachments } from '../composables/useAttachments'
 import MessageBubble from './MessageBubble.vue'
 import DialogoConfirmacao from './DialogoConfirmacao.vue'
+import ConfirmacaoLeituraModal from './ConfirmacaoLeituraModal.vue'
 import { useDialogo } from '../composables/useDialogo'
 import { TipoConversa } from '../types/api'
 import type { Mensagem } from '../types/api'
@@ -187,6 +197,26 @@ async function confirmarLeitura(msg: Mensagem) {
     await chat.confirmarLeitura(msg)
   } catch (e) {
     void dialogo.avisar({ titulo: 'Não foi possível confirmar a leitura', mensagem: e instanceof Error ? e.message : 'Erro ao confirmar' })
+  }
+}
+
+// Em grupo, escolhe antes quem precisa confirmar; na conversa direta, é a outra pessoa
+const pedindoConfirmacao = ref<Mensagem | null>(null)
+
+function pedirConfirmacao(msg: Mensagem) {
+  if (chat.conversas.find((c) => c.id === msg.conversa_id)?.tipo === TipoConversa.Grupo) {
+    pedindoConfirmacao.value = msg
+    return
+  }
+  void pedirConfirmacaoDe(msg, null)
+}
+
+async function pedirConfirmacaoDe(msg: Mensagem, usuarios: number[] | null) {
+  pedindoConfirmacao.value = null
+  try {
+    await chat.pedirConfirmacaoDepois(msg, usuarios)
+  } catch (e) {
+    void dialogo.avisar({ titulo: 'Não foi possível pedir a confirmação', mensagem: e instanceof Error ? e.message : 'Erro ao pedir a confirmação' })
   }
 }
 

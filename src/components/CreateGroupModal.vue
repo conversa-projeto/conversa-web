@@ -3,6 +3,40 @@
     <div class="w-full max-w-md rounded-xl border border-surface-300 bg-surface-base p-4 shadow-xl">
       <h3 class="mb-3 text-lg font-semibold text-surface-800">Criar grupo</h3>
 
+      <!-- Imagem ou emoji do grupo (no lugar da primeira letra); um tira o outro -->
+      <div class="mb-3 flex items-center gap-3" data-avatar-novo-grupo>
+        <span class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-xl font-semibold text-surface-700">
+          <img v-if="previaImagem" :src="previaImagem" alt="Imagem do grupo" class="h-full w-full object-cover" />
+          <span v-else :class="emoji ? 'text-3xl' : ''">{{ emoji || inicialNome(nomeGrupo, 'G') }}</span>
+        </span>
+        <div class="flex flex-wrap gap-1">
+          <button
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-white/10"
+            @click="seletorImagem?.click()"
+          >
+            Imagem
+          </button>
+          <input ref="seletorImagem" type="file" accept="image/*" class="hidden" aria-label="Imagem do grupo" @change="escolherImagem" />
+          <button
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-white/10"
+            @click.stop="escolhendoEmoji = !escolhendoEmoji"
+          >
+            Emoji
+          </button>
+          <button
+            v-if="imagem || emoji"
+            type="button"
+            class="rounded px-2 py-1 text-xs font-medium text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-white/10"
+            @click="limparAvatar"
+          >
+            Remover
+          </button>
+        </div>
+      </div>
+      <EmojiPicker v-if="escolhendoEmoji" estatico class="mb-3 !w-full" @selecionar="escolherEmoji" @close="escolhendoEmoji = false" />
+
       <label class="mb-3 block text-sm text-surface-700">
         Nome do grupo
         <input
@@ -40,7 +74,7 @@
 
       <div class="mt-4 flex justify-end gap-2">
         <button class="rounded border border-surface-300 px-3 py-2 text-sm hover:bg-surface-100" @click="cancelar">Cancelar</button>
-        <button class="rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700" @click="confirmar">Criar</button>
+        <button class="rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50" :disabled="criando" @click="confirmar">{{ criando ? 'Criando...' : 'Criar' }}</button>
       </div>
     </div>
   </div>
@@ -51,7 +85,10 @@ import { inicialNome } from '../utils/formatters'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
-import { TipoConversa } from '../types/api'
+import { TipoConteudo, TipoConversa } from '../types/api'
+import { uploadAnexo } from '../services/conversaApi'
+import { redimensionarImagem } from '../utils/imageResize'
+import EmojiPicker from './EmojiPicker.vue'
 
 defineProps<{
   aberta: boolean
@@ -76,6 +113,41 @@ const nomeGrupo = ref('')
 const membrosGrupo = ref<number[]>([])
 const filtroContato = ref('')
 const erroGrupo = ref('')
+const criando = ref(false)
+
+// A imagem só é enviada ao criar; até lá, a prévia local
+const seletorImagem = ref<HTMLInputElement>()
+const imagem = ref<File | null>(null)
+const previaImagem = ref('')
+const emoji = ref('')
+const escolhendoEmoji = ref(false)
+
+function trocarImagem(arquivo: File | null) {
+  if (previaImagem.value) URL.revokeObjectURL(previaImagem.value)
+  imagem.value = arquivo
+  previaImagem.value = arquivo ? URL.createObjectURL(arquivo) : ''
+}
+
+function escolherImagem(event: Event) {
+  const campo = event.target as HTMLInputElement
+  const arquivo = campo.files?.[0]
+  campo.value = ''
+  if (!arquivo) return
+  emoji.value = ''
+  escolhendoEmoji.value = false
+  trocarImagem(arquivo)
+}
+
+function escolherEmoji(escolhido: string) {
+  trocarImagem(null)
+  emoji.value = escolhido
+  escolhendoEmoji.value = false
+}
+
+function limparAvatar() {
+  trocarImagem(null)
+  emoji.value = ''
+}
 
 const contatosFiltrados = computed(() => {
   const termo = filtroContato.value.trim().toLowerCase()
@@ -100,6 +172,8 @@ function avatarContato(contato: { id: number; avatar_url?: string | null }) {
 }
 
 function cancelar() {
+  limparAvatar()
+  escolhendoEmoji.value = false
   nomeGrupo.value = ''
   membrosGrupo.value = []
   filtroContato.value = ''
@@ -120,8 +194,14 @@ async function confirmar() {
     return
   }
 
+  criando.value = true
   try {
-    await chat.criarGrupo(nomeGrupo.value.trim(), membrosGrupo.value)
+    const avatar = imagem.value
+      ? { anexoId: (await uploadAnexo(TipoConteudo.Imagem, 'avatar.jpg', 'jpg', await redimensionarImagem(imagem.value))).id }
+      : emoji.value ? { emoji: emoji.value } : null
+    await chat.criarGrupo(nomeGrupo.value.trim(), membrosGrupo.value, avatar)
+    limparAvatar()
+    escolhendoEmoji.value = false
     nomeGrupo.value = ''
     membrosGrupo.value = []
     filtroContato.value = ''
@@ -130,6 +210,8 @@ async function confirmar() {
     emit('created')
   } catch (e) {
     erroGrupo.value = e instanceof Error ? e.message : 'Erro ao criar grupo'
+  } finally {
+    criando.value = false
   }
 }
 </script>

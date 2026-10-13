@@ -182,16 +182,22 @@ describe('postagem', () => {
     expect(tela.text()).toContain('Estarei lá')
   })
 
-  test('responder pela própria postagem envia como resposta dela', async () => {
-    rota('PUT', '/mensagem', { id: 50 })
-    rota('GET', '/postagem/respostas', [])
-    rota('GET', '/conversas', [])
+  test('cada resposta mostra a foto de quem respondeu (sem foto, a inicial)', async () => {
+    rota('GET', '/conversa/usuarios', [{ id: 1, usuario_id: 2, nome: 'Bruno', avatar_url: 'https://localhost/storage/bruno' }])
+    const tela = bolha(postagem(), { isGroup: true })
+    await aguardar(5)
+    const [bruno, eu] = tela.findAll('[data-resposta]')
+    expect(bruno!.find('img[data-avatar-resposta]').attributes('src')).toBe('https://localhost/storage/bruno')
+    expect(eu!.find('img[data-avatar-resposta]').exists()).toBe(false)
+    expect(eu!.text()).toContain('E')
+  })
+
+  test('"Responder à postagem" leva a resposta para o campo de mensagem', async () => {
     const tela = bolha(postagem({ respostas: 0, ultimas: [] }), { isGroup: true })
     expect(tela.text()).toContain('Nenhuma resposta ainda')
-    await tela.find('textarea[aria-label="Responder à postagem"]').setValue('Combinado')
-    await tela.find('textarea[aria-label="Responder à postagem"]').trigger('keydown', { key: 'Enter' })
-    await aguardar(5)
-    expect(pedidosDe('PUT', '/mensagem')[0]!.corpo).toEqual({ conversa_id: 5, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'Combinado' }], postagem_id: 30 })
+    await tela.find('[data-responder-postagem]').trigger('click')
+    expect(useChatStore().postagemRespondendo?.id).toBe(30)
+    expect(tela.find('[data-responder-postagem]').text()).toBe('Respondendo no campo de mensagem')
   })
 
   test('com a conversa aberta, respostas novas contam como vistas', async () => {
@@ -217,9 +223,12 @@ describe('mensagem da ligação', () => {
     await tela.findAll('button').find((b) => b.text() === 'Ver chat da chamada')!.trigger('click')
     await aguardar(10)
     expect(pedidosDe('GET', '/mensagens')[0]!.consulta).toMatchObject({ conversa: '50' })
-    const chat = tela.find('[data-chat-da-chamada]').text()
-    expect(chat).toContain('Oi @Bruno')
-    expect(chat).toContain('📷 Imagem')
+    const chat = tela.find('[data-chat-da-chamada]')
+    expect(chat.text()).toContain('Oi')
+    expect(chat.text()).toContain('Bruno')
+    // Os conteúdos aparecem como no chat: a imagem é a imagem
+    expect(chat.findAllComponents({ name: 'MessageContent' })).toHaveLength(2)
+    expect(chat.find('img').exists()).toBe(true)
     const chatStore = useChatStore()
     let aberta = 0
     chatStore.selecionarConversa = (async (id: number) => { aberta = id }) as never
@@ -233,7 +242,8 @@ describe('mensagem da ligação', () => {
 })
 
 describe('confirmação de leitura', () => {
-  const confirmacao = (extras = {}) => ({ total: 2, confirmou: false, usuarios: [], ...extras })
+  const destinatarios = [{ usuario_id: 2, nome: 'Bruno' }, { usuario_id: 3, nome: 'Carla' }]
+  const confirmacao = (extras = {}) => ({ total: 2, confirmou: false, pode_confirmar: true, destinatarios, usuarios: [], ...extras })
 
   test('quem recebe vê a caixa; marcar pede a confirmação, sem marcar antes do servidor', async () => {
     const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao() }))
@@ -256,13 +266,20 @@ describe('confirmação de leitura', () => {
     expect(tela.find('label span[aria-hidden="true"] svg').exists()).toBe(true)
   })
 
-  test('quem enviou vê quantos confirmaram, sem a caixa', () => {
-    const aguardando = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao() }), { isOwn: true })
+  test('quem não está na lista não tem a caixa: vê só quantos confirmaram', () => {
+    const tela = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao({ pode_confirmar: false }) }))
+    expect(tela.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(tela.text()).toContain('Aguardando confirmação')
+  })
+
+  test('quem enviou vê quantos confirmaram e quem falta, sem a caixa', () => {
+    const aguardando = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao({ pode_confirmar: false }) }), { isOwn: true })
     expect(aguardando.find('input[type="checkbox"]').exists()).toBe(false)
     expect(aguardando.text()).toContain('Aguardando confirmação')
-    const uma = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao({ usuarios: [{ usuario_id: 2, nome: 'Bruno', confirmada_em: new Date() }] }) }), { isOwn: true })
+    const uma = bolha(mensagem({ id: 9, conteudos: [texto('x')], confirmacao: confirmacao({ pode_confirmar: false, usuarios: [{ usuario_id: 2, nome: 'Bruno', confirmada_em: new Date() }] }) }), { isOwn: true })
     expect(uma.text()).toContain('Confirmada por 1 de 2')
     expect(uma.text()).toContain('Bruno')
+    expect(uma.findAll('[data-falta-confirmar]').map((d) => d.text())).toEqual(['Carla'])
   })
 
   test('mensagem comum não tem confirmação', () => {
@@ -290,6 +307,24 @@ describe('menu de contexto', () => {
     await tela.vm.$nextTick()
     expect(tela.emitted('reagir')).toEqual([[9, '😂']])
     expect(barraDeReacoes()).toBeNull()
+  })
+
+  test('"Pedir confirmação de leitura" só na minha mensagem, até 24 horas depois', async () => {
+    const item = () => [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Pedir confirmação de leitura')
+    const recente = bolha(mensagem({ id: 9, conteudos: [texto('x')], inserida: new Date(Date.now() - 60_000) }), { isOwn: true })
+    contextmenu(recente)
+    await recente.vm.$nextTick()
+    item()!.click()
+    await recente.vm.$nextTick()
+    expect(recente.emitted('pedir-confirmacao')![0]![0]).toMatchObject({ id: 9 })
+    recente.unmount()
+    for (const [extras, own] of [[{ inserida: new Date(Date.now() - 25 * 3600_000) }, true], [{}, false]] as const) {
+      const tela = bolha(mensagem({ id: 10, conteudos: [texto('x')], ...extras }), { isOwn: own })
+      contextmenu(tela)
+      await tela.vm.$nextTick()
+      expect(item()).toBeUndefined()
+      tela.unmount()
+    }
   })
 
   test('"Mais emojis" na barra rápida abre a lista completa; escolher reage', async () => {

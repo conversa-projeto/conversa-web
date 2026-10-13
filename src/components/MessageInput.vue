@@ -43,6 +43,19 @@
         </button>
       </div>
 
+      <!-- A próxima mensagem responde a uma postagem: vai para baixo dela -->
+      <div v-if="chat.postagemRespondendo" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2" data-respondendo-postagem>
+        <div class="min-w-0 flex-1">
+          <span class="text-xs font-semibold text-primary-500">Respondendo à postagem de {{ chat.postagemRespondendo.remetente }}</span>
+          <p class="truncate text-xs text-surface-500">{{ chat.postagemRespondendo.postagem?.titulo || resumoMensagem(chat.postagemRespondendo) }}</p>
+        </div>
+        <button class="shrink-0 text-surface-400 hover:text-surface-600" title="Não responder à postagem" @click="chat.postagemRespondendo = null">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+          </svg>
+        </button>
+      </div>
+
       <!-- A próxima mensagem é uma postagem do grupo, com título opcional -->
       <div v-if="chat.postagemPendente" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2" data-postagem-pendente>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535" /></svg>
@@ -67,7 +80,12 @@
       <!-- A próxima mensagem pede confirmação de leitura -->
       <div v-if="chat.pedirConfirmacao" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-        <span class="min-w-0 flex-1 text-xs text-surface-700">A mensagem vai pedir confirmação de leitura</span>
+        <span class="min-w-0 flex-1 text-xs text-surface-700" data-confirmacao-pendente>
+          A mensagem vai pedir confirmação de leitura<template v-if="ehGrupo">
+            {{ chat.confirmacaoUsuarios ? `de ${chat.confirmacaoUsuarios.length === 1 ? '1 pessoa' : `${chat.confirmacaoUsuarios.length} pessoas`}` : 'de todos' }}
+            <button type="button" class="ml-1 font-medium text-primary-600 hover:underline" @click="escolhendoConfirmacao = true">Escolher</button>
+          </template>
+        </span>
         <button class="shrink-0 text-surface-400 hover:text-surface-600" title="Não pedir confirmação" @click="chat.pedirConfirmacao = false">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -105,7 +123,7 @@
               @arquivo="abrirFilePicker()"
               @codigo="mostrarAnexo = false; mostrarCodigo = true"
               @votacao="mostrarAnexo = false; mostrarEnquete = true"
-              @confirmacao="mostrarAnexo = false; chat.pedirConfirmacao = true"
+              @confirmacao="mostrarAnexo = false; pedirConfirmacao()"
               @postagem="mostrarAnexo = false; chat.postagemPendente = { titulo: '' }"
               @close="mostrarAnexo = false"
             />
@@ -226,9 +244,11 @@
     <!-- Codigo Modal -->
     <CodigoModal
       v-if="mostrarCodigo"
-      :codigo-inicial="codigoColado?.codigo"
-      :linguagem-inicial="codigoColado?.linguagem"
+      :codigo-inicial="codigoEditando?.atual.codigo ?? codigoColado?.codigo"
+      :linguagem-inicial="codigoEditando?.atual.linguagem ?? codigoColado?.linguagem"
+      :editando="!!codigoEditando"
       @inserir="onInserirCodigo"
+      @enviar="onEnviarCodigo"
       @close="fecharCodigo"
     />
 
@@ -240,6 +260,17 @@
     />
 
     <MensagensAgendadasModal v-if="mostrarAgendadas" @close="mostrarAgendadas = false" />
+
+    <!-- Em grupo: quem precisa confirmar a leitura -->
+    <ConfirmacaoLeituraModal
+      v-if="chat.conversaAtivaId"
+      :aberta="escolhendoConfirmacao"
+      :conversa-id="chat.conversaAtivaId"
+      :inicial="chat.confirmacaoUsuarios"
+      texto-confirmar="Pronto"
+      @close="escolhendoConfirmacao = false"
+      @escolher="(usuarios) => { chat.confirmacaoUsuarios = usuarios; chat.pedirConfirmacao = true; escolhendoConfirmacao = false }"
+    />
   </div>
 </template>
 
@@ -267,7 +298,7 @@ import { cercaCodigo, ehDesenhoAscii, pareceCodigo, textoLongo } from '../utils/
 import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { gifDoHtml } from '../utils/copiarImagem'
-import { Anexo, ExtensoesDoCampo, Figurinha, blocosDoDocumento, criarMencao, liberarPrevias, novoIdAnexo, type AnexoEditor } from '../editor/pecas'
+import { Anexo, Codigo, ExtensoesDoCampo, Figurinha, blocoDeCodigo, blocosDoDocumento, criarMencao, liberarPrevias, novoIdAnexo, type AnexoEditor, type CodigoEditor } from '../editor/pecas'
 import { SugestaoIa, chaveSugestao, sugestaoAtual } from '../editor/sugestao'
 import { useSugestaoIa } from '../composables/useSugestaoIa'
 import AnexoPopup from './AnexoPopup.vue'
@@ -278,6 +309,7 @@ import EmojiPicker from './EmojiPicker.vue'
 import MencaoDropdown from './MencaoDropdown.vue'
 import BarraGravacao from './BarraGravacao.vue'
 import EnqueteModal from './EnqueteModal.vue'
+import ConfirmacaoLeituraModal from './ConfirmacaoLeituraModal.vue'
 
 const props = withDefaults(defineProps<{
   /** Usuario esta no fim do chat — controla visibilidade do indicador digitando/gravando. */
@@ -331,6 +363,14 @@ const mostrarEmoji = ref(false)
 const mostrarAnexo = ref(false)
 const mostrarCodigo = ref(false)
 const mostrarEnquete = ref(false)
+const escolhendoConfirmacao = ref(false)
+const ehGrupo = computed(() => chat.conversaAtiva?.tipo === TipoConversa.Grupo)
+
+// "+" > Confirmar leitura: em grupo, escolhe antes quem precisa confirmar
+function pedirConfirmacao() {
+  if (ehGrupo.value) escolhendoConfirmacao.value = true
+  else chat.pedirConfirmacao = true
+}
 const mostrarAgendarModal = ref(false)
 const mostrarAgendadas = ref(false)
 const inputArquivo = ref<HTMLInputElement | null>(null)
@@ -388,6 +428,7 @@ const editor = useEditor({
     Gapcursor, Dropcursor.configure({ color: 'var(--color-primary-500)', width: 2 }), TrailingNode, UndoRedo,
     Anexo.configure({ anexos, aoAbrirImagem: abrirImagemDoCampo }),
     Figurinha,
+    Codigo.configure({ aoEditar: editarCodigoDoCampo }),
     criarMencao({
       render: () => ({
         onStart: abrirMencao,
@@ -472,7 +513,7 @@ function inserirNoCampo(conteudo: JSONContent[], posicao?: number) {
   const cadeia = ed.chain().focus(null, { scrollIntoView: false })
   const comConteudo = posicao === undefined ? cadeia.insertContent(conteudo) : cadeia.insertContentAt(posicao, conteudo)
   comConteudo.command(({ tr }) => {
-    if (conteudo.some((no) => no.type === 'anexo' || no.type === 'figurinha')) {
+    if (conteudo.some((no) => no.type === 'anexo' || no.type === 'figurinha' || no.type === 'codigo')) {
       // Sem linha depois da peça (ela ficou no fim), uma nova para o cursor
       let proxima = Selection.findFrom(tr.doc.resolve(tr.selection.to), 1, true)
       if (!proxima) {
@@ -730,15 +771,33 @@ function aoSoltarNoCampo(view: EditorView, event: DragEvent) {
 
 // --- Code insertion ---
 
-function onInserirCodigo(payload: { linguagem: string; codigo: string }) {
-  // Cerca maior que qualquer sequencia de crases do codigo, para um Markdown
-  // com exemplos de codigo dentro nao fechar o bloco antes da hora.
-  const cerca = cercaCodigo(payload.codigo)
-  const bloco = cerca + payload.linguagem + '\n' + payload.codigo + '\n' + cerca
+// "Enviar": o código vai sozinho, na hora; o que já estava no campo fica lá
+function onEnviarCodigo(payload: CodigoEditor) {
   mostrarCodigo.value = false
   codigoColado.value = null
-  limparCampo()
-  void enviarBlocos([{ texto: bloco }])
+  void enviarBlocos([{ texto: blocoDeCodigo(payload) }])
+}
+
+// "Inserir na mensagem": vira um bloco no campo (editando, troca o bloco)
+function onInserirCodigo(payload: CodigoEditor) {
+  mostrarCodigo.value = false
+  codigoColado.value = null
+  const edicao = codigoEditando.value
+  codigoEditando.value = null
+  if (edicao) {
+    edicao.salvar(payload)
+    return
+  }
+  inserirNoCampo([{ type: 'codigo', attrs: payload }])
+}
+
+// Editar o bloco do campo: a mesma janela, só com "Salvar"
+const codigoEditando = ref<{ atual: CodigoEditor; salvar: (novo: CodigoEditor) => void } | null>(null)
+
+function editarCodigoDoCampo(atual: CodigoEditor, salvar: (novo: CodigoEditor) => void) {
+  codigoColado.value = null
+  codigoEditando.value = { atual, salvar }
+  mostrarCodigo.value = true
 }
 
 // --- Emoji ---
@@ -983,6 +1042,10 @@ watch(() => chat.mensagemRespondendo, (msg) => {
   if (msg) nextTick(() => focarCampo(null))
 })
 
+watch(() => chat.postagemRespondendo, (postagem) => {
+  if (postagem) nextTick(() => focarCampo(null))
+})
+
 async function enviarMensagem(visivelEm: Date | null = null) {
   const ed = editor.value
   if (!ed) return
@@ -1073,6 +1136,7 @@ async function sugerirCodigo(texto: string) {
 // Cancelar a janela cola o texto como estava: ela era só uma sugestão
 function fecharCodigo() {
   mostrarCodigo.value = false
+  codigoEditando.value = null
   const colado = codigoColado.value
   codigoColado.value = null
   if (colado) inserirTexto(colado.codigo)

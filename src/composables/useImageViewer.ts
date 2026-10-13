@@ -88,7 +88,9 @@ export function useImageViewer(
     return 1
   }
 
-  function ajustarZoomImagem(direcao: number) {
+  // foco: ponto que fica parado (distância ao centro da imagem sem zoom); sem
+  // ele, o centro do que está à vista
+  function ajustarZoomImagem(direcao: number, foco = { x: 0, y: 0 }) {
     const zoomAntigo = zoomImagemTelaCheia.value
     const passo = calcularPassoZoom(zoomAntigo)
     const delta = direcao > 0 ? passo : -passo
@@ -98,15 +100,25 @@ export function useImageViewer(
     if (zoomImagemTelaCheia.value <= 1) {
       translateX.value = 0
       translateY.value = 0
-    } else if (zoomAntigo > 1) {
-      const proporcao = (zoomImagemTelaCheia.value - 1) / (zoomAntigo - 1)
-      translateX.value *= proporcao
-      translateY.value *= proporcao
+    } else {
+      const proporcao = zoomImagemTelaCheia.value / zoomAntigo
+      translateX.value = foco.x - (foco.x - translateX.value) * proporcao
+      translateY.value = foco.y - (foco.y - translateY.value) * proporcao
     }
   }
 
+  // A roda aproxima no ponto onde está o ponteiro
   function zoomImagemPorRoda(event: WheelEvent) {
-    ajustarZoomImagem(event.deltaY < 0 ? 1 : -1)
+    const alvo = event.currentTarget instanceof Element ? event.currentTarget : null
+    if (!alvo) {
+      ajustarZoomImagem(event.deltaY < 0 ? 1 : -1)
+      return
+    }
+    // O retângulo já inclui o deslocamento; tirando-o, sobra o centro sem zoom
+    const caixa = alvo.getBoundingClientRect()
+    const centroX = caixa.left + caixa.width / 2 - translateX.value
+    const centroY = caixa.top + caixa.height / 2 - translateY.value
+    ajustarZoomImagem(event.deltaY < 0 ? 1 : -1, { x: event.clientX - centroX, y: event.clientY - centroY })
   }
 
   function iniciarArrasto(event: MouseEvent) {

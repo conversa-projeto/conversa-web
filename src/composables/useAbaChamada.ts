@@ -2,8 +2,8 @@ import { createApp, ref, type App } from 'vue'
 import { pinia } from '../pinia'
 import CallWindow from '../CallWindow.vue'
 
-// Chamada de vídeo numa aba própria do navegador (no computador), em vez da
-// janela flutuante. A conexão continua nesta aba (a do app): a outra só mostra
+// Chamada de vídeo numa janela popup própria do navegador (no computador), em
+// vez da janela flutuante. A conexão continua nesta aba (a do app): a outra só mostra
 // a chamada, desenhada daqui, com o mesmo Vue e os mesmos dados (um app Vue
 // carregado na outra aba não veria as mudanças destes dados). Estilos e tema
 // são copiados para lá.
@@ -67,14 +67,23 @@ function fechar() {
   anterior?.close()
 }
 
-// Abre (ou traz para a frente) a aba da chamada. Falso quando o navegador
-// bloqueou a aba nova: a chamada fica dentro do app.
+// Tamanho da popup: 80% da tela, centralizada, sem passar de 1280x800
+function recursosDaJanela() {
+  const largura = Math.min(1280, Math.round(window.screen.availWidth * 0.8))
+  const altura = Math.min(800, Math.round(window.screen.availHeight * 0.8))
+  const esquerda = Math.round((window.screen.availWidth - largura) / 2)
+  const topo = Math.round((window.screen.availHeight - altura) / 2)
+  return `popup,width=${largura},height=${altura},left=${esquerda},top=${topo}`
+}
+
+// Abre (ou traz para a frente) a janela da chamada. Falso quando o navegador
+// bloqueou a janela nova: a chamada fica dentro do app.
 function abrir(aoFecharAba: () => void): boolean {
   if (aba && !aba.closed) {
     aba.focus()
     return true
   }
-  const nova = window.open('/chamada.html', NOME_DA_ABA)
+  const nova = window.open('/chamada.html', NOME_DA_ABA, recursosDaJanela())
   if (!nova) return false
   aba = nova
   aberta.value = true

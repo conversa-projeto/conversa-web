@@ -1,4 +1,4 @@
-import type { AlteracaoParametros, AnexoItem, AnexoResponse, Atividade, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteIa } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteIa } from '../types/api'
 import { api, dados } from './eden'
 
 // Chamadas da API pelo cliente Eden: caminho, corpo, consulta e resposta sao
@@ -112,7 +112,8 @@ export function enviarMensagem(
   conteudos: Array<{ ordem: number; tipo: TipoConteudo; conteudo: string }>,
   mensagemReferencia?: { tipo: number; origem_mensagem_id: number },
   visivelEm?: Date | null,
-  pedeConfirmacao = false,
+  // Pede confirmação de leitura: de todos (true) ou só de quem está na lista
+  pedeConfirmacao: boolean | number[] = false,
   // Postagem (com título opcional) ou resposta a uma postagem
   postagem?: { titulo: string | null } | { respondendo: number },
 ): Promise<{ id: number; conversa_id: number; usuario_id: number }> {
@@ -122,6 +123,7 @@ export function enviarMensagem(
     ...(mensagemReferencia ? { mensagem_referencia: mensagemReferencia } : {}),
     ...(visivelEm ? { visivel_em: visivelEm.toISOString() } : {}),
     ...(pedeConfirmacao ? { pede_confirmacao: true } : {}),
+    ...(Array.isArray(pedeConfirmacao) ? { confirmacao_usuarios: pedeConfirmacao } : {}),
     ...(postagem && 'titulo' in postagem ? { postagem: { titulo: postagem.titulo } } : {}),
     ...(postagem && 'respondendo' in postagem ? { postagem_id: postagem.respondendo } : {})
   }))
@@ -137,6 +139,11 @@ export function visualizarPostagem(postagemId: number) {
 
 export function confirmarLeitura(mensagemId: number) {
   return dados(api().mensagem.confirmar.post({ mensagem_id: mensagemId }))
+}
+
+// Quem enviou passa a pedir confirmação numa mensagem já enviada (até 24 horas depois)
+export function pedirConfirmacao(mensagemId: number, usuarios: number[] | null): Promise<ConfirmacaoLeitura> {
+  return dados(api().mensagem['pedir-confirmacao'].post({ mensagem_id: mensagemId, ...(usuarios ? { usuarios } : {}) }))
 }
 
 export function deletarMensagem(id: number) {

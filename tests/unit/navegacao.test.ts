@@ -207,7 +207,7 @@ describe('cabeçalho da conversa', () => {
     rota('GET', '/pesquisar', [
       mensagem({ id: 11, conversa_id: 1, remetente_id: 7, remetente: 'Eu', conteudos: [texto('primeiro OI')] }),
       mensagem({ id: 10, conversa_id: 1, remetente_id: 2, remetente: 'Bruno', inserida: ontem, conteudos: [texto(`${'texto longo antes '.repeat(4)}oi depois`)] }),
-      mensagem({ id: 50, conversa_id: 2 }),
+      mensagem({ id: 50, conversa_id: 2, remetente: 'Carla', conteudos: [texto('oi da ligação')] }),
     ])
     const tela = montarCabecalho(conversa(1, { destinatario_id: 2 }))
     const campo = tela.find('input[placeholder="Pesquisar..."]')
@@ -216,9 +216,14 @@ describe('cabeçalho da conversa', () => {
     await aguardar(10)
     expect(pedidosDe('GET', '/pesquisar')[0]!.consulta).toEqual({ texto: 'oi', conversa: '1' })
     const painel = tela.find('[data-resultados-busca]')
-    expect(painel.text()).toContain('2 resultados para “oi”')
+    expect(painel.text()).toContain('3 resultados para “oi”')
     expect(painel.text()).not.toContain('#10')
-    const resultados = painel.findAll('button')
+    const [daLigacao, ...resultados] = painel.findAll('button')
+    // Achada no chat de uma ligação feita nesta conversa: marcada, e vai para lá
+    expect(daLigacao!.find('[data-resultado-chat-ligacao]').exists()).toBe(true)
+    await daLigacao!.trigger('click')
+    expect(tela.emitted('go-to-message')![0]).toEqual([50, 2])
+    expect(resultados[0]!.find('[data-resultado-chat-ligacao]').exists()).toBe(false)
     expect(resultados[0]!.text()).toContain('Bruno')
     expect(resultados[0]!.text()).toContain(ontem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }))
     // Trecho começa pouco antes do termo
@@ -226,7 +231,7 @@ describe('cabeçalho da conversa', () => {
     expect(resultados[1]!.text()).toContain('Você')
     expect(resultados[1]!.findAll('mark').map((m) => m.text())).toEqual(['OI'])
     await resultados[0]!.trigger('click')
-    expect(tela.emitted('go-to-message')).toEqual([[10]])
+    expect(tela.emitted('go-to-message')![1]).toEqual([10, 1])
     await campo.element.nextElementSibling!.dispatchEvent(new Event('click'))
     await tela.vm.$nextTick()
     expect(useChatStore().resultadosBuscaConversa).toEqual([])

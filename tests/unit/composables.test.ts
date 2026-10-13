@@ -184,6 +184,28 @@ describe('visualizador de imagem (zoom, arrasto, galeria)', () => {
     host.unmount()
   })
 
+  test('a roda aproxima no ponto do ponteiro: o que está embaixo dele não sai do lugar', () => {
+    const { visor, host } = criar()
+    const imagem = document.createElement('img')
+    // Imagem de 400x200 com o canto em (100, 100): centro em (300, 200)
+    imagem.getBoundingClientRect = () => ({ left: 100, top: 100, width: 400, height: 200, right: 500, bottom: 300, x: 100, y: 100, toJSON: () => ({}) })
+    const roda = (deltaY: number) => {
+      const evento = new WheelEvent('wheel', { deltaY, clientX: 400, clientY: 150 })
+      Object.defineProperties(evento, { currentTarget: { value: imagem }, clientX: { value: 400 }, clientY: { value: 150 } })
+      visor.zoomImagemPorRoda(evento)
+    }
+    roda(-100)
+    // Ponteiro 100 px à direita e 50 acima do centro; com 1,2x o ponto foi para 120 e -60, o deslocamento compensa
+    expect(visor.zoomImagemTelaCheia.value).toBe(1.2)
+    expect([visor.translateX.value, visor.translateY.value].map((v) => Math.round(v))).toEqual([-20, 10])
+    // O retângulo agora reflete o zoom e o deslocamento
+    imagem.getBoundingClientRect = () => ({ left: 40, top: 90, width: 480, height: 240, right: 520, bottom: 330, x: 40, y: 90, toJSON: () => ({}) })
+    roda(-100)
+    // O mesmo ponto da imagem (100, -50 sem zoom) continua sob o ponteiro: 1,4 * 100 + tx = 100
+    expect([visor.translateX.value, visor.translateY.value].map((v) => Math.round(v))).toEqual([-40, 20])
+    host.unmount()
+  })
+
   test('arrastar só com zoom; voltar a 100% centraliza', () => {
     const { visor, host } = criar()
     visor.iniciarArrasto(new MouseEvent('mousedown', { clientX: 10, clientY: 10 }))

@@ -46,6 +46,7 @@ export const TipoEventoSocket = {
   EnqueteAtualizada: 62,
   Presenca: 63,
   PostagemAtualizada: 64,
+  ConfirmacaoPedida: 65,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -193,10 +194,13 @@ export interface ConfirmacaoUsuario {
   confirmada_em: Date
 }
 
-// Mensagem que pede confirmação de leitura: destinatários (total) e quem confirmou
+// Mensagem que pede confirmação de leitura: quem precisa confirmar (só eles
+// confirmam) e quem já confirmou
 export interface ConfirmacaoLeitura {
   total: number
   confirmou: boolean
+  pode_confirmar: boolean
+  destinatarios: Array<{ usuario_id: number; nome: string }>
   usuarios: ConfirmacaoUsuario[]
 }
 
@@ -511,6 +515,8 @@ export interface EventoSocket {
   // Confirmação de leitura: quem confirmou e quando
   nome?: string
   confirmada_em?: string
+  // Confirmação pedida depois do envio: como fica para quem recebe o aviso
+  confirmacao?: ConfirmacaoLeitura
   // Presença: estado do contato, quando esteve ativo e se abriu a conversa
   online?: boolean
   postagem_id?: number

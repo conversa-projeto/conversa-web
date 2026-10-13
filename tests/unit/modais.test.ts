@@ -13,6 +13,7 @@ import SipIncomingCallModal from '@/components/SipIncomingCallModal.vue'
 import SipDialerModal from '@/components/SipDialerModal.vue'
 import ImagePreviewModal from '@/components/ImagePreviewModal.vue'
 import CodigoModal from '@/components/CodigoModal.vue'
+import ConfirmacaoLeituraModal from '@/components/ConfirmacaoLeituraModal.vue'
 import DialogoConfirmacao from '@/components/DialogoConfirmacao.vue'
 import { useDialogo } from '@/composables/useDialogo'
 import { defineComponent, h, nextTick } from 'vue'
@@ -92,6 +93,41 @@ describe('criar grupo', () => {
     expect(pedidosDe('PUT', '/conversa/usuario').map((p) => p.corpo.usuario_id).sort()).toEqual([3, 7])
     expect(tela.emitted('close')).toHaveLength(1)
     expect(tela.emitted('created')).toHaveLength(1)
+  })
+
+  test('com emoji escolhido, o grupo já nasce com ele', async () => {
+    rota('PUT', '/conversa', { id: 21 })
+    rota('PUT', '/conversa/usuario', { id: 1 })
+    rota('PATCH', '/conversa', { id: 21 })
+    rota('GET', '/conversas', [])
+    rota('GET', '/mensagens', [])
+    const tela = montarModal()
+    await tela.find('input[placeholder="Ex: Projeto Alpha"]').setValue('Festa')
+    // Sem imagem nem emoji, a primeira letra do nome
+    expect(tela.find('[data-avatar-novo-grupo] span.h-14').text()).toBe('F')
+    await botao(tela, 'Emoji').trigger('click')
+    tela.findComponent({ name: 'EmojiPicker' }).vm.$emit('selecionar', '🎉')
+    await tela.vm.$nextTick()
+    expect(tela.find('[data-avatar-novo-grupo] span.h-14').text()).toBe('🎉')
+    expect(tela.findComponent({ name: 'EmojiPicker' }).exists()).toBe(false)
+    await tela.findAll('input[type="checkbox"]')[0]!.setValue(true)
+    await botao(tela, 'Criar').trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/conversa')[0]!.corpo).toEqual({ id: 21, avatar_anexo_id: null, emoji: '🎉' })
+  })
+
+  test('imagem escolhida aparece na prévia; Remover volta para a letra', async () => {
+    const tela = montarModal()
+    await tela.find('input[placeholder="Ex: Projeto Alpha"]').setValue('Time')
+    const seletor = tela.find('input[type="file"]')
+    Object.defineProperty(seletor.element, 'files', { value: [new File(['x'], 'foto.png', { type: 'image/png' })], configurable: true })
+    await seletor.trigger('change')
+    expect(tela.find('[data-avatar-novo-grupo] img[alt="Imagem do grupo"]').attributes('src')).toStartWith('blob:')
+    await botao(tela, 'Remover').trigger('click')
+    expect(tela.find('[data-avatar-novo-grupo] img').exists()).toBe(false)
+    expect(tela.find('[data-avatar-novo-grupo] span.h-14').text()).toBe('T')
+    // Nada é enviado antes de criar
+    expect(pedidosDe('PUT', '/anexo')).toHaveLength(0)
   })
 
   test('erro do servidor aparece e o modal fica aberto', async () => {
@@ -526,7 +562,18 @@ describe('inserir código', () => {
     view.dispatch({ changes: { from: 0, insert: 'select 1' } })
     await tela.vm.$nextTick()
     await botao(tela, 'Enviar').trigger('click')
+    expect(tela.emitted('enviar')).toEqual([[{ linguagem: 'sql', codigo: 'select 1' }]])
+    // Ou vai para o campo de mensagem, como um bloco
+    await botao(tela, 'Inserir na mensagem').trigger('click')
     expect(tela.emitted('inserir')).toEqual([[{ linguagem: 'sql', codigo: 'select 1' }]])
+  })
+
+  test('editando o bloco do campo: só Salvar, já com o código', async () => {
+    const tela = montar(CodigoModal, { props: { codigoInicial: 'select 2', linguagemInicial: 'sql', editando: true } })
+    expect(tela.text()).toContain('Editar código')
+    expect(tela.findAll('button').some((b) => b.text() === 'Enviar' || b.text() === 'Inserir na mensagem')).toBe(false)
+    await botao(tela, 'Salvar').trigger('click')
+    expect(tela.emitted('inserir')).toEqual([[{ linguagem: 'sql', codigo: 'select 2' }]])
   })
 
   test('só espaços não envia', async () => {
@@ -549,6 +596,42 @@ describe('inserir código', () => {
     await botao(tela, 'Cancelar').trigger('click')
     await tela.find('div.fixed').trigger('click')
     expect(tela.emitted('close')).toHaveLength(2)
+  })
+})
+
+describe('quem precisa confirmar a leitura', () => {
+  function abrir(inicial: number[] | null = null) {
+    localStorage.setItem('conversa.user', JSON.stringify({ id: 7, nome: 'Eu' }))
+    useChatStore().usuariosConversa[5] = [
+      { id: 1, usuario_id: 7, nome: 'Eu' },
+      { id: 2, usuario_id: 2, nome: 'Bruno Silva' },
+      { id: 3, usuario_id: 3, nome: 'Carla Antônia' },
+      { id: 4, usuario_id: 4, nome: 'Antonio Souza' },
+    ]
+    return montar(ConfirmacaoLeituraModal, { props: { aberta: true, conversaId: 5, inicial } })
+  }
+  const nomes = (tela: VueWrapper) => tela.findAll('label').slice(1).map((l) => l.text())
+
+  test('começa com todos; o filtro acha pelo nome, sem acento, e não muda a escolha', async () => {
+    const tela = abrir()
+    await aguardar()
+    expect(nomes(tela)).toEqual(['BBruno Silva', 'CCarla Antônia', 'AAntonio Souza'])
+    await tela.find('input[type="search"]').setValue('ANTO')
+    expect(nomes(tela)).toEqual(['CCarla Antônia', 'AAntonio Souza'])
+    // Desmarca a Carla pelo filtro; "Todos" vale para todos, filtrados ou não
+    await tela.findAll('label').find((l) => l.text().includes('Carla'))!.find('input').setValue(false)
+    await tela.find('input[type="search"]').setValue('zzz')
+    expect(tela.text()).toContain('Ninguém com “zzz”')
+    await tela.findAll('button').find((b) => b.text() === 'Pedir confirmação')!.trigger('click')
+    expect(tela.emitted('escolher')).toEqual([[[2, 4]]])
+  })
+
+  test('marcando todos de novo, devolve null (todos os membros)', async () => {
+    const tela = abrir([2])
+    await aguardar()
+    await tela.findAll('label')[0]!.find('input').trigger('change')
+    await tela.findAll('button').find((b) => b.text() === 'Pedir confirmação')!.trigger('click')
+    expect(tela.emitted('escolher')).toEqual([[null]])
   })
 })
 

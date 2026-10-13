@@ -4,11 +4,13 @@ import { lerContas } from './contas'
 
 const contas = lerContas()
 
-// No computador, a chamada de vídeo abre numa aba própria; o app fica com a
-// barra do topo. A conexão (e o que se mede dela) continua na aba do app.
+// No computador, a chamada de vídeo abre numa janela popup própria; o app fica
+// com a barra do topo. A conexão (e o que se mede dela) continua na aba do app.
 async function abaDaChamada(app: Page, acao: () => Promise<void>) {
   const [aba] = await Promise.all([app.context().waitForEvent('page'), acao()])
   await expect(aba.getByTitle('Sair da chamada')).toBeVisible()
+  // Janela popup, não uma aba: sem a barra de ferramentas do navegador
+  expect(await aba.evaluate(() => window.toolbar.visible)).toBe(false)
   return aba
 }
 
@@ -72,10 +74,16 @@ test('ligação de vídeo: liga, atende, áudio e vídeo dos dois lados, tela co
     await expect.poll(() => abaAna.isClosed()).toBe(true)
     await expect(bruno.getByText('Em chamada')).toHaveCount(0)
     await expect(ana.getByText('Em chamada')).toHaveCount(0)
-    // A conversa direta já tem os dois: o chat da chamada é ela mesma
+    // Ligação nova: o chat dela é um grupo novo, com o nome dos dois; na
+    // conversa direta, a mensagem da ligação expande esse chat
     await abrirConversa(bruno, contas.ana.nome)
-    await expect(bruno.locator('[id^="msg-"]', { hasText: texto })).toBeVisible()
+    await expect(bruno.locator('[id^="msg-"]', { hasText: texto })).toHaveCount(0)
     await expect(bruno.getByText('Chamada de video').last()).toBeVisible()
+    await bruno.getByRole('button', { name: 'Ver chat da chamada' }).last().click()
+    await expect(bruno.locator('[data-chat-da-chamada]').last()).toContainText(texto)
+    // Na lista, na seção das chamadas (recolhida)
+    await bruno.locator('aside').getByRole('button', { name: /^Chamadas \(\d+\)/ }).click()
+    await expect(bruno.locator('aside [role="button"] span.truncate', { hasText: `${contas.ana.nome}, ${contas.bruno.nome}` }).first()).toBeVisible()
   })
 })
 

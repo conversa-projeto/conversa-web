@@ -183,10 +183,15 @@
             :key="`find-${item.id}`"
             type="button"
             class="block w-full px-3 py-1.5 text-left transition hover:bg-surface-100"
-            @click="emit('go-to-message', item.id)"
+            @click="emit('go-to-message', item.id, item.conversaId)"
           >
             <span class="flex items-baseline gap-2">
               <span class="truncate text-xs font-semibold text-surface-800">{{ item.autor }}</span>
+              <span
+                v-if="item.daLigacao"
+                class="shrink-0 rounded-full bg-surface-200 px-1.5 text-[10px] text-surface-600"
+                data-resultado-chat-ligacao
+              >no chat da ligação</span>
               <span class="ml-auto shrink-0 text-[11px] text-surface-500">{{ item.quando }}</span>
             </span>
             <span class="block truncate text-sm text-surface-600">
@@ -239,7 +244,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:sidebar-aberta': [value: boolean]
   'start-call': [tipo: TipoChamada, comTela?: boolean]
-  'go-to-message': [id: number]
+  // Com a conversa: resultado no chat de uma ligação feita nesta conversa
+  'go-to-message': [id: number, conversaId?: number]
   'open-group-members': []
   'open-chat-with': [usuarioId: number]
   'open-anexos': [conversaId: number]
@@ -379,6 +385,8 @@ const resultadosBusca = computed(() => {
   const eu = useAuthStore().user?.id
   return [...chat.resultadosBuscaConversa].reverse().map((item) => ({
     id: item.id,
+    conversaId: item.conversa_id,
+    daLigacao: item.conversa_id !== chat.conversaAtivaId,
     autor: item.remetente_id === eu ? 'Você' : item.remetente,
     quando: quandoFoi(new Date(item.inserida)),
     partes: partesDoTrecho(item, termoPesquisado.value),

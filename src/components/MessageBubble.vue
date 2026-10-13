@@ -1,9 +1,10 @@
 <template>
   <div
     :id="`msg-${mensagem.id}`"
-    :class="[isOwn ? 'flex justify-end' : 'flex justify-start', mudouRemetente ? 'mt-[12px]' : 'mt-[3px]']"
+    :class="[ehPostagem ? 'flex' : isOwn ? 'flex justify-end' : 'flex justify-start', mudouRemetente ? 'mt-[12px]' : 'mt-[3px]']"
   >
-    <div class="flex max-w-[80%] flex-col" :class="isOwn ? 'items-end' : 'items-start'">
+    <!-- Postagem ocupa a largura do chat, de quem quer que seja -->
+    <div class="flex flex-col" :class="[ehPostagem ? 'w-full' : 'max-w-[80%]', isOwn ? 'items-end' : 'items-start']">
       <!-- Badge de mensagem agendada (so para o autor, enquanto visivel_em > agora) -->
       <div
         v-if="ehAgendadaFutura"
@@ -17,8 +18,8 @@
 
       <div
         ref="wrapperRef"
-        class="group/bubble relative flex w-fit max-w-full items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
-        :class="[isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '', '[@media(pointer:coarse)]:select-none [-webkit-touch-callout:none]']"
+        class="group/bubble relative flex max-w-full items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
+        :class="[ehPostagem ? 'w-full' : 'w-fit', isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '', '[@media(pointer:coarse)]:select-none [-webkit-touch-callout:none]']"
         @mouseleave="onMouseLeave"
         @contextmenu.prevent="onContextMenu"
         @pointerdown="iniciarToqueLongo"
@@ -32,6 +33,7 @@
           :mensagem="mensagem"
           :is-own="isOwn"
           :is-group="isGroup"
+          :dentro="ehPostagem"
           :menu-aberto="menuAcoesAberto"
           @reply="(msg) => emit('reply', msg)"
           @responder-privado="(msg) => emit('responder-privado', msg)"
@@ -39,6 +41,7 @@
           @copiar="copiarMensagem"
           @reagir="(emoji) => emit('reagir', mensagem.id, emoji)"
           @excluir="(msg) => emit('excluir', msg)"
+          @pedir-confirmacao="(msg) => emit('pedir-confirmacao', msg)"
           @menu-toggle="(aberto) => menuAcoesAberto = aberto"
         />
 
@@ -123,7 +126,7 @@
         <!-- Confirmação de leitura: quem recebe marca; quem enviou vê quantos confirmaram -->
         <div v-if="mensagem.confirmacao" class="group/confirmacao relative">
           <label
-            v-if="!isOwn"
+            v-if="mensagem.confirmacao.pode_confirmar || mensagem.confirmacao.confirmou"
             class="flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition"
             :class="mensagem.confirmacao.confirmou ? 'reacao-reagiu cursor-default' : 'reacao-normal cursor-pointer'"
             @click.stop
@@ -155,9 +158,9 @@
             <span class="text-surface-600">{{ textoConfirmacoes }}</span>
           </span>
 
-          <!-- Quem já confirmou -->
+          <!-- Quem já confirmou e quem falta -->
           <div
-            v-if="mensagem.confirmacao.usuarios.length"
+            v-if="mensagem.confirmacao.usuarios.length || pendentesConfirmacao.length"
             class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 hidden w-max -translate-x-1/2 rounded-lg border border-surface-300 bg-surface-100 px-2 py-1.5 shadow-lg group-hover/confirmacao:block dark:border-surface-500 dark:bg-surface-200"
           >
             <div class="flex flex-col gap-1">
@@ -169,6 +172,10 @@
                 <span class="text-xs text-surface-700 dark:text-surface-600">{{ u.nome }}</span>
                 <span class="text-[10px] text-surface-500">{{ formatarHoraReacao(u.confirmada_em) }}</span>
               </div>
+              <template v-if="pendentesConfirmacao.length">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-surface-500" :class="{ 'mt-1': mensagem.confirmacao.usuarios.length }">Falta confirmar</p>
+                <span v-for="d in pendentesConfirmacao" :key="d.usuario_id" class="text-xs text-surface-600" data-falta-confirmar>{{ d.nome }}</span>
+              </template>
             </div>
           </div>
         </div>
@@ -287,6 +294,7 @@ const emit = defineEmits<{
   'reagir': [mensagemId: number, emoji: string]
   'excluir': [mensagem: Mensagem]
   'confirmar-leitura': [mensagem: Mensagem]
+  'pedir-confirmacao': [mensagem: Mensagem]
 }>()
 
 const wrapperRef = ref<HTMLElement>()
@@ -440,6 +448,7 @@ const ehChamada = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Cha
 const REACOES_A_MOSTRA = 5
 const reacoesVisiveis = computed(() => props.mensagem.reacoes?.slice(0, REACOES_A_MOSTRA) ?? [])
 const reacoesExtras = computed(() => props.mensagem.reacoes?.slice(REACOES_A_MOSTRA) ?? [])
+const ehPostagem = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Postagem)
 const ehExcluida = computed(() => tipoExibicao.value === TipoExibicaoMensagem.Excluida)
 
 // Quem enviou: quantos confirmaram (o total chega do servidor; na mensagem recém-enviada ainda não)
@@ -448,6 +457,12 @@ const textoConfirmacoes = computed(() => {
   if (!confirmacao?.usuarios.length) return 'Aguardando confirmação'
   const quantos = confirmacao.usuarios.length
   return confirmacao.total ? `Confirmada por ${quantos} de ${confirmacao.total}` : `Confirmada por ${quantos}`
+})
+
+const pendentesConfirmacao = computed(() => {
+  const confirmacao = props.mensagem.confirmacao
+  if (!confirmacao) return []
+  return confirmacao.destinatarios.filter((d) => !confirmacao.usuarios.some((u) => u.usuario_id === d.usuario_id))
 })
 
 // A caixa só fica marcada quando o servidor confirma (mensagem.confirmacao.confirmou)

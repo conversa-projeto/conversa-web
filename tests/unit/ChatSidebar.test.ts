@@ -45,6 +45,16 @@ describe('lista de conversas', () => {
     expect(ordem()).toEqual(['Conversa 4', 'Conversa 2', 'Conversa 3', 'Conversa 1'])
   })
 
+  test('grupo tem só o ícone ao lado do nome, antes do de fixada', async () => {
+    await montar([conversa(1), conversa(2, { tipo: TipoConversa.Grupo, fixada_ordem: 1 })])
+    const [grupo, direta] = barra.findAll('[role="button"]')
+    expect(grupo!.findAll('span').some((s) => s.text().trim() === 'Grupo')).toBe(false)
+    const icones = Array.from(grupo!.find('span.truncate').element.parentElement!.children).filter((e) => e.tagName.toLowerCase() === 'svg')
+    expect(icones).toHaveLength(2)
+    expect(icones[0]!.hasAttribute('data-icone-grupo')).toBe(true)
+    expect(direta!.find('[data-icone-grupo]').exists()).toBe(false)
+  })
+
   test('arquivadas ficam no fim, recolhidas, e abrem ao clicar no agrupador', async () => {
     await montar([conversa(1), conversa(2, { arquivada_em: new Date() }), conversa(3, { arquivada_em: new Date() })])
     expect(ordem()).toEqual(['Conversa 1', '[Arquivadas (2)]'])

@@ -9,6 +9,8 @@ import type { BlocoMensagem } from '../stores/chat'
 import { substituirAtalhoAntesDoCursor } from '../utils/emojiAtalhos'
 import PecaAnexo from './PecaAnexo.vue'
 import PecaFigurinha from './PecaFigurinha.vue'
+import PecaCodigo from './PecaCodigo.vue'
+import { cercaCodigo } from '../utils/codeBlocks'
 
 // Peças do campo de mensagem no editor (Tiptap): imagem, vídeo, áudio,
 // arquivo e figurinha são blocos que não se editam por dentro; a menção fica
@@ -69,6 +71,37 @@ export const Figurinha = Node.create({
   renderHTML: ({ HTMLAttributes }) => ['div', { 'data-figurinha': HTMLAttributes.figurinha }],
   addNodeView: () => VueNodeViewRenderer(PecaFigurinha),
 })
+
+export interface CodigoEditor {
+  linguagem: string
+  codigo: string
+}
+
+export interface OpcoesCodigo {
+  /** Abre a janela de código com o atual; salvar troca o da peça */
+  aoEditar: (atual: CodigoEditor, salvar: (novo: CodigoEditor) => void) => void
+}
+
+// Bloco de código: só a prévia no campo; edita-se na janela de código
+export const Codigo = Node.create<OpcoesCodigo>({
+  name: 'codigo',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addOptions: () => ({ aoEditar: () => {} }),
+  addAttributes: () => ({ linguagem: { default: 'texto' }, codigo: { default: '' } }),
+  parseHTML: () => [{ tag: 'div[data-codigo]', getAttrs: (el: HTMLElement) => ({ linguagem: el.dataset.linguagem, codigo: el.textContent ?? '' }) }],
+  renderHTML: ({ HTMLAttributes }) => ['div', { 'data-codigo': '', 'data-linguagem': HTMLAttributes.linguagem }, HTMLAttributes.codigo],
+  addNodeView: () => VueNodeViewRenderer(PecaCodigo),
+})
+
+// O bloco ``` que vai na mensagem. Cerca maior que qualquer sequência de
+// crases do código, para um Markdown com exemplos dentro não fechar antes da hora.
+export function blocoDeCodigo({ linguagem, codigo }: CodigoEditor) {
+  const cerca = cercaCodigo(codigo)
+  return `${cerca}${linguagem}\n${codigo}\n${cerca}`
+}
 
 // Menção: "@Nome" no texto, que vai na mensagem como @[Nome](id). A lista de
 // sugestões é a do campo (suggestion.render).
@@ -168,7 +201,8 @@ const Teclas = Extension.create<OpcoesTeclas>({
 export const ExtensoesDoCampo = { PecasSelecionadas, AtalhosEmoji, Teclas }
 
 // O documento do campo, na ordem, nos blocos da mensagem: texto (linhas
-// juntas), arquivo e figurinha. Texto vazio entre peças é descartado.
+// juntas), arquivo, figurinha e código (um texto só dele). Texto vazio entre
+// peças é descartado.
 export function blocosDoDocumento(doc: NoDocumento, anexos: Map<string, AnexoEditor>): BlocoMensagem[] {
   const blocos: BlocoMensagem[] = []
   let linhas: string[] = []
@@ -191,6 +225,11 @@ export function blocosDoDocumento(doc: NoDocumento, anexos: Map<string, AnexoEdi
     if (no.type.name === 'figurinha') {
       fecharTexto()
       blocos.push({ figurinha: no.attrs.figurinha })
+      return
+    }
+    if (no.type.name === 'codigo') {
+      fecharTexto()
+      if (String(no.attrs.codigo).trim()) blocos.push({ texto: blocoDeCodigo({ linguagem: no.attrs.linguagem, codigo: no.attrs.codigo }) })
       return
     }
     let linha = ''

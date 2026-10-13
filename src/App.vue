@@ -58,6 +58,7 @@
         v-else-if="secaoAtiva === 'chamadas'"
         class="flex-1"
         @open-conversa="abrirConversaPorId"
+        @open-image="handleOpenImage"
       />
 
       <!-- Anexos -->
@@ -851,9 +852,14 @@ async function abrirMensagemPesquisaGlobal(conversaId: number, mensagemId: numbe
   }
 }
 
-async function abrirResultadoBusca(mensagemId: number) {
+async function abrirResultadoBusca(mensagemId: number, conversaDoResultado?: number) {
   const conversaId = chat.conversaAtivaId
   if (!conversaId) return
+  // Achada no chat de uma ligação feita nesta conversa: abre esse chat na mensagem
+  if (conversaDoResultado && conversaDoResultado !== conversaId) {
+    await abrirMensagemPesquisaGlobal(conversaDoResultado, mensagemId)
+    return
+  }
 
   try {
     // irParaMensagem carrega o trecho só se a mensagem não estiver na lista, e

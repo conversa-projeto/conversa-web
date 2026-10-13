@@ -3,7 +3,7 @@
     class="absolute z-10 mt-[3px] shrink-0 opacity-0 transition pointer-events-none group-hover/bubble:opacity-100 group-hover/bubble:pointer-events-auto"
     :class="[
       menuAberto ? '!opacity-100 !pointer-events-auto' : '',
-      isOwn ? 'right-full pr-0.5' : 'left-full pl-0.5',
+      dentro ? 'right-1.5' : isOwn ? 'right-full pr-0.5' : 'left-full pl-0.5',
     ]"
     :style="{ top: topOffset + 'px' }"
     ref="containerRef"
@@ -100,6 +100,14 @@
         Copiar
       </button>
       <button
+        v-if="podePedirConfirmacao"
+        class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
+        @click="acaoPedirConfirmacao"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+        Pedir confirmação de leitura
+      </button>
+      <button
         v-if="isOwn && podeExcluir"
         class="flex w-full items-center gap-2 border-t border-surface-200 px-3 py-1.5 text-left text-sm text-danger-600 transition hover:bg-danger-500/10 dark:text-danger-400 dark:hover:bg-danger-500/15"
         @click="acaoExcluir"
@@ -175,6 +183,8 @@ const props = defineProps<{
   isOwn?: boolean
   isGroup?: boolean
   menuAberto?: boolean
+  // Bolha da largura do chat (postagem): os botões ficam no canto dela
+  dentro?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -184,6 +194,7 @@ const emit = defineEmits<{
   copiar: [mensagem: Mensagem, alvo: AlvoCopia]
   reagir: [emoji: string]
   excluir: [mensagem: Mensagem]
+  'pedir-confirmacao': [mensagem: Mensagem]
   'menu-toggle': [aberto: boolean]
 }>()
 
@@ -245,7 +256,7 @@ function calcularPosicao(largura: number, altura: number): CSSProperties {
 
   // Horizontal: alinhar pelo lado do botão, clampando na viewport
   let left: number
-  if (props.isOwn) {
+  if (props.isOwn || props.dentro) {
     // Alinhar pela direita do botão
     left = btnRect.right - largura
   } else {
@@ -367,6 +378,19 @@ function acaoExcluir() {
 // continua na conversa, marcada como excluída (a agendada que ainda não saiu
 // é apagada de vez).
 const podeExcluir = computed(() => !props.mensagem.excluida_em)
+
+// Quem enviou pode passar a pedir confirmação de leitura até 24 horas depois do envio
+const PRAZO_PEDIR_CONFIRMACAO_MS = 24 * 60 * 60 * 1000
+const podePedirConfirmacao = computed(() => {
+  if (!props.isOwn || props.mensagem.confirmacao || props.mensagem.excluida_em || props.mensagem.id <= 0) return false
+  const enviada = new Date(props.mensagem.visivel_em ?? props.mensagem.inserida).getTime()
+  return enviada <= Date.now() && Date.now() - enviada < PRAZO_PEDIR_CONFIRMACAO_MS
+})
+
+function acaoPedirConfirmacao() {
+  fecharMenu()
+  emit('pedir-confirmacao', props.mensagem)
+}
 
 function acaoReagir(emoji: string) {
   fecharMenu()

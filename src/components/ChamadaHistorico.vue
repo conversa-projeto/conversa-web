@@ -103,7 +103,7 @@
             </button>
           </div>
           <div v-if="chamada.conversa_chat_id && chatsAbertos.has(chamada.id)" class="px-4 pb-3 pl-[4.25rem] text-surface-700">
-            <ChatDaChamada :conversa-id="chamada.conversa_chat_id" @abrir="(id) => emit('open-conversa', id)" />
+            <ChatDaChamada :conversa-id="chamada.conversa_chat_id" @abrir="(id) => emit('open-conversa', id)" @open-image="(id, nome) => emit('open-image', id, nome)" />
           </div>
           </template>
         </template>
@@ -125,6 +125,7 @@ import { formatarDuracao, inicialNome } from '../utils/formatters'
 
 const emit = defineEmits<{
   'open-conversa': [conversaId: number]
+  'open-image': [identificador: string, nome: string]
 }>()
 
 const auth = useAuthStore()

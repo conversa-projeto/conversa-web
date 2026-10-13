@@ -136,7 +136,7 @@ describe('enviar', () => {
     chat.pedirConfirmacao = true
     await chat.enviarTexto('leiam')
     expect(pedidos.filter((p) => p.metodo === 'PUT')[0]!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'leiam' }], pede_confirmacao: true })
-    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toEqual({ total: 0, confirmou: false, usuarios: [] })
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toEqual({ total: 0, confirmou: false, pode_confirmar: false, destinatarios: [], usuarios: [] })
     expect(chat.pedirConfirmacao).toBe(false)
     await chat.enviarTexto('outra')
     expect(pedidos.filter((p) => p.metodo === 'PUT')[1]!.corpo).not.toHaveProperty('pede_confirmacao')
@@ -166,11 +166,41 @@ describe('enviar', () => {
   test('confirmar a leitura marca a mensagem com quem confirmou', async () => {
     rota('POST', '/mensagem/confirmar', { mensagem_id: 30 })
     const chat = novaStore()
-    chat.definirMensagens(1, [mensagem({ id: 30, confirmacao: { total: 2, confirmou: false, usuarios: [] } })])
+    chat.definirMensagens(1, [mensagem({ id: 30, confirmacao: { total: 2, confirmou: false, pode_confirmar: true, destinatarios: [], usuarios: [] } })])
     chat.conversaAtivaId = 1
     await chat.confirmarLeitura(chat.mensagensAtivas[0]!)
     expect(pedidos.find((p) => p.metodo === 'POST')!.corpo).toEqual({ mensagem_id: 30 })
-    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toMatchObject({ confirmou: true, usuarios: [{ usuario_id: EU, nome: 'Eu' }] })
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toMatchObject({ confirmou: true, pode_confirmar: false, usuarios: [{ usuario_id: EU, nome: 'Eu' }] })
+  })
+
+  test('resposta de postagem vai com o id dela, fora do fluxo, e atualiza a postagem', async () => {
+    rota('PUT', '/mensagem', { id: 99 })
+    rota('GET', '/conversas', [conversaApi(1)])
+    rota('GET', '/postagem/respostas', [mensagem({ id: 99, remetente_id: EU, conteudos: [texto('Combinado')] })])
+    const chat = novaStore()
+    chat.conversaAtivaId = 1
+    chat.definirMensagens(1, [mensagem({ id: 30, postagem: { titulo: null, respostas: 0, nao_lidas: 0, ultimas: [] } })])
+    chat.responderPostagem(chat.mensagensAtivas[0]!)
+    await chat.enviarTexto('Combinado')
+    expect(pedidos.filter((p) => p.metodo === 'PUT')[0]!.corpo).toEqual({ conversa_id: 1, conteudos: [{ ordem: 1, tipo: 1, conteudo: 'Combinado' }], postagem_id: 30 })
+    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([30])
+    expect(chat.mensagensAtivas[0]!.postagem!.respostas).toBe(1)
+    expect(chat.postagemRespondendo).toBeNull()
+  })
+
+  test('a próxima mensagem pede confirmação só de quem foi escolhido', async () => {
+    rota('PUT', '/mensagem', { id: 97 })
+    rota('GET', '/conversas', [conversaApi(1)])
+    const chat = novaStore()
+    chat.conversaAtivaId = 1
+    chat.usuariosConversa[1] = [{ id: 1, usuario_id: EU, nome: 'Eu' }, { id: 2, usuario_id: 2, nome: 'Bruno' }, { id: 3, usuario_id: 3, nome: 'Carla' }]
+    chat.pedirConfirmacao = true
+    chat.confirmacaoUsuarios = [3]
+    await chat.enviarTexto('Carla, confere')
+    expect(pedidos.filter((p) => p.metodo === 'PUT')[0]!.corpo).toMatchObject({ pede_confirmacao: true, confirmacao_usuarios: [3] })
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toMatchObject({ total: 1, destinatarios: [{ usuario_id: 3, nome: 'Carla' }] })
+    expect(chat.pedirConfirmacao).toBe(false)
+    expect(chat.confirmacaoUsuarios).toBeNull()
   })
 
   test('figurinha vai sozinha, com o identificador, e aparece na hora', async () => {
@@ -469,14 +499,14 @@ describe('visualização', () => {
 })
 
 describe('pesquisa', () => {
-  test('na conversa ativa, filtrando por ela', async () => {
+  test('na conversa ativa: o que o servidor achar, inclusive no chat das ligações dela', async () => {
     rota('GET', '/pesquisar', [mensagemApi(1, 'a', { conversa_id: 1 }), mensagemApi(2, 'b', { conversa_id: 2 })])
     const chat = novaStore()
     await chat.buscarNaConversa('a')
     expect(pedidos).toHaveLength(0)
     chat.conversaAtivaId = 1
     await chat.buscarNaConversa('  a  ')
-    expect(chat.resultadosBuscaConversa.map((m) => m.id)).toEqual([1])
+    expect(chat.resultadosBuscaConversa.map((m) => m.id)).toEqual([1, 2])
     await chat.buscarNaConversa(' ')
     expect(chat.resultadosBuscaConversa).toEqual([])
   })
@@ -664,9 +694,22 @@ describe('tempo real (WebSocket)', () => {
     expect(resumo.ultimas.map((m) => m.id)).toEqual([32, 33])
   })
 
+  test('pedir confirmação depois de enviada; os outros recebem pelo aviso', async () => {
+    const pedida = { total: 1, confirmou: false, pode_confirmar: false, destinatarios: [{ usuario_id: 2, nome: 'Bruno' }], usuarios: [] }
+    rota('POST', '/mensagem/pedir-confirmacao', pedida)
+    const { chat, socket } = await conectado()
+    chat.definirMensagens(1, [mensagem({ id: 30, remetente_id: EU }), mensagem({ id: 31, remetente_id: 2 })])
+    chat.conversaAtivaId = 1
+    await chat.pedirConfirmacaoDepois(chat.mensagensAtivas[0]!, [2])
+    expect(pedidos.find((p) => p.caminho === '/mensagem/pedir-confirmacao')!.corpo).toEqual({ mensagem_id: 30, usuarios: [2] })
+    expect(simples(chat.mensagensAtivas[0]!.confirmacao)).toEqual(pedida)
+    socket.receber({ tipo: 65, conversa_id: 1, mensagem_id: 31, usuario_id: 2, confirmacao: { ...pedida, pode_confirmar: true } })
+    expect(chat.mensagensAtivas[1]!.confirmacao!.pode_confirmar).toBe(true)
+  })
+
   test('confirmação de leitura de outra pessoa entra na mensagem uma vez', async () => {
     const { chat, socket } = await conectado()
-    chat.definirMensagens(1, [mensagem({ id: 30, confirmacao: { total: 2, confirmou: false, usuarios: [] } })])
+    chat.definirMensagens(1, [mensagem({ id: 30, confirmacao: { total: 2, confirmou: false, pode_confirmar: true, destinatarios: [], usuarios: [] } })])
     chat.conversaAtivaId = 1
     const evento = { tipo: 8, conversa_id: 1, mensagem_id: 30, usuario_id: 2, nome: 'Bruno Silva', confirmada_em: '2026-10-09T12:00:00.000Z' }
     socket.receber(evento)

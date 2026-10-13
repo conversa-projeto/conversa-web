@@ -1,5 +1,5 @@
 <template>
-  <div class="w-[min(32rem,78vw)] min-w-0 overflow-hidden rounded-xl border border-surface-300 bg-surface-base text-surface-800 shadow-sm" data-postagem>
+  <div class="w-full min-w-0 flex-1 overflow-hidden rounded-xl border border-surface-300 bg-surface-base text-surface-800 shadow-sm" data-postagem>
     <!-- Cabeçalho: postagem, de quem, e o título -->
     <div class="border-b border-surface-200 px-3 pb-2 pt-2">
       <p class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary-600">
@@ -45,8 +45,9 @@
       </div>
 
       <div v-for="resposta in respostasVisiveis" :key="resposta.id" class="flex gap-2 py-1" :data-resposta="resposta.id">
-        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-300 text-[10px] font-semibold text-surface-700">
-          {{ inicialNome(resposta.remetente) }}
+        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-300 text-[10px] font-semibold text-surface-700">
+          <img v-if="avatarDe(resposta.remetente_id)" :src="avatarDe(resposta.remetente_id)!" alt="" class="h-full w-full object-cover" data-avatar-resposta />
+          <template v-else>{{ inicialNome(resposta.remetente) }}</template>
         </span>
         <div class="min-w-0 flex-1">
           <p class="text-xs">
@@ -73,25 +74,17 @@
         </div>
       </div>
 
-      <form class="mt-1.5 flex items-end gap-2" @submit.prevent="responder" @click.stop>
-        <textarea
-          v-model="texto"
-          rows="1"
-          placeholder="Responder à postagem"
-          aria-label="Responder à postagem"
-          class="max-h-28 min-h-[2rem] flex-1 resize-none rounded-lg border border-surface-300 bg-surface-base px-2.5 py-1.5 text-sm text-surface-800 outline-none placeholder:text-surface-500 focus:border-primary-500"
-          @keydown.enter.exact.prevent="responder"
-        ></textarea>
-        <button
-          type="submit"
-          :disabled="!texto.trim() || enviando"
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-40"
-          title="Responder"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
-        </button>
-      </form>
-      <p v-if="erro" class="mt-1 text-xs text-danger-600">{{ erro }}</p>
+      <!-- A resposta é escrita no campo de mensagem (texto, anexos, áudio, figurinha...) -->
+      <button
+        type="button"
+        class="mt-1.5 flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-sm transition"
+        :class="respondendoAqui ? 'border-primary-500 text-primary-600' : 'border-surface-300 bg-surface-base text-surface-500 hover:border-primary-500 hover:text-primary-600'"
+        data-responder-postagem
+        @click.stop="chat.responderPostagem(mensagem)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0"><path fill-rule="evenodd" d="M7.793 2.232a.75.75 0 0 1-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 0 1 0 10.75H10.75a.75.75 0 0 1 0-1.5h2.875a3.875 3.875 0 0 0 0-7.75H3.622l4.146 3.957a.75.75 0 0 1-1.036 1.085l-5.5-5.25a.75.75 0 0 1 0-1.085l5.5-5.25a.75.75 0 0 1 1.06.025Z" clip-rule="evenodd" /></svg>
+        {{ respondendoAqui ? 'Respondendo no campo de mensagem' : 'Responder à postagem' }}
+      </button>
     </div>
   </div>
 </template>
@@ -122,31 +115,22 @@ const emit = defineEmits<{
 
 const chat = useChatStore()
 const meuId = useAuthStore().user?.id
-const texto = ref('')
-const enviando = ref(false)
-const erro = ref('')
 const verTodas = ref(false)
+const respondendoAqui = computed(() => chat.postagemRespondendo?.id === props.mensagem.id)
 
 const totalRespostas = computed(() => props.mensagem.postagem?.respostas ?? 0)
 const respostasVisiveis = computed(() => (verTodas.value ? chat.respostasPorPostagem[props.mensagem.id] : undefined) ?? props.mensagem.postagem?.ultimas ?? [])
 
+// Foto de quem respondeu: dos membros do grupo (ou dos contatos, ou a minha)
+function avatarDe(usuarioId: number): string | null {
+  return chat.usuariosConversa[props.mensagem.conversa_id]?.find((m) => m.usuario_id === usuarioId)?.avatar_url
+    || chat.resolverNomeUsuario(usuarioId).avatar_url
+    || null
+}
+
 async function alternarTodas() {
   verTodas.value = !verTodas.value
   if (verTodas.value) await chat.atualizarPostagem(props.mensagem.conversa_id, props.mensagem.id)
-}
-
-async function responder() {
-  if (!texto.value.trim() || enviando.value) return
-  enviando.value = true
-  erro.value = ''
-  try {
-    await chat.responderPostagem(props.mensagem, texto.value)
-    texto.value = ''
-  } catch (e) {
-    erro.value = e instanceof Error ? e.message : 'Erro ao responder'
-  } finally {
-    enviando.value = false
-  }
 }
 
 // Na tela, com a conversa aberta e a janela em foco, as respostas novas contam como vistas
@@ -156,6 +140,9 @@ function marcarVistas() {
   }
 }
 
-onMounted(marcarVistas)
+onMounted(() => {
+  marcarVistas()
+  void chat.carregarUsuariosConversa(props.mensagem.conversa_id)
+})
 watch(() => props.mensagem.postagem?.nao_lidas, marcarVistas)
 </script>

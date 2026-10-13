@@ -3,7 +3,7 @@
     <div class="mx-4 flex w-full max-w-2xl flex-col rounded-xl bg-surface-base shadow-2xl">
       <!-- Header -->
       <div class="flex items-center justify-between border-b border-surface-200 px-5 py-3">
-        <h3 class="text-sm font-semibold text-surface-800">Inserir código</h3>
+        <h3 class="text-sm font-semibold text-surface-800">{{ editando ? 'Editar código' : 'Inserir código' }}</h3>
         <button class="text-surface-400 hover:text-surface-600" @click="emit('close')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -35,12 +35,21 @@
           >
             Cancelar
           </button>
+          <!-- Inserir: vira um bloco no campo de mensagem, que vai junto com o resto -->
           <button
-            class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            v-if="!editando"
+            class="rounded-lg border border-primary-600 px-4 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-primary-900/30"
             :disabled="!temCodigo"
             @click="inserir"
           >
-            Enviar
+            Inserir na mensagem
+          </button>
+          <button
+            class="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            :disabled="!temCodigo"
+            @click="editando ? inserir() : enviar()"
+          >
+            {{ editando ? 'Salvar' : 'Enviar' }}
           </button>
         </div>
       </div>
@@ -70,10 +79,15 @@ import { pascal } from '@codemirror/legacy-modes/mode/pascal'
 const props = defineProps<{
   codigoInicial?: string
   linguagemInicial?: string
+  // Editando o bloco que já está no campo: só salva
+  editando?: boolean
 }>()
 
 const emit = defineEmits<{
+  // Vai para o campo de mensagem (ou, editando, troca o bloco de lá)
   inserir: [payload: { linguagem: string; codigo: string }]
+  // Vai direto, numa mensagem só dele
+  enviar: [payload: { linguagem: string; codigo: string }]
   close: []
 }>()
 
@@ -140,6 +154,11 @@ watch(isDark, () => {
 function inserir() {
   if (!codigo.value.trim()) return
   emit('inserir', { linguagem: linguagem.value, codigo: codigo.value })
+}
+
+function enviar() {
+  if (!codigo.value.trim()) return
+  emit('enviar', { linguagem: linguagem.value, codigo: codigo.value })
 }
 
 onMounted(() => {

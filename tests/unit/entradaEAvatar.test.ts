@@ -196,6 +196,48 @@ describe('colar texto', () => {
     expect(textoDoCampo(campo)).toMatch(/^```\w+\nfunction soma\(a, b\) \{\n  return a \+ b;\n\}\n```$/)
   })
 
+  test('"Inserir na mensagem" põe o código no campo com prévia; editar e remover; vai junto do texto', async () => {
+    rota('PUT', '/mensagem', { id: 52 })
+    rota('GET', '/conversas', [])
+    const campo = await montarCampo()
+    colarNo(campo, { texto: 'Veja:' })
+    colarNo(campo, { texto: textoLongo })
+    let janela = await janelaCodigo(campo)
+    await janela.findAll('button').find((b) => b.text() === 'Inserir na mensagem')!.trigger('click')
+    await aguardar(30)
+    expect(campo.findComponent(CodigoModal).exists()).toBe(false)
+    const peca = () => campo.find('[data-codigo]')
+    expect(peca().text()).toContain('javascript · 11 linhas')
+    expect(peca().find('pre').text()).toBe('const linha1 = 1;\nconst linha2 = 2;\nconst linha3 = 3;\nconst linha4 = 4;\n…')
+    // Não se edita dentro do campo
+    expect(peca().attributes('contenteditable')).toBe('false')
+
+    // Editar reabre a janela com o código; Salvar troca o bloco
+    await peca().find('[data-editar-codigo]').trigger('click')
+    janela = await janelaCodigo(campo)
+    expect(janela.props('codigoInicial')).toBe(textoLongo.trimEnd())
+    expect(janela.props('editando')).toBe(true)
+    janela.vm.$emit('inserir', { linguagem: 'sql', codigo: 'select 1' })
+    await aguardar(30)
+    expect(peca().text()).toContain('sql · 1 linha')
+
+    editavel(campo).focus()
+    editavel(campo).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await aguardar(30)
+    expect(pedidosDe('PUT', '/mensagem')[0]!.corpo.conteudos.map((c: { conteudo: string }) => c.conteudo)).toEqual(['Veja:', '```sql\nselect 1\n```'])
+  })
+
+  test('remover tira o bloco de código do campo', async () => {
+    const campo = await montarCampo()
+    colarNo(campo, { texto: textoLongo })
+    const janela = await janelaCodigo(campo)
+    await janela.findAll('button').find((b) => b.text() === 'Inserir na mensagem')!.trigger('click')
+    await aguardar(30)
+    await campo.find('[data-codigo] [data-remover]').trigger('click')
+    await aguardar()
+    expect(campo.find('[data-codigo]').exists()).toBe(false)
+  })
+
   test('abrir a janela pelo menu de anexo começa vazia', async () => {
     const campo = await montarCampo()
     await campo.find('button[title="Anexar"]').trigger('click')

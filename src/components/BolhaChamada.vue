@@ -67,7 +67,7 @@
         </svg>
         {{ chatAberto ? 'Esconder o chat da chamada' : 'Ver chat da chamada' }}
       </button>
-      <ChatDaChamada v-if="chatAberto" class="mt-1.5" :conversa-id="chatId" @abrir="(id) => chat.selecionarConversa(id)" />
+      <ChatDaChamada v-if="chatAberto" class="mt-1.5" :conversa-id="chatId" @abrir="(id) => chat.selecionarConversa(id)" @open-image="(id, nome) => emit('open-image', id, nome)" />
     </div>
 
     <!-- Hora -->
@@ -90,6 +90,10 @@ const props = defineProps<{
   isOwn: boolean
   isGroup: boolean
   getAnexoUrl: (identificador: string) => string
+}>()
+
+const emit = defineEmits<{
+  'open-image': [identificador: string, nome: string]
 }>()
 
 const dados = computed<ChamadaConteudo>(() => {
