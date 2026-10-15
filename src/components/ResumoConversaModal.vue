@@ -2,7 +2,7 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="emit('close')">
     <div class="flex max-h-[85vh] w-full max-w-xl flex-col rounded-2xl bg-surface-base shadow-xl" role="dialog" aria-label="Resumo da conversa">
       <div class="flex items-center gap-2 border-b border-surface-200 px-4 py-3">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-primary-600 dark:text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
         <h3 class="min-w-0 flex-1 text-base font-semibold text-surface-800">Resumo da conversa</h3>
         <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200" title="Fechar" @click="emit('close')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -33,7 +33,7 @@
 
       <div class="min-h-[8rem] flex-1 overflow-y-auto px-4 py-3">
         <div v-if="processando" role="status" class="flex flex-col items-center gap-2 py-8 text-center text-sm text-surface-600">
-          <svg class="h-6 w-6 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          <svg class="h-6 w-6 animate-spin text-primary-600 dark:text-primary-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
           <span>Resumindo {{ resumo?.mensagens ?? '' }} {{ resumo?.mensagens === 1 ? 'mensagem' : 'mensagens' }}...</span>
           <span class="text-xs text-surface-500">Pode levar alguns minutos, dependendo do servidor de IA.</span>
         </div>
@@ -54,7 +54,7 @@
             <button
               v-if="assunto.mensagens.length"
               type="button"
-              class="mt-2 text-xs font-medium text-primary-600 hover:underline"
+              class="mt-2 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
               @click="emit('go-to-message', assunto.mensagens[0]!)"
             >
               Ver na conversa ({{ assunto.mensagens.length }} {{ assunto.mensagens.length === 1 ? 'mensagem' : 'mensagens' }})

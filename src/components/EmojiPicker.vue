@@ -15,7 +15,7 @@
         :key="opcao.id"
         type="button"
         class="rounded-t-lg px-3 py-1.5 text-xs font-medium"
-        :class="aba === opcao.id ? 'border-b-2 border-primary-600 text-primary-600' : 'text-surface-500 hover:text-surface-700'"
+        :class="aba === opcao.id ? 'border-b-2 border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' : 'text-surface-500 hover:text-surface-700'"
         @click="aba = opcao.id"
       >{{ opcao.nome }}</button>
     </div>
@@ -86,11 +86,20 @@
               <button v-for="emoji in recentes" :key="'rec-' + emoji" type="button" class="rounded p-1 text-xl hover:bg-surface-100" :title="nomeDo(emoji)" @click="escolher(emoji)">{{ emoji }}</button>
             </div>
           </section>
-          <section v-for="categoria in categorias" :key="categoria.id" :data-categoria="categoria.id">
+          <!-- Criar os botões de todas as categorias de uma vez trava a primeira
+               abertura: cada uma ganha os botões ao chegar perto da vista e, até
+               lá, ocupa a mesma altura -->
+          <section
+            v-for="categoria in categorias"
+            :key="categoria.id"
+            :ref="(el) => observarCategoria(el as Element | null)"
+            :data-categoria="categoria.id"
+          >
             <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">{{ categoria.nome }}</p>
-            <div class="mb-2 grid grid-cols-8 gap-0.5">
+            <div v-if="desenhadas.has(categoria.id)" class="mb-2 grid grid-cols-8 gap-0.5">
               <button v-for="item in categoria.emojis" :key="item.emoji" type="button" class="rounded p-1 text-xl hover:bg-surface-100" :title="item.nome" @click="escolher(item.emoji)">{{ item.emoji }}</button>
             </div>
+            <div v-else class="mb-2" :style="{ height: `${alturaDaGrade(categoria.emojis.length)}px` }"></div>
           </section>
           <p v-if="!carregado" class="py-4 text-center text-xs text-surface-500">Carregando os emojis...</p>
         </template>
@@ -145,6 +154,42 @@ function nomeDo(emoji: string) {
   return nomes.value.get(emoji) ?? emojiNome(emoji)
 }
 
+// Linhas de 8 emojis: 36px cada, 2px entre elas
+function alturaDaGrade(quantidade: number) {
+  return Math.ceil(quantidade / 8) * 38 - 2
+}
+
+// Categorias com os botões criados (ficam, depois de criados)
+const desenhadas = ref(new Set<string>())
+let observadorCategorias: IntersectionObserver | null = null
+
+function observarCategoria(el: Element | null) {
+  if (!el || !rolagem.value) return
+  observadorCategorias ??= new IntersectionObserver((entradas) => {
+    const novas = entradas.filter((e) => e.isIntersecting).map((e) => (e.target as HTMLElement).dataset.categoria ?? '')
+    if (novas.length) desenhadas.value = new Set([...desenhadas.value, ...novas])
+  }, { root: rolagem.value, rootMargin: '300px 0px' })
+  observadorCategorias.observe(el)
+  agendarProxima()
+}
+
+// Depois de abrir, as demais são criadas uma por vez, nos intervalos livres,
+// para já estarem prontas quando a rolagem chegar nelas
+let proximaAgendada = 0
+const esperarLivre = (fn: () => void) => typeof requestIdleCallback === 'function' ? requestIdleCallback(fn) : window.setTimeout(fn, 50)
+const cancelarEspera = (id: number) => typeof cancelIdleCallback === 'function' ? cancelIdleCallback(id) : window.clearTimeout(id)
+
+function agendarProxima() {
+  if (proximaAgendada) return
+  proximaAgendada = esperarLivre(() => {
+    proximaAgendada = 0
+    const proxima = categorias.value.find((c) => !desenhadas.value.has(c.id))
+    if (!proxima) return
+    desenhadas.value = new Set([...desenhadas.value, proxima.id])
+    agendarProxima()
+  })
+}
+
 function escolher(emoji: string) {
   usarEmoji(emoji)
   emit('selecionar', emoji)
@@ -181,5 +226,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onClickOutside)
+  observadorCategorias?.disconnect()
+  if (proximaAgendada) cancelarEspera(proximaAgendada)
 })
 </script>

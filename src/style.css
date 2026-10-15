@@ -176,6 +176,16 @@ pre code.hljs {
   --color-chamada-700: #334155;
   --color-chamada-800: #1e293b;
   --color-chamada-900: #0f172a;
+
+  /* Balões das mensagens: um tema pode trocar só eles (o WhatsApp claro tem a
+     enviada clara, com texto escuro) */
+  --bolha-enviada: var(--color-primary-600);
+  --bolha-enviada-texto: #ffffff;
+  --bolha-enviada-suave: var(--color-primary-100);
+  --bolha-enviada-destaque: var(--color-primary-100);
+  --bolha-enviada-sucesso: var(--color-success-300);
+  --bolha-enviada-perigo: var(--color-danger-300);
+  --bolha-recebida: var(--color-surface-300);
 }
 
 .dark {
@@ -195,6 +205,8 @@ pre code.hljs {
   --color-surface-800: #e0e2e3;
   --color-surface-900: #f0f1f2;
   --color-surface-950: #ffffff;
+
+  --bolha-recebida: var(--color-surface-200);
 }
 
 html, body {
@@ -225,7 +237,7 @@ button {
   background-color: color-mix(in srgb, var(--color-primary-300) 35%, var(--color-surface-200));
 }
 .dark .reacao-reagiu {
-  border-color: var(--color-primary-600);
+  border-color: var(--color-primary-500);
   background-color: color-mix(in srgb, var(--color-primary-800) 50%, var(--color-surface-200));
 }
 .dark .reacao-reagiu:hover {

@@ -51,7 +51,7 @@
             <p
               v-else-if="!atividadeVisivel && textoPresenca"
               class="max-w-[300px] truncate text-xs"
-              :class="naConversa ? 'text-primary-600' : 'text-surface-500'"
+              :class="naConversa ? 'text-primary-600 dark:text-primary-400' : 'text-surface-500'"
             >
               {{ textoPresenca }}
             </p>

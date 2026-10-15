@@ -1,7 +1,7 @@
 <template>
   <div class="w-56 max-w-full pt-1.5 md:w-72" data-media-player>
     <!-- Name (only for audio files with a name) -->
-    <div v-if="nome" class="truncate pl-10 pr-3 text-[11px]" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'" :title="nome">
+    <div v-if="nome" class="truncate pl-10 pr-3 text-[11px]" :class="isOwn ? 'text-enviada-suave/70' : 'text-surface-500'" :title="nome">
       {{ nome }}
     </div>
 
@@ -10,7 +10,7 @@
       <button
         class="-my-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition"
         :class="[
-          isOwn ? 'text-primary-100/90 hover:bg-primary-100/20 hover:text-primary-100' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-800',
+          isOwn ? 'text-enviada-suave/90 hover:bg-enviada-suave/20 hover:text-enviada-suave' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-800',
           naoReproduzida ? 'text-success-500' : ''
         ]"
         :disabled="carregando"
@@ -31,12 +31,12 @@
       <div
         ref="barraRef"
         class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full border"
-        :class="isOwn ? 'border-white/35 bg-primary-100/30' : 'border-surface-300 bg-surface-200'"
+        :class="isOwn ? 'border-enviada-suave/40 bg-enviada-suave/25' : 'border-surface-300 bg-surface-200'"
         @pointerdown="iniciarSeek"
       >
         <div
           class="absolute inset-y-0 left-0 rounded-full"
-          :class="isOwn ? 'bg-primary-100' : 'bg-primary-500'"
+          :class="isOwn ? 'bg-enviada-destaque' : 'bg-primary-500'"
           :style="{ width: progresso + '%' }"
         />
       </div>
@@ -44,7 +44,7 @@
 
     <!-- Duration + status (same line) -->
     <div class="flex items-center justify-between pl-7">
-      <span class="text-[10px] tabular-nums" :class="isOwn ? 'text-primary-200/70' : 'text-surface-500'">
+      <span class="text-[10px] tabular-nums" :class="isOwn ? 'text-enviada-suave/70' : 'text-surface-500'">
         {{ tocando || tempoAtual > 0 ? formatarDuracao(tempoAtual) : formatarDuracao(duracaoTotal) }}
       </span>
       <slot name="status" />

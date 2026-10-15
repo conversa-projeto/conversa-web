@@ -15,9 +15,9 @@
 
       <ul class="min-h-0 flex-1 divide-y divide-surface-200 overflow-y-auto">
         <li v-for="mensagem in chat.agendadasAtivas" :key="mensagem.id" class="flex items-start gap-3 px-5 py-3">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mt-0.5 h-4 w-4 shrink-0 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mt-0.5 h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
           <div class="min-w-0 flex-1">
-            <p class="text-xs font-semibold text-primary-600">{{ formatarPrazo(new Date(mensagem.visivel_em!)) }}</p>
+            <p class="text-xs font-semibold text-primary-600 dark:text-primary-400">{{ formatarPrazo(new Date(mensagem.visivel_em!)) }}</p>
             <p class="mt-0.5 break-words text-sm text-surface-800 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical] overflow-hidden">{{ resumoMensagem(mensagem) }}</p>
           </div>
           <button

@@ -906,7 +906,11 @@ export const useCallStore = defineStore('call', () => {
 
     try {
       if (comTela && tipo === TipoChamada.Video) {
-        const telaStream = await navigator.mediaDevices.getDisplayMedia(OPCOES_TELA)
+        const telaStream = await escolherTela()
+        if (!telaStream) {
+          resetarEstado()
+          return
+        }
         const audioStream = await navigator.mediaDevices.getUserMedia({ audio: constraintsAudio() })
         streamLocal.value = new MediaStream([
           ...audioStream.getAudioTracks(),
@@ -1116,6 +1120,16 @@ export const useCallStore = defineStore('call', () => {
     systemAudio: 'include'
   } as DisplayMediaStreamOptions
 
+  // Fechar a escolha da tela sem escolher não é erro: devolve null. A escolha
+  // aparece na janela pedida (a da chamada, quando ela está em janela própria)
+  function escolherTela(janela: Window = window) {
+    return janela.navigator.mediaDevices.getDisplayMedia(OPCOES_TELA).catch((e: unknown) => {
+      // Pelo nome: o erro vindo da outra janela não é instanceof DOMException daqui
+      if ((e as { name?: unknown } | null)?.name === 'NotAllowedError') return null
+      throw e
+    })
+  }
+
   function transceiverAudioPublicado() {
     return pcPublicacaoLocal?.getTransceivers().find(t => t.receiver.track.kind === 'audio') || null
   }
@@ -1158,11 +1172,11 @@ export const useCallStore = defineStore('call', () => {
     return pcPublicacaoLocal?.getTransceivers().find(t => t.receiver.track.kind === 'video') || null
   }
 
-  async function compartilharTela() {
+  async function compartilharTela(janela: Window = window) {
     if (compartilhandoTela.value || tipoChamada.value !== TipoChamada.Video || !chamada.value) return
 
-    const telaStream = await navigator.mediaDevices.getDisplayMedia(OPCOES_TELA)
-    const screenTrack = telaStream.getVideoTracks()[0]
+    const telaStream = await escolherTela(janela)
+    const screenTrack = telaStream?.getVideoTracks()[0]
     if (!screenTrack) return
 
     // Salva track da câmera para restaurar depois

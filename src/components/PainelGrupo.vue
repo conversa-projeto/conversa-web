@@ -22,7 +22,7 @@
         <div class="flex flex-wrap gap-1">
           <button
             type="button"
-            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-white/10"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-white/10"
             :disabled="alterandoAvatar"
             @click="seletorImagem?.click()"
           >
@@ -31,7 +31,7 @@
           <input ref="seletorImagem" type="file" accept="image/*" class="hidden" aria-label="Imagem do grupo" @change="escolherImagem" />
           <button
             type="button"
-            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-white/10"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-white/10"
             :disabled="alterandoAvatar"
             @click.stop="escolhendoEmoji = !escolhendoEmoji"
           >
@@ -75,7 +75,7 @@
         </p>
         <button
           type="button"
-          class="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-white/10"
+          class="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-white/10"
           @click="adicionandoPessoas = !adicionandoPessoas; buscaContato = ''"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -133,7 +133,7 @@
           </span>
           <span class="min-w-0 flex-1 truncate text-surface-700">
             {{ membro.nome }}<span v-if="membro.usuario_id === auth.user?.id" class="text-surface-500"> (você)</span>
-            <span v-else-if="chat.estaNaConversa(membro.usuario_id, chat.conversaAtivaId)" class="text-xs text-primary-600"> · nesta conversa</span>
+            <span v-else-if="chat.estaNaConversa(membro.usuario_id, chat.conversaAtivaId)" class="text-xs text-primary-600 dark:text-primary-400"> · nesta conversa</span>
           </span>
           <button
             v-if="membro.usuario_id !== auth.user?.id"

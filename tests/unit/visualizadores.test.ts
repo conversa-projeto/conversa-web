@@ -113,6 +113,23 @@ describe('visualizador de HTML', () => {
     expect(srcdoc).toEndWith('<title>T</title></head><body><a href="#status">ir</a><h2 id="status">S</h2></body></html>')
   })
 
+  test('ver fonte mostra o HTML como veio, com destaque, e volta para a página', async () => {
+    const fonte = '<html>\n  <body><h1 class="t">Olá</h1></body>\n</html>'
+    rota('GET', '/anexo', { url: 'https://localhost/storage/pagina' })
+    rota('GET', '/storage/pagina', new Response(fonte))
+    montar(VisualizadorHtml, { props: { identificador: 'x', nome: 'pagina.html' } })
+    await aguardar(10)
+    ;(document.querySelector('button[title="Ver fonte"]') as HTMLElement).click()
+    await aguardar(50)
+    expect(document.querySelector('iframe')).toBeNull()
+    const codigo = document.querySelector('pre code')!
+    expect(codigo.textContent).toBe(fonte)
+    expect(codigo.querySelector('.hljs-tag')).not.toBeNull()
+    ;(document.querySelector('button[title="Ver página"]') as HTMLElement).click()
+    await flushPromises()
+    expect(document.querySelector('iframe')).not.toBeNull()
+  })
+
   test('arquivo indisponível mostra erro e sugere baixar', async () => {
     rota('GET', '/anexo', { url: 'https://localhost/storage/sumiu' })
     rota('GET', '/storage/sumiu', new Response('', { status: 404 }))

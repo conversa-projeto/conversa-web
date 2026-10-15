@@ -51,9 +51,37 @@ afterEach(() => {
 
 describe('configuração de cores', () => {
   afterEach(() => {
-    useCoresPersonalizadas().restaurarCores('claro')
-    useCoresPersonalizadas().restaurarCores('escuro')
+    useCoresPersonalizadas().escolherTema('padrao')
     useTheme().isDark.value = false
+  })
+
+  test('escolher um tema pronto aplica as cores dele nos dois temas e apaga os ajustes', async () => {
+    useTheme().isDark.value = true
+    const tela = montar(ConfiguracaoCores)
+    useCoresPersonalizadas().definirCor('escuro', '--color-primary-500', '#abcdef')
+    expect(tela.findAll('button[aria-pressed]').map((b) => b.text())).toEqual(['Padrão', 'Teams', 'WhatsApp', 'Messenger'])
+    await tela.findAll('button[aria-pressed]').find((b) => b.text() === 'Teams')!.trigger('click')
+    expect(useCoresPersonalizadas().personalizacao.value.escuro).toEqual({})
+    expect(localStorage.getItem('conversa.temaCores')).toBe('teams')
+    const css = document.getElementById('conversa-cores-personalizadas')!.textContent!
+    expect(css).toContain('html.dark{')
+    expect(css).toContain('--color-primary-600:#2b2b40;')
+    expect(css).toContain('--color-surface-100:#141414;')
+    expect(css.split('html.dark')[0]).toContain('--color-primary-600:#5b5fc7;')
+    expect(tela.find('button[aria-pressed="true"]').text()).toBe('Teams')
+    // A edição mostra as cores do tema escolhido
+    expect(tela.text()).toContain('#7f85f5')
+  })
+
+  test('cores ajustadas depois do tema valem por cima dele', async () => {
+    const { escolherTema, definirCor } = useCoresPersonalizadas()
+    escolherTema('whatsapp')
+    definirCor('claro', '--color-primary-600', '#111111')
+    const css = document.getElementById('conversa-cores-personalizadas')!.textContent!
+    expect(css).toContain('--color-primary-600:#111111;')
+    expect(css).not.toContain('--color-primary-600:#008069;')
+    expect(css).toContain('--color-surface-100:#f5f2ea;')
+    expect(css).toContain('--bolha-enviada:#d9fdd3;')
   })
 
   test('edita o tema atual; a cor escolhida fica marcada e pode voltar ao padrão', async () => {

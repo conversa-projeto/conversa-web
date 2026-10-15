@@ -18,7 +18,7 @@
       <h4 class="text-sm font-semibold text-surface-800">Áudio</h4>
       <div class="mt-3 space-y-3">
         <label v-for="opcao in OPCOES_PROCESSAMENTO" :key="opcao.chave" class="flex cursor-pointer items-start gap-3">
-          <input v-model="config[opcao.chave]" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600" />
+          <input v-model="config[opcao.chave]" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" />
           <span class="min-w-0">
             <span class="block text-sm text-surface-800">{{ opcao.titulo }}</span>
             <span class="block text-xs text-surface-500">{{ opcao.descricao }}</span>

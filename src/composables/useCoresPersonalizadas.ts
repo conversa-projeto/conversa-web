@@ -1,4 +1,5 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { TEMA_PADRAO, TEMAS_PREDEFINIDOS } from '../utils/temasPredefinidos'
 
 // Cores do sistema escolhidas pelo usuario, por cima das definidas em style.css.
 // Ficam no localStorage, separadas por tema, porque as superficies do tema
@@ -140,6 +141,7 @@ export const GRUPOS_CORES: GrupoCores[] = [
 ]
 
 const CHAVE = 'conversa.cores'
+const CHAVE_TEMA = 'conversa.temaCores'
 const ID_ESTILO = 'conversa-cores-personalizadas'
 
 export function nomeVariavelCor(grupo: string, tom: string) {
@@ -157,6 +159,19 @@ function ler(): Personalizacao {
 
 const personalizacao = ref<Personalizacao>(ler())
 
+// Tema pré-definido escolhido: fica por baixo das cores ajustadas à mão
+function lerTema() {
+  try {
+    const id = localStorage.getItem(CHAVE_TEMA)
+    return TEMAS_PREDEFINIDOS.some((t) => t.id === id) ? id! : TEMA_PADRAO
+  } catch {
+    return TEMA_PADRAO
+  }
+}
+
+const temaPredefinido = ref(lerTema())
+const coresDoTema = computed(() => TEMAS_PREDEFINIDOS.find((t) => t.id === temaPredefinido.value) ?? TEMAS_PREDEFINIDOS[0]!)
+
 function blocoCss(seletor: string, cores: CoresTema) {
   const linhas = Object.entries(cores).map(([nome, valor]) => `${nome}:${valor};`)
   return linhas.length ? `${seletor}{${linhas.join('')}}` : ''
@@ -170,8 +185,8 @@ function aplicar() {
     estilo.id = ID_ESTILO
     document.head.appendChild(estilo)
   }
-  estilo.textContent = blocoCss('html:not(.dark)', personalizacao.value.claro)
-    + blocoCss('html.dark', personalizacao.value.escuro)
+  estilo.textContent = blocoCss('html:not(.dark)', { ...coresDoTema.value.claro, ...personalizacao.value.claro })
+    + blocoCss('html.dark', { ...coresDoTema.value.escuro, ...personalizacao.value.escuro })
 }
 
 function salvar() {
@@ -204,8 +219,9 @@ function lerPadroes(): Personalizacao {
 
 // Outra janela do app (popup de conversa) alterou as cores.
 window.addEventListener('storage', (evento) => {
-  if (evento.key !== CHAVE) return
+  if (evento.key !== CHAVE && evento.key !== CHAVE_TEMA) return
   personalizacao.value = ler()
+  temaPredefinido.value = lerTema()
   aplicar()
 })
 
@@ -226,5 +242,13 @@ export function useCoresPersonalizadas() {
     salvar()
   }
 
-  return { personalizacao, lerPadroes, definirCor, restaurarCores }
+  // Escolher um tema começa dele: os ajustes feitos à mão são apagados
+  function escolherTema(id: string) {
+    temaPredefinido.value = id
+    localStorage.setItem(CHAVE_TEMA, id)
+    personalizacao.value = { claro: {}, escuro: {} }
+    salvar()
+  }
+
+  return { personalizacao, temaPredefinido, coresDoTema, lerPadroes, definirCor, restaurarCores, escolherTema }
 }

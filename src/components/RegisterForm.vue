@@ -64,7 +64,7 @@
 
       <p class="text-center text-sm text-surface-500">
         Já tem conta?
-        <button type="button" class="font-medium text-primary-600 hover:underline" @click="emit('go-login')">Entrar</button>
+        <button type="button" class="font-medium text-primary-600 hover:underline dark:text-primary-400" @click="emit('go-login')">Entrar</button>
       </p>
     </form>
   </div>

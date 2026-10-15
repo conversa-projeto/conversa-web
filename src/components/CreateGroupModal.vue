@@ -12,7 +12,7 @@
         <div class="flex flex-wrap gap-1">
           <button
             type="button"
-            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-white/10"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-white/10"
             @click="seletorImagem?.click()"
           >
             Imagem
@@ -20,7 +20,7 @@
           <input ref="seletorImagem" type="file" accept="image/*" class="hidden" aria-label="Imagem do grupo" @change="escolherImagem" />
           <button
             type="button"
-            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:hover:bg-white/10"
+            class="rounded px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-white/10"
             @click.stop="escolhendoEmoji = !escolhendoEmoji"
           >
             Emoji
@@ -60,7 +60,7 @@
           :key="`group-${contato.id}`"
           class="flex cursor-pointer items-center gap-2 border-b border-surface-100 px-3 py-2 text-sm hover:bg-surface-50"
         >
-          <input v-model="membrosGrupo" type="checkbox" :value="contato.id" class="accent-primary-600" />
+          <input v-model="membrosGrupo" type="checkbox" :value="contato.id" class="accent-primary-600 dark:accent-primary-500" />
           <div class="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-400 text-xs font-semibold text-surface-700">
             {{ inicialNome(contato.nome || '', 'C') }}
             <img v-if="avatarContato(contato)" :src="avatarContato(contato)" alt="Avatar" class="absolute inset-0 h-full w-full object-cover" @error="($event.target as HTMLImageElement).style.display = 'none'" />

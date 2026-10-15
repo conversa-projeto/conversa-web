@@ -38,7 +38,7 @@
           <!-- Inserir: vira um bloco no campo de mensagem, que vai junto com o resto -->
           <button
             v-if="!editando"
-            class="rounded-lg border border-primary-600 px-4 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:hover:bg-primary-900/30"
+            class="rounded-lg border border-primary-600 px-4 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-50 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-900/30"
             :disabled="!temCodigo"
             @click="inserir"
           >

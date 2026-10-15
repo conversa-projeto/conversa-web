@@ -2,7 +2,7 @@
   <span class="relative inline-block">
     <button
       class="rounded-sm px-0.5 font-semibold transition-colors"
-      :class="isOwn ? 'text-white/90 bg-white/20 hover:bg-white/30' : 'text-primary-600 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50'"
+      :class="isOwn ? 'text-enviada-texto/90 bg-enviada-texto/20 hover:bg-enviada-texto/30' : 'text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50'"
       @click="abrirChat"
       @mouseenter="hover = true"
       @mouseleave="hover = false"

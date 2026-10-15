@@ -41,7 +41,7 @@
 
       <p class="text-center text-sm text-surface-500">
         Não tem conta?
-        <button type="button" class="font-medium text-primary-600 hover:underline" @click="emit('go-register')">Criar conta</button>
+        <button type="button" class="font-medium text-primary-600 hover:underline dark:text-primary-400" @click="emit('go-register')">Criar conta</button>
       </p>
     </form>
   </div>

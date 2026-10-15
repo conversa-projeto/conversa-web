@@ -45,7 +45,7 @@
               <td v-for="permissao in dados.permissoes" :key="permissao.codigo" class="px-3 py-2 text-center">
                 <input
                   type="checkbox"
-                  class="h-4 w-4 accent-primary-600"
+                  class="h-4 w-4 accent-primary-600 dark:accent-primary-500"
                   :checked="usuario.permissoes.includes(permissao.codigo)"
                   :disabled="alterando === chave(usuario.id, permissao.codigo)"
                   :aria-label="`${nomes[permissao.codigo] ?? permissao.codigo} para ${usuario.nome}`"

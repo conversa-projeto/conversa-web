@@ -204,7 +204,7 @@ As mensagens do chat são renderizadas por um sistema de classificação + compo
 - **Sugestão da IA ao digitar**: depois de 0,6 s parado com o cursor no fim, `useSugestaoIa` pede a continuação (`POST /ia/sugestao`) e `editor/sugestao.ts` a mostra em cinza depois do cursor: Tab aceita, Esc descarta; pedido velho é cancelado. Ligada/desligada por navegador em Configurações > Privacidade
 - **Telefonia SIP**: registro, discador, chamadas PSTN via sip.js
 - **Push notifications**: Firebase Cloud Messaging
-- **Tema**: dark/light mode com CSS variables
+- **Tema**: dark/light mode com CSS variables. Configurações > Cores tem temas prontos (Padrão, Teams, WhatsApp, Messenger, em `utils/temasPredefinidos.ts`: cor principal e, no escuro, os fundos), por baixo das cores ajustadas à mão (`useCoresPersonalizadas`); escolher um tema apaga os ajustes. Os balões têm variáveis próprias em `style.css` (`--bolha-enviada`, `-texto`, `-suave` (ícones e controles), `-destaque` (links e progresso), `-sucesso`, `-perigo` e `--bolha-recebida`; no Tailwind, `bg-enviada`, `text-enviada-texto/70`, `bg-recebida`...), com padrão igual à cor principal e às superfícies: dentro do balão enviado, use essas cores em vez de branco ou `primary-100/200` (o WhatsApp claro tem a enviada verde-clara com texto escuro). O Messenger define `--gradiente-enviada`, que os balões enviados (`Bolha*` e `MensagemStatus`) usam como fundo fixo na tela; nos outros temas a variável não existe e fica a cor `primary-600`. Texto e borda com `primary-600/700` levam `dark:` com um tom claro (ex.: `dark:text-primary-400`), porque um tema pode deixar esses tons escuros no escuro
 - **Drag & drop**: arrastar arquivos para enviar
 - **Chat popup**: janela popup independente para conversa
 

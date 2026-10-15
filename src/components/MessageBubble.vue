@@ -142,7 +142,7 @@
             <span
               aria-hidden="true"
               class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border peer-focus-visible:ring-2 peer-focus-visible:ring-primary-400"
-              :class="mensagem.confirmacao.confirmou ? 'border-primary-600 bg-primary-600 text-white' : 'border-surface-500 bg-surface-base'"
+              :class="mensagem.confirmacao.confirmou ? 'border-primary-600 bg-primary-600 text-white dark:border-primary-500 dark:bg-primary-500' : 'border-surface-500 bg-surface-base'"
             >
               <svg v-if="mensagem.confirmacao.confirmou" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="h-2.5 w-2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
             </span>
@@ -236,7 +236,7 @@
                 :key="reacao.emoji"
                 type="button"
                 class="flex items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition hover:bg-surface-200 dark:hover:bg-surface-300"
-                :class="reacao.reagiu ? 'font-semibold text-primary-600' : 'text-surface-700 dark:text-surface-600'"
+                :class="reacao.reagiu ? 'font-semibold text-primary-600 dark:text-primary-400' : 'text-surface-700 dark:text-surface-600'"
                 :title="reacao.usuarios?.map((u) => u.nome).join(', ')"
                 @click.stop="emit('reagir', mensagem.id, reacao.emoji)"
               >

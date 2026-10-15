@@ -83,7 +83,7 @@
             <button
               v-if="chamada.conversa_chat_id"
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-surface-500 transition hover:bg-surface-200"
-              :class="chatsAbertos.has(chamada.id) ? 'bg-surface-200 text-primary-600' : ''"
+              :class="chatsAbertos.has(chamada.id) ? 'bg-surface-200 text-primary-600 dark:text-primary-400' : ''"
               :title="chatsAbertos.has(chamada.id) ? 'Esconder o chat da chamada' : 'Ver chat da chamada'"
               :aria-expanded="chatsAbertos.has(chamada.id)"
               @click.stop="alternarChat(chamada.id)"

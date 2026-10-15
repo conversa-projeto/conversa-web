@@ -222,6 +222,9 @@ describe('seletor de emoji', () => {
       expect(tela.text()).toContain(nome)
       expect(tela.find(`button[aria-label="${nome}"]`).exists()).toBe(true)
     }
+    // Abre só com os recentes; as categorias ganham os botões logo depois, uma por vez
+    expect(tela.findAll('[data-categoria] button').length).toBeLessThan(100)
+    for (let i = 0; i < 40 && tela.findAll('[data-categoria] button').length < 1500; i++) await aguardar(50)
     expect(tela.findAll('[data-categoria] button').length).toBeGreaterThan(1500)
 
     const campo = tela.find('input[aria-label="Pesquisar emoji"]')
@@ -319,7 +322,7 @@ describe('menções', () => {
     await tela.find('button').trigger('click')
     expect(tela.find('img').exists()).toBe(false)
     expect(useChatStore().conversaAtivaId).toBeNull()
-    expect(tela.find('button').classes()).toContain('text-white/90')
+    expect(tela.find('button').classes()).toContain('text-enviada-texto/90')
   })
 })
 

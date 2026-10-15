@@ -1,7 +1,7 @@
 <template>
   <div
     class="overflow-hidden rounded-xl"
-    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-enviada bg-fixed [background-image:var(--gradiente-enviada)] text-enviada-texto' : 'bg-recebida text-surface-800'"
   >
     <p
       v-if="isGroup && !isOwn"
@@ -13,11 +13,11 @@
     <div
       v-if="referencia"
       class="border-l-4 px-2.5 py-0.5"
-      :class="isOwn ? 'border-white/40 bg-white/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]'"
+      :class="isOwn ? 'border-enviada-texto/40 bg-enviada-texto/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]'"
     >
       <span
         class="text-[10px] font-semibold"
-        :class="[isOwn ? 'text-white/70' : 'text-surface-500', navegavel ? 'cursor-pointer hover:opacity-80' : '']"
+        :class="[isOwn ? 'text-enviada-texto/70' : 'text-surface-500', navegavel ? 'cursor-pointer hover:opacity-80' : '']"
         @click="abrirReferencia"
       >
         {{ titulo }}
@@ -27,7 +27,7 @@
       </span>
 
       <!-- Citada foi excluída: não mostra o conteúdo (ele aparece segurando sobre a original) -->
-      <p v-if="referencia.excluida_em" class="text-xs italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem oculta</p>
+      <p v-if="referencia.excluida_em" class="text-xs italic" :class="isOwn ? 'text-enviada-texto/70' : 'text-surface-500'">Mensagem oculta</p>
 
       <!-- Referência aninhada (recursiva) -->
       <ReferenciaRecursiva

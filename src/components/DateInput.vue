@@ -131,7 +131,7 @@ const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2,
 function classeDia(dia: DiaGrid): string {
   if (!dia.mesAtual) return 'text-surface-300 cursor-default'
   if (dia.iso === props.modelValue) return 'bg-primary-600 text-white font-medium'
-  if (dia.iso === hojeIso) return 'ring-1 ring-primary-500 text-primary-600 hover:bg-surface-200 cursor-pointer'
+  if (dia.iso === hojeIso) return 'ring-1 ring-primary-500 text-primary-600 dark:text-primary-400 hover:bg-surface-200 cursor-pointer'
   return 'text-surface-700 hover:bg-surface-200 cursor-pointer'
 }
 

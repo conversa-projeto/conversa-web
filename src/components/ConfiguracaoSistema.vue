@@ -41,7 +41,7 @@
         <h4 class="text-sm font-semibold text-surface-800">Chamadas</h4>
         <div class="mt-3 space-y-3">
           <label class="flex cursor-pointer items-start gap-3">
-            <input v-model="form.turn_forcar_relay" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600" />
+            <input v-model="form.turn_forcar_relay" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" />
             <span>
               <span class="block text-sm text-surface-800">Forçar relay pelo TURN</span>
               <span class="block text-xs text-surface-500">Toda a mídia das chamadas passa pelo servidor TURN. Use quando redes com firewall não conectam direto.</span>

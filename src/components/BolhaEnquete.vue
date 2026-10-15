@@ -1,7 +1,7 @@
 <template>
   <div
     class="w-72 max-w-full min-w-0 overflow-hidden rounded-xl px-3 pb-1 pt-2"
-    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-enviada bg-fixed [background-image:var(--gradiente-enviada)] text-enviada-texto' : 'bg-recebida text-surface-800'"
   >
     <p v-if="isGroup && !isOwn" class="mb-0.5 text-xs font-semibold text-surface-500">{{ mensagem.remetente }}</p>
 
@@ -20,7 +20,7 @@
         :key="opcao.id"
         type="button"
         class="mb-1.5 block w-full rounded-lg px-2 py-1.5 text-left transition"
-        :class="encerrada ? 'cursor-default' : ['disabled:cursor-wait', isOwn ? 'hover:bg-white/10' : 'hover:bg-surface-400/30']"
+        :class="encerrada ? 'cursor-default' : ['disabled:cursor-wait', isOwn ? 'hover:bg-enviada-texto/10' : 'hover:bg-surface-400/30']"
         :disabled="votando || encerrada"
         :title="opcao.votantes.map((v) => v.nome).join(', ') || 'Ninguém votou ainda'"
         @click="alternar(opcao.id)"
@@ -31,21 +31,21 @@
             class="flex h-4 w-4 shrink-0 items-center justify-center border-2"
             :class="[
               enquete.multipla ? 'rounded' : 'rounded-full',
-              isOwn ? 'border-white' : 'border-primary-600',
-              marcada(opcao.id) ? (isOwn ? 'bg-white' : 'bg-primary-600') : '',
+              isOwn ? 'border-enviada-texto' : 'border-primary-600 dark:border-primary-400',
+              marcada(opcao.id) ? (isOwn ? 'bg-enviada-texto' : 'bg-primary-600') : '',
             ]"
           >
-            <svg v-if="marcada(opcao.id)" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3" :class="isOwn ? 'text-primary-600' : 'text-white'"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" /></svg>
+            <svg v-if="marcada(opcao.id)" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3" :class="isOwn ? 'text-enviada' : 'text-white'"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" /></svg>
           </span>
           <span class="min-w-0 flex-1 break-words" :class="{ 'font-semibold': vencedora(opcao.votantes.length) }">
             <template v-if="vencedora(opcao.votantes.length)">🏆 </template>{{ opcao.texto }}
           </span>
           <span class="shrink-0 text-xs font-semibold">{{ opcao.votantes.length }}</span>
         </span>
-        <span class="mt-1 block h-1.5 overflow-hidden rounded-full" :class="isOwn ? 'bg-white/25' : 'bg-surface-400/40'">
+        <span class="mt-1 block h-1.5 overflow-hidden rounded-full" :class="isOwn ? 'bg-enviada-texto/25' : 'bg-surface-400/40'">
           <span
             class="block h-full rounded-full transition-all duration-300"
-            :class="isOwn ? 'bg-white' : 'bg-primary-500'"
+            :class="isOwn ? 'bg-enviada-texto' : 'bg-primary-500'"
             :style="{ width: `${porcentagem(opcao.votantes.length)}%` }"
           ></span>
         </span>
@@ -68,19 +68,19 @@
           <button type="button" class="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50" :disabled="!!erroNovoPrazo || salvando" @click="salvarPrazo(novoPrazo)">Salvar</button>
         </div>
       </div>
-      <div v-else-if="!encerrada && (enquete.pode_alterar_prazo || enquete.pode_encerrar)" class="mt-1.5 flex flex-wrap gap-1 border-t pt-1.5" :class="isOwn ? 'border-white/20' : 'border-surface-400/40'">
+      <div v-else-if="!encerrada && (enquete.pode_alterar_prazo || enquete.pode_encerrar)" class="mt-1.5 flex flex-wrap gap-1 border-t pt-1.5" :class="isOwn ? 'border-enviada-texto/20' : 'border-surface-400/40'">
         <button
           v-if="enquete.pode_alterar_prazo"
           type="button"
           class="rounded px-2 py-0.5 text-[11px] font-medium"
-          :class="isOwn ? 'hover:bg-white/10' : 'text-primary-600 hover:bg-surface-400/30'"
+          :class="isOwn ? 'hover:bg-enviada-texto/10' : 'text-primary-600 dark:text-primary-400 hover:bg-surface-400/30'"
           @click="abrirPrazo"
         >{{ enquete.encerra_em ? 'Alterar data final' : 'Definir data final' }}</button>
         <button
           v-if="enquete.pode_encerrar"
           type="button"
           class="rounded px-2 py-0.5 text-[11px] font-medium"
-          :class="isOwn ? 'hover:bg-white/10' : 'text-danger-600 hover:bg-surface-400/30'"
+          :class="isOwn ? 'hover:bg-enviada-texto/10' : 'text-danger-600 hover:bg-surface-400/30'"
           :disabled="salvando"
           @click="encerrar"
         >Encerrar votação</button>

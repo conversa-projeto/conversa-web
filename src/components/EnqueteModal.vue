@@ -41,13 +41,13 @@
           <button
             v-if="opcoes.length < MAXIMO_OPCOES"
             type="button"
-            class="mt-2 text-sm font-medium text-primary-600 hover:underline"
+            class="mt-2 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
             @click="opcoes.push('')"
           >+ Adicionar opção</button>
         </div>
 
         <label class="flex cursor-pointer items-start gap-3">
-          <input v-model="multipla" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600" />
+          <input v-model="multipla" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" />
           <span>
             <span class="block text-sm text-surface-800">Permitir várias escolhas</span>
             <span class="block text-xs text-surface-500">Cada pessoa pode marcar mais de uma opção.</span>
@@ -56,7 +56,7 @@
 
         <div>
           <label class="flex cursor-pointer items-start gap-3">
-            <input v-model="comPrazo" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600" />
+            <input v-model="comPrazo" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" />
             <span>
               <span class="block text-sm text-surface-800">Definir data final</span>
               <span class="block text-xs text-surface-500">Depois dela ninguém vota mais. Dá para mudar ou encerrar antes pela votação.</span>

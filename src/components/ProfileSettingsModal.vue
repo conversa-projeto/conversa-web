@@ -245,7 +245,7 @@
                   :key="dispositivo.id"
                   class="rounded-xl border p-3"
                   :class="dispositivo.variante === 'padrao'
-                    ? 'border-primary-400 bg-primary-50 dark:border-primary-600 dark:!bg-surface-50'
+                    ? 'border-primary-400 bg-primary-50 dark:border-primary-500 dark:!bg-surface-50'
                     : 'border-surface-200 bg-surface-50'"
                 >
                   <div class="flex items-start justify-between gap-2">
@@ -355,7 +355,7 @@
                 </div>
 
                 <label class="flex items-center gap-2 rounded-xl border border-surface-200 px-3 py-3 text-sm text-surface-700 md:col-span-2">
-                  <input v-model="voip.ativo" type="checkbox" class="rounded border-surface-300 text-primary-600 focus:ring-primary-500 text-surface-800" />
+                  <input v-model="voip.ativo" type="checkbox" class="rounded border-surface-300 text-primary-600 dark:text-primary-500 focus:ring-primary-500 text-surface-800" />
                   Configuracao SIP ativa para este usuario
                 </label>
 

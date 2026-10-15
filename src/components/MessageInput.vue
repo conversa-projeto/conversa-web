@@ -58,9 +58,9 @@
 
       <!-- A próxima mensagem é uma postagem do grupo, com título opcional -->
       <div v-if="chat.postagemPendente" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2" data-postagem-pendente>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535" /></svg>
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-semibold text-primary-600">Postagem: as respostas ficam embaixo dela</p>
+          <p class="text-xs font-semibold text-primary-600 dark:text-primary-400">Postagem: as respostas ficam embaixo dela</p>
           <input
             v-model="chat.postagemPendente.titulo"
             type="text"
@@ -79,11 +79,11 @@
 
       <!-- A próxima mensagem pede confirmação de leitura -->
       <div v-if="chat.pedirConfirmacao" class="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-primary-500 bg-surface-100 px-3 py-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
         <span class="min-w-0 flex-1 text-xs text-surface-700" data-confirmacao-pendente>
           A mensagem vai pedir confirmação de leitura<template v-if="ehGrupo">
             {{ chat.confirmacaoUsuarios ? `de ${chat.confirmacaoUsuarios.length === 1 ? '1 pessoa' : `${chat.confirmacaoUsuarios.length} pessoas`}` : 'de todos' }}
-            <button type="button" class="ml-1 font-medium text-primary-600 hover:underline" @click="escolhendoConfirmacao = true">Escolher</button>
+            <button type="button" class="ml-1 font-medium text-primary-600 hover:underline dark:text-primary-400" @click="escolhendoConfirmacao = true">Escolher</button>
           </template>
         </span>
         <button class="shrink-0 text-surface-400 hover:text-surface-600" title="Não pedir confirmação" @click="chat.pedirConfirmacao = false">
@@ -187,7 +187,7 @@
             <button
               v-if="!temConteudo && chat.agendadasAtivas.length"
               type="button"
-              class="relative flex h-8 w-8 items-center justify-center rounded-full text-primary-600 transition hover:bg-surface-200"
+              class="relative flex h-8 w-8 items-center justify-center rounded-full text-primary-600 transition hover:bg-surface-200 dark:text-primary-400"
               :title="chat.agendadasAtivas.length === 1 ? '1 mensagem agendada' : `${chat.agendadasAtivas.length} mensagens agendadas`"
               @click="mostrarAgendadas = true"
             >

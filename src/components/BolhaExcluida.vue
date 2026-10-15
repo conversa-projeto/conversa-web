@@ -1,7 +1,7 @@
 <template>
   <div
     class="cursor-pointer select-none rounded-xl border border-dashed px-2.5 pb-0.5 pt-1"
-    :class="isOwn ? 'border-primary-300 bg-primary-600/50 text-white' : 'border-surface-400 bg-surface-300/60 text-surface-700 dark:bg-surface-200/60'"
+    :class="isOwn ? 'border-primary-300 bg-enviada/50 text-enviada-texto' : 'border-surface-400 bg-recebida/60 text-surface-700'"
     role="button"
     tabindex="0"
     :aria-expanded="revelada"
@@ -19,7 +19,7 @@
 
     <!-- Revelada: o conteúdo original, ainda marcado como excluído -->
     <template v-if="revelada">
-      <p class="mb-0.5 text-[10px] italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem oculta</p>
+      <p class="mb-0.5 text-[10px] italic" :class="isOwn ? 'text-enviada-texto/70' : 'text-surface-500'">Mensagem oculta</p>
       <MessageContent
         v-for="conteudo in mensagem.conteudos"
         :key="`${mensagem.id}-${conteudo.id}-${conteudo.ordem}`"
@@ -36,7 +36,7 @@
     </template>
 
     <div class="flex flex-wrap items-baseline justify-end gap-x-3">
-      <span v-if="!revelada" class="flex items-center gap-1.5 text-[13.5px] italic" :class="isOwn ? 'text-white/80' : 'text-surface-500'">
+      <span v-if="!revelada" class="flex items-center gap-1.5 text-[13.5px] italic" :class="isOwn ? 'text-enviada-texto/80' : 'text-surface-500'">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
           <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>

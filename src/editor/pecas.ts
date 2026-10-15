@@ -115,7 +115,7 @@ export function criarMencao(sugestao: Omit<SuggestionOptions, 'editor'>) {
       ]
     },
   }).configure({
-    HTMLAttributes: { class: 'rounded-sm bg-primary-50 text-primary-600 dark:bg-primary-900/30' },
+    HTMLAttributes: { class: 'rounded-sm bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300' },
     renderText: ({ node }) => `@${node.attrs.label}`,
     renderHTML: ({ node, options }) => ['span', options.HTMLAttributes, `@${node.attrs.label}`],
     deleteTriggerWithBackspace: true,

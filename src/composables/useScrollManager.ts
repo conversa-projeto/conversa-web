@@ -896,8 +896,10 @@ export function useScrollManager() {
               const containerRect = container.getBoundingClientRect()
               const novoScrollTop = container.scrollHeight - container.clientHeight
               const deslocamento = novoScrollTop - container.scrollTop
-              const indicadorTop = indicador.getBoundingClientRect().top - deslocamento
-              if (indicadorTop < containerRect.top) {
+              const indicadorTopAtual = indicador.getBoundingClientRect().top
+              const indicadorTop = indicadorTopAtual - deslocamento
+              // Indicador já fora da tela (acima): rolar não o esconde
+              if (indicadorTopAtual >= containerRect.top && indicadorTop < containerRect.top) {
                 return
               }
             }
@@ -962,8 +964,10 @@ export function useScrollManager() {
             const containerRect = container.getBoundingClientRect()
             const novoScrollTop = container.scrollHeight - container.clientHeight
             const deslocamento = novoScrollTop - container.scrollTop
-            const indicadorTop = indicador.getBoundingClientRect().top - deslocamento
-            if (indicadorTop < containerRect.top) {
+            const indicadorTopAtual = indicador.getBoundingClientRect().top
+            const indicadorTop = indicadorTopAtual - deslocamento
+            // Indicador já fora da tela (acima): rolar não o esconde
+            if (indicadorTopAtual >= containerRect.top && indicadorTop < containerRect.top) {
               return
             }
           }

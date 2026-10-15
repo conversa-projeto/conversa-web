@@ -1,11 +1,11 @@
 <template>
   <div
     class="border-l-4 px-2.5 py-0.5"
-    :class="isOwn ? 'border-white/40 bg-white/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]'"
+    :class="isOwn ? 'border-enviada-texto/40 bg-enviada-texto/[0.08]' : 'border-primary-400 bg-black/[0.06] dark:bg-white/[0.08]'"
   >
     <span
       class="text-[10px] font-semibold"
-      :class="[isOwn ? 'text-white/70' : 'text-surface-500', navegavel ? 'cursor-pointer hover:opacity-80' : '']"
+      :class="[isOwn ? 'text-enviada-texto/70' : 'text-surface-500', navegavel ? 'cursor-pointer hover:opacity-80' : '']"
       @click.stop="abrirReferencia"
     >
       {{ titulo }}
@@ -15,7 +15,7 @@
     </span>
 
     <!-- Excluída: a citação não mostra o conteúdo (ele aparece segurando sobre a original) -->
-    <p v-if="mensagemRef?.excluida_em" class="text-xs italic" :class="isOwn ? 'text-white/70' : 'text-surface-500'">Mensagem oculta</p>
+    <p v-if="mensagemRef?.excluida_em" class="text-xs italic" :class="isOwn ? 'text-enviada-texto/70' : 'text-surface-500'">Mensagem oculta</p>
     <!-- Referência aninhada (recursiva) -->
     <ReferenciaRecursiva
       v-if="mostraAninhada && mensagemRef?.mensagem_referencia"

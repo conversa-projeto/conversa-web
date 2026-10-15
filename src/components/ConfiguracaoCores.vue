@@ -1,5 +1,30 @@
 <template>
   <div class="space-y-4">
+    <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
+      <h4 class="text-sm font-semibold text-surface-800">Tema</h4>
+      <p class="mt-0.5 text-xs text-surface-500">Cores prontas para os temas claro e escuro. Escolher um tema apaga as cores ajustadas abaixo.</p>
+      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <button
+          v-for="opcao in TEMAS_PREDEFINIDOS"
+          :key="opcao.id"
+          type="button"
+          class="flex flex-col items-center gap-2 rounded-xl border-2 p-2 text-xs font-medium text-surface-700 hover:bg-surface-100"
+          :class="temaPredefinido === opcao.id ? 'border-primary-500' : 'border-surface-200'"
+          :aria-pressed="temaPredefinido === opcao.id"
+          @click="escolherTema(opcao.id)"
+        >
+          <span
+            class="flex h-10 w-full items-end justify-end gap-1 rounded-lg border border-surface-300 p-1.5"
+            :style="{ backgroundColor: corDoTema(opcao, '--color-surface-100') }"
+          >
+            <span class="h-3 w-6 rounded-full" :style="{ backgroundColor: corDoTema(opcao, '--color-surface-200') }"></span>
+            <span class="h-3 w-8 rounded-full" :style="{ backgroundColor: corDoTema(opcao, '--color-primary-600') }"></span>
+          </span>
+          {{ opcao.nome }}
+        </button>
+      </div>
+    </section>
+
     <section class="flex flex-col gap-3 rounded-2xl border border-surface-200 bg-surface-50 p-4 md:flex-row md:items-center">
       <p class="min-w-0 flex-1 text-sm text-surface-600">
         Editando as cores do <strong class="text-surface-800">tema {{ tema }}</strong>.
@@ -39,7 +64,7 @@
         <button
           v-if="grupoPersonalizado(grupo)"
           type="button"
-          class="shrink-0 text-xs text-primary-600 hover:underline"
+          class="shrink-0 text-xs text-primary-600 hover:underline dark:text-primary-400"
           @click="restaurarCores(tema, variaveis(grupo))"
         >
           Restaurar grupo
@@ -84,9 +109,10 @@
 import { computed, ref } from 'vue'
 import { useTheme } from '../composables/useTheme'
 import { GRUPOS_CORES, nomeVariavelCor, useCoresPersonalizadas, type GrupoCores, type TemaCores } from '../composables/useCoresPersonalizadas'
+import { TEMAS_PREDEFINIDOS, type TemaPredefinido } from '../utils/temasPredefinidos'
 
 const { isDark } = useTheme()
-const { personalizacao, lerPadroes, definirCor, restaurarCores } = useCoresPersonalizadas()
+const { personalizacao, temaPredefinido, coresDoTema, lerPadroes, definirCor, restaurarCores, escolherTema } = useCoresPersonalizadas()
 
 const padroes = lerPadroes()
 
@@ -120,6 +146,11 @@ function grupoPersonalizado(grupo: GrupoCores) {
 
 function valorAtual(grupo: string, tom: string) {
   const nome = nomeVariavelCor(grupo, tom)
-  return personalizacao.value[tema.value][nome] || padroes[tema.value][nome] || '#000000'
+  return personalizacao.value[tema.value][nome] || coresDoTema.value[tema.value][nome] || padroes[tema.value][nome] || '#000000'
+}
+
+// Amostra do tema no claro ou escuro atual
+function corDoTema(opcao: TemaPredefinido, nome: string) {
+  return opcao[tema.value][nome] || padroes[tema.value][nome]
 }
 </script>

@@ -12,7 +12,7 @@
           <label v-for="opcao in OPCOES" :key="opcao.chave" class="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
-              class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
+              class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500"
               :checked="privacidade[opcao.chave]"
               :disabled="salvando || (opcao.chave !== 'aparecer_offline' && privacidade.aparecer_offline)"
               @change="alterar(opcao.chave, ($event.target as HTMLInputElement).checked)"
@@ -31,7 +31,7 @@
       <label class="mt-3 flex cursor-pointer items-start gap-3">
         <input
           type="checkbox"
-          class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600"
+          class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500"
           :checked="sugestoes.ligadas.value"
           @change="sugestoes.alterar(($event.target as HTMLInputElement).checked)"
         />

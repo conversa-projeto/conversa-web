@@ -613,7 +613,8 @@ async function toggleCompartilharTela() {
     if (call.compartilhandoTela) {
       await call.pararCompartilhamento()
     } else {
-      await call.compartilharTela()
+      // Na janela própria da chamada, a escolha da tela aparece nela
+      await call.compartilharTela(containerRef.value?.ownerDocument.defaultView ?? window)
     }
   } catch (e) {
     console.error('Erro ao compartilhar tela', e)

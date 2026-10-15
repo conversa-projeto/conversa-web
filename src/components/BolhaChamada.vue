@@ -1,7 +1,7 @@
 <template>
   <div
     class="rounded-xl px-3 py-2"
-    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-enviada bg-fixed [background-image:var(--gradiente-enviada)] text-enviada-texto' : 'bg-recebida text-surface-800'"
     :style="{ minWidth: '220px', maxWidth: chatAberto ? '480px' : '320px' }"
   >
     <!-- Cabeçalho: icone + tipo -->
@@ -55,7 +55,7 @@
     </div>
 
     <!-- Chat da ligação, dentro da própria mensagem -->
-    <div v-if="chatId" class="mt-2 border-t pt-2" :class="isOwn ? 'border-white/30' : 'border-surface-400'">
+    <div v-if="chatId" class="mt-2 border-t pt-2" :class="isOwn ? 'border-enviada-texto/30' : 'border-surface-400'">
       <button
         type="button"
         class="flex items-center gap-1 text-xs font-medium"
@@ -126,13 +126,13 @@ const statusTexto = computed(() => {
   }
 })
 
-const subtextoColor = computed(() => props.isOwn ? 'text-white/70' : 'text-surface-500')
+const subtextoColor = computed(() => props.isOwn ? 'text-enviada-texto/70' : 'text-surface-500')
 
 const iconeBg = computed(() => {
   if (props.isOwn) {
-    if (dados.value.status === 4) return 'bg-white/20'
-    if (dados.value.status === 2 || dados.value.status === 5) return 'bg-white/20'
-    return 'bg-white/20'
+    if (dados.value.status === 4) return 'bg-enviada-texto/20'
+    if (dados.value.status === 2 || dados.value.status === 5) return 'bg-enviada-texto/20'
+    return 'bg-enviada-texto/20'
   }
   if (dados.value.status === 4) return 'bg-success-100 dark:bg-success-900/30'
   if (dados.value.status === 2 || dados.value.status === 5) return 'bg-danger-100 dark:bg-danger-900/30'
@@ -141,9 +141,9 @@ const iconeBg = computed(() => {
 
 const iconeColor = computed(() => {
   if (props.isOwn) {
-    if (dados.value.status === 4) return 'text-success-300'
-    if (dados.value.status === 2 || dados.value.status === 5) return 'text-danger-300'
-    return 'text-white/80'
+    if (dados.value.status === 4) return 'text-enviada-sucesso'
+    if (dados.value.status === 2 || dados.value.status === 5) return 'text-enviada-perigo'
+    return 'text-enviada-texto/80'
   }
   if (dados.value.status === 4) return 'text-success-600 dark:text-success-400'
   if (dados.value.status === 2 || dados.value.status === 5) return 'text-danger-600 dark:text-danger-400'
@@ -152,8 +152,8 @@ const iconeColor = computed(() => {
 
 const statusColor = computed(() => {
   if (props.isOwn) {
-    if (dados.value.status === 2 || dados.value.status === 5) return 'text-danger-200'
-    return 'text-white/70'
+    if (dados.value.status === 2 || dados.value.status === 5) return 'text-enviada-perigo'
+    return 'text-enviada-texto/70'
   }
   if (dados.value.status === 2 || dados.value.status === 5) return 'text-danger-500'
   return 'text-surface-500'

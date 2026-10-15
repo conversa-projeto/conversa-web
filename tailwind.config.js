@@ -28,6 +28,9 @@ export default {
         info: escala('info', TONS),
         warning: escala('warning', TONS),
         chamada: escala('chamada', ['300', '500', '600', '700', '800', '900']),
+        // Balões das mensagens (variáveis --bolha-* do style.css)
+        enviada: { DEFAULT: cor('--bolha-enviada'), texto: cor('--bolha-enviada-texto'), suave: cor('--bolha-enviada-suave'), destaque: cor('--bolha-enviada-destaque'), sucesso: cor('--bolha-enviada-sucesso'), perigo: cor('--bolha-enviada-perigo') },
+        recebida: cor('--bolha-recebida'),
       }
     }
   },

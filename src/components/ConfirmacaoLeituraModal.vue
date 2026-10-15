@@ -30,7 +30,7 @@
       />
 
       <label class="flex cursor-pointer items-center gap-2 border-b border-surface-200 pb-2 text-sm font-medium text-surface-800">
-        <input type="checkbox" class="h-4 w-4 accent-primary-600" :checked="todos" @change="alternarTodos" />
+        <input type="checkbox" class="h-4 w-4 accent-primary-600 dark:accent-primary-500" :checked="todos" @change="alternarTodos" />
         Todos ({{ membros.length }})
       </label>
 
@@ -42,7 +42,7 @@
           :key="membro.usuario_id"
           class="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-surface-700 hover:bg-surface-100"
         >
-          <input v-model="escolhidos" type="checkbox" class="h-4 w-4 accent-primary-600" :value="membro.usuario_id" />
+          <input v-model="escolhidos" type="checkbox" class="h-4 w-4 accent-primary-600 dark:accent-primary-500" :value="membro.usuario_id" />
           <span class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-[10px] font-semibold text-primary-700">
             <img v-if="membro.avatar_url" :src="membro.avatar_url" alt="" class="h-full w-full object-cover" />
             <span v-else>{{ inicialNome(membro.nome) }}</span>

@@ -1,7 +1,7 @@
 <template>
   <div
     class="rounded-xl px-2.5 pb-0.5 pt-1"
-    :class="isOwn ? 'bg-primary-600 text-white' : 'bg-surface-300 dark:bg-surface-200 text-surface-800'"
+    :class="isOwn ? 'bg-enviada bg-fixed [background-image:var(--gradiente-enviada)] text-enviada-texto' : 'bg-recebida text-surface-800'"
   >
     <p
       v-if="isGroup && !isOwn"

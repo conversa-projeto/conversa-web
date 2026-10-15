@@ -29,7 +29,7 @@ const classeContainer = computed(() => {
     case 'codigo':
       return 'mt-0.5 px-2.5 pb-0.5'
     case 'emoji':
-      return 'mt-0.5 rounded-full px-2 py-0.5 w-fit ' + (props.isOwn ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-200')
+      return 'mt-0.5 rounded-full px-2 py-0.5 w-fit ' + (props.isOwn ? 'bg-enviada bg-fixed [background-image:var(--gradiente-enviada)]' : 'bg-recebida')
     case 'texto-curto':
       return '-mt-1'
     case 'texto':
@@ -41,7 +41,7 @@ const classeContainer = computed(() => {
 
 const classeTexto = computed(() => {
   if (props.variante === 'imagem') return 'text-white/90'
-  if (props.variante === 'emoji') return props.isOwn ? 'text-white/65' : 'text-surface-500'
-  return props.isOwn ? 'text-white/65' : 'text-surface-500'
+  if (props.variante === 'emoji') return props.isOwn ? 'text-enviada-texto/65' : 'text-surface-500'
+  return props.isOwn ? 'text-enviada-texto/65' : 'text-surface-500'
 })
 </script>
