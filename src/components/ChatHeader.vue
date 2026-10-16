@@ -29,8 +29,13 @@
             />
           </div>
           <div class="group relative min-w-0">
-            <h2 class="truncate select-none text-lg font-semibold leading-tight text-surface-800">
-              {{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}
+            <h2 class="flex items-center gap-2 select-none text-lg font-semibold leading-tight text-surface-800">
+              <span class="truncate">{{ chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id}` }}</span>
+              <span
+                v-if="conversaComBot"
+                class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300"
+                title="Responde com a IA"
+              >Bot</span>
             </h2>
             <div class="typing-subtitle" :class="atividadeVisivel ? 'typing-subtitle-open' : ''">
               <div class="flex max-w-[300px] items-center gap-2.5">
@@ -95,7 +100,7 @@
             </button>
           </div>
           <button
-            v-if="!call.emChamada && !call.recebendoChamada"
+            v-if="!call.emChamada && !call.recebendoChamada && auth.pode(CodigoPermissao.ChamadaAudio)"
             class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200"
             title="Chamada de voz"
             @click="emit('start-call', 1)"
@@ -103,7 +108,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" /></svg>
           </button>
           <button
-            v-if="!call.emChamada && !call.recebendoChamada"
+            v-if="!call.emChamada && !call.recebendoChamada && auth.pode(CodigoPermissao.ChamadaVideo)"
             class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200"
             title="Chamada de video"
             @click="emit('start-call', 2)"
@@ -111,7 +116,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9A2.25 2.25 0 0 0 13.5 5.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
           </button>
           <button
-            v-if="!call.emChamada && !call.recebendoChamada"
+            v-if="!call.emChamada && !call.recebendoChamada && auth.pode(CodigoPermissao.ChamadaVideo) && auth.pode(CodigoPermissao.CompartilharTela)"
             class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 hover:bg-surface-200"
             title="Compartilhar tela"
             @click="emit('start-call', 2, true)"
@@ -228,7 +233,7 @@ import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/call'
 import { formatarHora, inicialNome, resumoMensagem } from '../utils/formatters'
-import { TipoConteudo, TipoConversa } from '../types/api'
+import { CodigoPermissao, TipoConteudo, TipoConversa } from '../types/api'
 import type { Mensagem, TipoChamada } from '../types/api'
 import { resolverUsuarioDaConversa } from '../utils/userProfile'
 import type { UsuarioPopup } from '../utils/userProfile'
@@ -253,6 +258,7 @@ const emit = defineEmits<{
 
 const chat = useChatStore()
 const call = useCallStore()
+const auth = useAuthStore()
 
 const isGrupo = computed(() => chat.conversaAtiva?.tipo === TipoConversa.Grupo)
 const ocultarAvatar = ref(false)
@@ -271,6 +277,9 @@ const perfilConversaAtiva = computed(() => {
   if (!chat.conversaAtiva) return null
   return resolverUsuarioDaConversa(chat.conversaAtiva, chat.contatos)
 })
+
+// Conversa direta com um bot de IA: a marca ao lado do nome
+const conversaComBot = computed(() => !isGrupo.value && !!chat.contatos.find((c) => c.id === destinatarioId.value)?.bot)
 
 const inicialConversa = computed(() => {
   const nome = chat.conversaAtiva?.descricao || chat.conversaAtiva?.nome || `Conversa #${chat.conversaAtiva?.id || ''}`

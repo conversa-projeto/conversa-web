@@ -11,6 +11,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useConfigChamada } from '@/composables/useConfigChamada'
 import { useCoresPersonalizadas } from '@/composables/useCoresPersonalizadas'
 import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 import { TipoConversa, type Conversa } from '@/types/api'
 import { aguardar, erro, rota } from './apiFalsa'
 
@@ -166,6 +167,20 @@ describe('menu de anexar', () => {
     expect(tela.emitted('close')).toBeUndefined()
     document.body.click()
     expect(tela.emitted('close')).toHaveLength(1)
+  })
+})
+
+describe('menu de anexar: permissões', () => {
+  test('sem a permissão, o item some; Arquivo fica com qualquer tipo de anexo', async () => {
+    const auth = useAuthStore()
+    auth.permissoesCarregadas = true
+    auth.permissoes = ['video', 'postagem']
+    const tela = montar(AnexoPopup, { props: { comVotacao: true } })
+    const itens = tela.findAll('button').map((b) => b.text())
+    expect(itens).toEqual(['Arquivo', 'Código', 'Postagem'])
+    auth.permissoes = []
+    await tela.vm.$nextTick()
+    expect(tela.findAll('button').map((b) => b.text())).toEqual(['Código'])
   })
 })
 

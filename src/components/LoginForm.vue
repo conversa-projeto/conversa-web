@@ -39,7 +39,7 @@
         {{ carregandoLogin ? 'Entrando...' : 'Entrar' }}
       </button>
 
-      <p class="text-center text-sm text-surface-500">
+      <p v-if="cadastroAberto" class="text-center text-sm text-surface-500">
         Não tem conta?
         <button type="button" class="font-medium text-primary-600 hover:underline dark:text-primary-400" @click="emit('go-register')">Criar conta</button>
       </p>
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { getCadastro } from '../services/conversaApi'
 
 const emit = defineEmits<{
   'login-success': []
@@ -63,9 +64,12 @@ const login = ref('')
 const senha = ref('')
 const carregandoLogin = ref(false)
 const erro = ref('')
+// Fechado pelo administrador, não oferece o cadastro; sem resposta, oferece (o servidor recusa se fechado)
+const cadastroAberto = ref(true)
 
 onMounted(() => {
   inputUsuario.value?.focus()
+  getCadastro().then((cadastro) => { cadastroAberto.value = cadastro.aberto }).catch(() => {})
 })
 
 async function fazerLogin() {

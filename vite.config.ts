@@ -9,6 +9,11 @@ const NO_CONTAINER = Boolean(process.env.CONVERSA_DEV_CONTAINER)
 
 export default defineConfig(({ command }) => ({
   plugins: [vue()],
+  // O otimizador do Vite 7 em desenvolvimento muda o caminho dos .wasm do
+  // @silurus/ooxml (new URL(..., import.meta.url)) e o carregamento falha
+  optimizeDeps: {
+    exclude: ['@silurus/ooxml'],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

@@ -162,6 +162,7 @@ const {
   posicionarAberturaConversaAtiva,
   rolarParaFinal,
   rolarParaFinalAnimado,
+  rolarParaFinalAoEnviar,
   irParaMensagem,
   distanteDoFinal,
   carregandoHistorico,
@@ -545,6 +546,7 @@ async function posicionarEIndicar() {
 defineExpose({
   posicionarAberturaConversaAtiva: posicionarEIndicar,
   rolarParaFinal,
+  rolarParaFinalAoEnviar,
   irParaMensagem,
   limparAnexos,
   ativarPaginacaoBidirecional,

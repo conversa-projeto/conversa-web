@@ -88,6 +88,7 @@
         </CallControlButton>
 
         <button
+          v-if="auth.pode(CodigoPermissao.ChamadaVideo)"
           class="flex items-center gap-1 rounded-full bg-primary-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-primary-700"
           title="Ativar vídeo"
           @click="emit('upgrade-video')"
@@ -136,7 +137,7 @@
 import { useAuthStore } from '../stores/auth'
 import { TEXTO_ETAPA_VIDEO, useCallStore } from '../stores/call'
 import { useChatStore } from '../stores/chat'
-import { TipoConversa } from '../types/api'
+import { CodigoPermissao, TipoConversa } from '../types/api'
 import { iniciaisUsuario } from '../utils/formatters'
 import { useFalaChamada } from '../composables/useFalaChamada'
 import CallControlButton from './CallControlButton.vue'

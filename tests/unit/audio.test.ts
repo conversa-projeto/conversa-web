@@ -75,6 +75,103 @@ describe('player de áudio', () => {
     expect((tela.find('.absolute.inset-y-0').element as HTMLElement).style.width).toBe('25%')
   })
 
+  test('gravação sem duração no arquivo (Infinity): pula para o fim para descobrir, volta ao começo e toca', async () => {
+    const tela = montar(AudioPlayerGravacao, { props: { src: 'blob:longa' } })
+    const audio = prepararAudio(tela, Infinity)
+    Object.defineProperty(audio, 'readyState', { value: 1, configurable: true })
+    let tocou = false
+    audio.play = () => { tocou = true; audio.dispatchEvent(new Event('play')); return Promise.resolve() }
+    // O navegador lê até o fim, acha a duração e avisa; o tempo e o fim do pulo não contam
+    const posicoes: number[] = []
+    Object.defineProperty(audio, 'currentTime', {
+      configurable: true,
+      get: () => posicoes.at(-1) ?? 0,
+      set: (valor: number) => {
+        posicoes.push(valor)
+        if (valor > 1e100) {
+          Object.defineProperty(audio, 'duration', { value: 45, configurable: true })
+          audio.dispatchEvent(new Event('timeupdate'))
+          audio.dispatchEvent(new Event('ended'))
+          audio.dispatchEvent(new Event('durationchange'))
+        }
+      },
+    })
+    await tela.find('button').trigger('click')
+    await aguardar(5)
+    expect(posicoes).toEqual([1e101, 0])
+    expect(tocou).toBe(true)
+    posicoes.push(9)
+    await tela.find('audio').trigger('timeupdate')
+    expect((tela.find('.absolute.inset-y-0').element as HTMLElement).style.width).toBe('20%')
+    expect(tela.text()).toContain('00:09 / 00:45')
+  })
+
+  test('duração e onda gravadas no envio aparecem antes de tocar; as barras tocadas mudam de cor', async () => {
+    const intensidade = [10, 100, 50, 0]
+    const tela = montar(AudioPlayerGravacao, { props: { identificador: 'aud-2', duracao: 44.95, intensidade } })
+    expect(tela.text()).toContain('00:44')
+    const barras = tela.findAll('[aria-hidden="true"] > span')
+    expect(barras.map((b) => (b.element as HTMLElement).style.height)).toEqual(['12%', '100%', '50%', '12%'])
+    expect(barras.every((b) => b.classes().includes('bg-surface-500/60'))).toBe(true)
+    const audio = prepararAudio(tela, 44.95)
+    audio.currentTime = 22.5
+    await tela.find('audio').trigger('timeupdate')
+    expect(tela.findAll('[aria-hidden="true"] > span').map((b) => b.classes().includes('bg-primary-500'))).toEqual([true, true, true, false])
+  })
+
+  test('áudio sem duração gravada: ao aparecer na tela busca só a duração, sem tocar e sem carregando', async () => {
+    rota('GET', '/anexo', { url: 'https://localhost/storage/antigo' })
+    const observados: { retorno: IntersectionObserverCallback; alvo?: Element }[] = []
+    const original = globalThis.IntersectionObserver
+    globalThis.IntersectionObserver = class {
+      constructor(public retorno: IntersectionObserverCallback) { observados.push(this) }
+      observe(alvo: Element) { (this as unknown as { alvo: Element }).alvo = alvo }
+      disconnect() {}
+    } as never
+    try {
+      const tela = montar(AudioPlayerGravacao, { props: { identificador: 'antigo' } })
+      const audio = prepararAudio(tela, 75)
+      let tocou = false
+      audio.play = () => { tocou = true; return Promise.resolve() }
+      expect(tela.text()).toContain('--:--')
+      expect(pedidosDe('GET', '/anexo')).toHaveLength(0)
+      // Aparece na tela
+      observados[0]!.retorno([{ isIntersecting: true } as IntersectionObserverEntry], observados[0] as never)
+      await aguardar(5)
+      expect(audio.src).toBe('https://localhost/storage/antigo')
+      expect(tela.find('button').attributes('disabled')).toBeUndefined()
+      await tela.find('audio').trigger('loadedmetadata')
+      await aguardar(5)
+      expect(tela.text()).toContain('01:15')
+      expect(tocou).toBe(false)
+      // O play depois não pede o endereço de novo
+      await tela.find('button').trigger('click')
+      await aguardar(5)
+      expect(pedidosDe('GET', '/anexo')).toHaveLength(1)
+      expect(tocou).toBe(true)
+    } finally {
+      globalThis.IntersectionObserver = original
+    }
+  })
+
+  test('com a duração gravada, não busca nada ao aparecer', () => {
+    const observados: unknown[] = []
+    const original = globalThis.IntersectionObserver
+    globalThis.IntersectionObserver = class { constructor() { observados.push(this) } observe() {} disconnect() {} } as never
+    try {
+      montar(AudioPlayerGravacao, { props: { identificador: 'novo', duracao: 12 } })
+      expect(observados).toHaveLength(0)
+    } finally {
+      globalThis.IntersectionObserver = original
+    }
+  })
+
+  test('sem intensidade gravada fica a barra simples', () => {
+    const tela = montar(AudioPlayerArquivo, { props: { identificador: 'aud-3', nome: 'a.mp3', duracao: 61 } })
+    expect(tela.text()).toContain('01:01')
+    expect(tela.find('.absolute.inset-y-0').exists()).toBe(true)
+  })
+
   test('arrastar na barra muda a posição (só depois de carregado)', async () => {
     const tela = montar(AudioPlayerGravacao, { props: { src: 'blob:x' } })
     const audio = prepararAudio(tela, 100)

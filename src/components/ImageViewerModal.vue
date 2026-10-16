@@ -10,19 +10,17 @@
   >
     <div class="flex flex-1 items-center justify-center p-4" @click.self="emit('close')">
       <div class="relative" :style="!imagemCarregada ? { minHeight: '12rem', minWidth: '16rem' } : {}" @click.self="emit('close')">
-        <!-- Vídeo toca aqui mesmo, com os controles do navegador -->
-        <video
+        <!-- Vídeo toca aqui mesmo, no nosso player com volume e velocidade -->
+        <PlayerVideo
           v-if="ehVideo"
           :key="url"
           :src="url"
-          controls
-          autoplay
-          playsinline
-          class="max-w-[92vw] bg-black object-contain"
-          :class="legenda ? 'max-h-[70vh]' : 'max-h-[85vh]'"
-          :aria-label="nome"
-          @loadeddata="imagemCarregada = true"
-          @error="imagemCarregada = true"
+          enviado
+          completo
+          :classe-video="`block max-w-[92vw] object-contain ${legenda ? 'max-h-[70vh]' : 'max-h-[85vh]'}`"
+          @carregado="imagemCarregada = true"
+          @erro="imagemCarregada = true"
+          @baixar="baixarVideo"
         />
         <img
           v-else
@@ -178,6 +176,8 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
 import type { ItemGaleria } from '../composables/useImageViewer'
+import { useAttachments } from '../composables/useAttachments'
+import PlayerVideo from './PlayerVideo.vue'
 
 const props = defineProps<{
   aberta: boolean
@@ -202,6 +202,12 @@ const menuContexto = ref<{ x: number; y: number } | null>(null)
 const galeriaRef = ref<HTMLElement | null>(null)
 const podeMoverEsquerda = ref(false)
 const podeMoverDireita = ref(true)
+
+const { abrirAnexo } = useAttachments()
+
+function baixarVideo() {
+  abrirAnexo(props.identificadorAtual, props.nome).catch((e) => console.error('Erro ao baixar o vídeo', e))
+}
 
 function fecharMenu(e: MouseEvent) {
   if (menuContexto.value) {

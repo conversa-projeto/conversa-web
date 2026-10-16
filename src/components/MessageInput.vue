@@ -130,7 +130,7 @@
           </div>
 
           <!-- Emoji button -->
-          <div class="relative flex shrink-0 self-end pb-[5.75px]">
+          <div v-if="podeEmoji || podeFigurinha" class="relative flex shrink-0 self-end pb-[5.75px]">
             <button
               class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Emoji"
@@ -143,7 +143,8 @@
             <EmojiPicker
               v-if="mostrarEmoji"
               direcao="cima"
-              com-figurinhas
+              :com-figurinhas="podeFigurinha"
+              :so-figurinhas="!podeEmoji"
               @selecionar="inserirEmoji"
               @figurinha="escolherFigurinha"
               @close="mostrarEmoji = false"
@@ -164,7 +165,7 @@
           <!-- Action button: send or mic (inside input bar) -->
           <div class="relative mr-2 flex shrink-0 items-end gap-1 self-end pb-[5.75px]">
             <button
-              v-if="temConteudo"
+              v-if="temConteudo && auth.pode(CodigoPermissao.Agendar)"
               class="flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Agendar mensagem"
               @click="mostrarAgendarModal = true"
@@ -197,7 +198,7 @@
               <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-semibold leading-none text-white">{{ chat.agendadasAtivas.length }}</span>
             </button>
             <button
-              v-if="!temConteudo"
+              v-if="!temConteudo && auth.pode(CodigoPermissao.Audio)"
               class="action-btn flex h-8 w-8 items-center justify-center rounded-full text-surface-600 transition hover:bg-surface-200 hover:text-surface-800"
               title="Gravar áudio"
               @pointerdown.prevent="onMicPointerDown"
@@ -287,12 +288,12 @@ import HardBreak from '@tiptap/extension-hard-break'
 import { Dropcursor, Gapcursor, TrailingNode, UndoRedo } from '@tiptap/extensions'
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion'
 import type { Contato, Mensagem } from '../types/api'
-import { TipoConversa, TipoMensagemReferencia } from '../types/api'
+import { CodigoPermissao, TipoConversa, TipoMensagemReferencia } from '../types/api'
 import { dividirMencoes, extrairMencoesCruas } from '../utils/mencoesTexto'
 import { useChatStore, type BlocoMensagem } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import { apagarRascunho, chaveRascunho, lerRascunho, salvarRascunho, type Rascunho } from '../services/rascunhos'
-import { extensaoPorMime, resumoMensagem } from '../utils/formatters'
+import { extensaoPorMime, isVideoConteudo, resumoMensagem } from '../utils/formatters'
 import { substituirAtalhoNoFim } from '../utils/emojiAtalhos'
 import { cercaCodigo, ehDesenhoAscii, pareceCodigo, textoLongo } from '../utils/codeBlocks'
 import { detectarLinguagem } from '../composables/useCodeHighlight'
@@ -538,8 +539,26 @@ function inserirAnexo(anexo: AnexoEditor) {
   inserirNoCampo([pecaDeArquivo(anexo)])
 }
 
+// Imagem, vídeo, áudio ou arquivo: cada um pede a sua permissão
+const NOMES_ANEXO: Record<string, string> = {
+  [CodigoPermissao.Imagem]: 'imagens',
+  [CodigoPermissao.Video]: 'vídeos',
+  [CodigoPermissao.Audio]: 'áudios',
+  [CodigoPermissao.Arquivo]: 'arquivos',
+}
+
+function permissaoDoArquivo(arquivo: File) {
+  const mime = arquivo.type
+  if (mime.startsWith('image/')) return CodigoPermissao.Imagem
+  if (mime.startsWith('audio/')) return CodigoPermissao.Audio
+  return mime.startsWith('video/') || isVideoConteudo({ nome: arquivo.name }) ? CodigoPermissao.Video : CodigoPermissao.Arquivo
+}
+
 function inserirArquivos(arquivos: Iterable<File>, posicao?: number) {
-  inserirNoCampo([...arquivos].map((arquivo) => {
+  const lista = [...arquivos]
+  const barrados = [...new Set(lista.map(permissaoDoArquivo).filter((codigo) => !auth.pode(codigo)))]
+  if (barrados.length) erro.value = `Você não tem permissão para enviar ${barrados.map((codigo) => NOMES_ANEXO[codigo]).join(', ')}.`
+  inserirNoCampo(lista.filter((arquivo) => auth.pode(permissaoDoArquivo(arquivo))).map((arquivo) => {
     const mimeType = arquivo.type || 'application/octet-stream'
     return pecaDeArquivo({ blob: arquivo, nomeArquivo: arquivo.name, mimeType, isAudio: mimeType.startsWith('audio/') })
   }), posicao)
@@ -615,6 +634,8 @@ function limparCampo() {
 // mesmo depois de fechar o navegador (services/rascunhos.ts, IndexedDB)
 
 const auth = useAuthStore()
+const podeEmoji = computed(() => auth.pode(CodigoPermissao.Emoji))
+const podeFigurinha = computed(() => auth.pode(CodigoPermissao.Figurinha))
 // Conversa a que pertence o que está no campo agora
 let conversaDoCampo: number | null = null
 let rascunhoAgendado: ReturnType<typeof setTimeout> | null = null

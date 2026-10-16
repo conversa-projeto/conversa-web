@@ -330,7 +330,7 @@
       </CallControlButton>
 
       <CallControlButton
-        v-if="podeCompartilharTela"
+        v-if="podeCompartilharTela && auth.pode(CodigoPermissao.CompartilharTela)"
         variant="destaque"
         :active="call.compartilhandoTela"
         title="Compartilhar tela"
@@ -472,7 +472,7 @@ import { useDraggable } from './composables/useDraggable'
 import CallControlButton from './components/CallControlButton.vue'
 import PonteiroTela from './components/PonteiroTela.vue'
 import ChatChamada from './components/ChatChamada.vue'
-import { StatusUsuarioChamada, type Mensagem } from './types/api'
+import { CodigoPermissao, StatusUsuarioChamada, type Mensagem } from './types/api'
 
 const props = withDefaults(defineProps<{
   fecharAoEncerrar?: boolean

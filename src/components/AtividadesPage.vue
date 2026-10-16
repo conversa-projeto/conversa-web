@@ -12,7 +12,7 @@
 
     <div v-else-if="atividades.lista.length === 0" class="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center">
       <span class="text-sm text-surface-500">Nenhuma atividade ainda.</span>
-      <span class="text-xs text-surface-400">Reações, respostas, menções e chamadas perdidas aparecem aqui.</span>
+      <span class="text-xs text-surface-400">Reações, respostas, menções, pedidos de confirmação de leitura e chamadas perdidas aparecem aqui.</span>
     </div>
 
     <div v-else class="flex-1 overflow-y-auto" @scroll="aoRolar">
@@ -21,12 +21,16 @@
           <div class="sticky top-0 z-10 bg-surface-100 px-4 py-1.5 text-xs font-medium text-surface-500">
             {{ grupo.rotulo }}
           </div>
-          <button
+          <!-- Pendente fica destacada até concluir; o botão ao lado conclui à mão -->
+          <div
             v-for="atividade in grupo.itens"
             :key="atividade.id"
+            class="group flex w-full items-start transition hover:bg-surface-100"
+            :class="atividade.pendente ? 'bg-primary-50 dark:bg-primary-900/20' : ''"
+          >
+          <button
             type="button"
-            class="flex w-full items-start gap-3 px-4 py-2.5 text-left transition hover:bg-surface-100"
-            :class="atividade.nova ? 'bg-primary-50 dark:bg-primary-900/20' : ''"
+            class="flex min-w-0 flex-1 items-start gap-3 py-2.5 pl-4 text-left"
             @click="abrir(atividade)"
           >
             <!-- Avatar de quem fez, com o tipo da atividade no canto -->
@@ -52,9 +56,21 @@
 
             <div class="flex shrink-0 flex-col items-end gap-1">
               <span class="text-[11px] text-surface-500">{{ formatarHora(atividade.criado_em) }}</span>
-              <span v-if="atividade.nova" class="h-2 w-2 rounded-full bg-primary-500" title="Nova"></span>
+              <span v-if="atividade.pendente" class="h-2 w-2 rounded-full bg-primary-500" title="Pendente"></span>
             </div>
           </button>
+          <button
+            v-if="atividade.pendente"
+            type="button"
+            class="mx-2 mt-2.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-surface-500 hover:bg-surface-200 hover:text-success-600"
+            :title="atividade.tipo === TipoAtividade.Confirmacao ? 'Marcar como concluída (a leitura continua sem confirmar)' : 'Marcar como concluída'"
+            aria-label="Marcar como concluída"
+            @click="atividades.concluir(atividade.id)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+          </button>
+          <span v-else class="mx-2 w-7 shrink-0"></span>
+          </div>
         </template>
 
         <p v-if="atividades.carregando" class="py-3 text-center text-xs text-surface-500">Carregando...</p>
@@ -105,6 +121,7 @@ function descricao(atividade: Atividade) {
     case TipoAtividade.Mencao: return 'mencionou você'
     case TipoAtividade.ChamadaPerdida:
       return atividade.chamada_tipo === TipoChamada.Video ? 'ligou (chamada de vídeo perdida)' : 'ligou (chamada perdida)'
+    case TipoAtividade.Confirmacao: return 'pediu que você confirme a leitura'
   }
 }
 
@@ -115,6 +132,7 @@ function selo(atividade: Atividade) {
     case TipoAtividade.Resposta: return { texto: '↩', classe: 'bg-primary-500 text-white' }
     case TipoAtividade.Mencao: return { texto: '@', classe: 'bg-info-500 text-white font-bold' }
     case TipoAtividade.ChamadaPerdida: return { texto: '✆', classe: 'bg-danger-500 text-white' }
+    case TipoAtividade.Confirmacao: return { texto: '✓', classe: 'bg-success-500 text-white font-bold' }
   }
 }
 
@@ -139,7 +157,10 @@ function previa(atividade: Atividade) {
   return atividade.texto || (atividade.conteudo_tipo ? NOMES_CONTEUDO[atividade.conteudo_tipo] ?? '' : '')
 }
 
+// A chamada perdida conclui ao abrir; as outras concluem sozinhas (confirmar,
+// ver a reação, ler) ou à mão
 function abrir(atividade: Atividade) {
+  if (atividade.tipo === TipoAtividade.ChamadaPerdida) void atividades.concluir(atividade.id)
   if (!atividade.conversa_id) return
   if (atividade.mensagem_id) emit('open-message', atividade.conversa_id, atividade.mensagem_id)
   else emit('open-conversa', atividade.conversa_id)

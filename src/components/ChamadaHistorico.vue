@@ -93,6 +93,7 @@
 
             <!-- Botao religar -->
             <button
+              v-if="auth.pode(chamada.tipo === TipoChamada.Video ? CodigoPermissao.ChamadaVideo : CodigoPermissao.ChamadaAudio)"
               class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-primary-500 opacity-0 transition hover:bg-primary-50 group-hover:opacity-100 dark:hover:bg-primary-900/50"
               title="Ligar novamente"
               @click.stop="religar(chamada)"
@@ -117,7 +118,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import DateInput from './DateInput.vue'
 import ChatDaChamada from './ChatDaChamada.vue'
 import type { ChamadaHistoricoItem } from '../types/api'
-import { TipoChamada } from '../types/api'
+import { CodigoPermissao, TipoChamada } from '../types/api'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import { useCallStore } from '../stores/call'

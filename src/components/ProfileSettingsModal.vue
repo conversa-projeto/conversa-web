@@ -80,7 +80,8 @@
                   <h4 class="text-sm font-semibold text-surface-800">Foto de perfil</h4>
                   <p class="mt-1 text-sm text-surface-500">Atualize o avatar exibido no chat e nas conversas.</p>
 
-                  <div class="mt-3 flex flex-wrap gap-2">
+                  <p v-if="!auth.pode(CodigoPermissao.Avatar)" class="mt-3 text-xs text-surface-500">Você não tem permissão para mudar o avatar.</p>
+                  <div v-else class="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
                       class="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
@@ -112,6 +113,7 @@
 
                 <div class="flex shrink-0 items-center gap-2">
                   <button
+                    v-if="auth.pode(CodigoPermissao.Cores)"
                     type="button"
                     class="flex h-9 w-9 items-center justify-center rounded-lg text-surface-500 transition hover:bg-surface-200 hover:text-surface-900"
                     :title="isDark ? 'Tema claro' : 'Tema escuro'"
@@ -144,11 +146,11 @@
                 <div class="grid gap-4 md:grid-cols-2">
                   <div>
                     <label class="mb-1 block text-sm text-surface-700">Nome</label>
-                    <input v-model.trim="nomeUsuario" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
+                    <input v-model.trim="nomeUsuario" type="text" :disabled="!auth.pode(CodigoPermissao.Nome)" :title="auth.pode(CodigoPermissao.Nome) ? undefined : 'Você não tem permissão para mudar o nome'" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800 disabled:opacity-60" />
                   </div>
                   <div>
                     <label class="mb-1 block text-sm text-surface-700">Email</label>
-                    <input v-model.trim="emailUsuario" type="email" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" />
+                    <input v-model.trim="emailUsuario" type="email" :disabled="!auth.pode(CodigoPermissao.Email)" :title="auth.pode(CodigoPermissao.Email) ? undefined : 'Você não tem permissão para mudar o e-mail'" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800 disabled:opacity-60" />
                   </div>
                 </div>
 
@@ -156,7 +158,7 @@
                 <p v-if="erroPerfil" class="mt-4 rounded-xl bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400">{{ erroPerfil }}</p>
                 <p v-if="sucessoPerfil" class="mt-4 rounded-xl bg-success-50 dark:bg-success-900 px-3 py-2 text-sm text-success-700 dark:text-success-400">{{ sucessoPerfil }}</p>
 
-                <div class="mt-4 flex justify-end">
+                <div v-if="auth.pode(CodigoPermissao.Nome) || auth.pode(CodigoPermissao.Email)" class="mt-4 flex justify-end">
                   <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60" :disabled="salvandoPerfil">
                     {{ salvandoPerfil ? 'Salvando...' : 'Salvar dados' }}
                   </button>
@@ -164,7 +166,7 @@
               </section>
             </form>
 
-            <form class="space-y-3 rounded-2xl border border-surface-200 p-4" @submit.prevent="salvarSenha">
+            <form v-if="auth.pode(CodigoPermissao.Senha)" class="space-y-3 rounded-2xl border border-surface-200 p-4" @submit.prevent="salvarSenha">
               <div>
                 <h4 class="text-sm font-semibold text-surface-800">Senha</h4>
                 <p class="mt-1 text-sm text-surface-500">Altere sua senha de acesso.</p>
@@ -318,6 +320,14 @@
 
           <ConfiguracaoAcessos v-else-if="props.abaAtiva === 'acessos'" />
 
+          <ConfiguracaoBots v-else-if="props.abaAtiva === 'bots'" />
+
+          <ConfiguracaoUsuarios v-else-if="props.abaAtiva === 'usuarios'" />
+
+          <ConfiguracaoFerramentas v-else-if="props.abaAtiva === 'ferramentas'" />
+
+          <ConfiguracaoConhecimento v-else-if="props.abaAtiva === 'conhecimento'" />
+
           <div v-else class="space-y-4">
             <section class="rounded-2xl border border-surface-200 p-4">
               <div class="flex items-start justify-between gap-3">
@@ -391,8 +401,12 @@ import ConfiguracaoPrivacidade from './ConfiguracaoPrivacidade.vue'
 import ConfiguracaoChamadas from './ConfiguracaoChamadas.vue'
 import ConfiguracaoSistema from './ConfiguracaoSistema.vue'
 import ConfiguracaoAcessos from './ConfiguracaoAcessos.vue'
+import ConfiguracaoBots from './ConfiguracaoBots.vue'
+import ConfiguracaoUsuarios from './ConfiguracaoUsuarios.vue'
+import ConfiguracaoFerramentas from './ConfiguracaoFerramentas.vue'
+import ConfiguracaoConhecimento from './ConfiguracaoConhecimento.vue'
 
-type AbaId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos'
+type AbaId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos' | 'bots' | 'usuarios' | 'ferramentas' | 'conhecimento'
 
 type DispositivoMidiaItem = {
   id: string
@@ -441,14 +455,34 @@ const abasDeTodos: Array<{ id: AbaId; titulo: string; descricao: string }> = [
   { id: 'chamadas', titulo: 'Chamadas', descricao: 'Qualidade do áudio, vídeo e tela' },
 ]
 
+// Abas de todos que pedem uma permissão de uso para aparecer
+const PERMISSAO_ABA: Partial<Record<AbaId, string>> = {
+  voip: CodigoPermissao.Telefonia,
+  cores: CodigoPermissao.Cores,
+  chamadas: CodigoPermissao.ConfigChamadas,
+}
+
 // Só aparecem para quem tem a permissão (o servidor confere de novo)
 const abas = computed(() => [
-  ...abasDeTodos,
+  ...abasDeTodos.filter((aba) => { const codigo = PERMISSAO_ABA[aba.id]; return !codigo || auth.pode(codigo) }),
   ...(auth.temPermissao(CodigoPermissao.Parametros)
     ? [{ id: 'sistema' as const, titulo: 'Sistema', descricao: 'Configurações que valem para todos' }]
     : []),
   ...(auth.temPermissao(CodigoPermissao.Permissoes)
     ? [{ id: 'acessos' as const, titulo: 'Acessos', descricao: 'Quem pode mexer no sistema e nas permissões' }]
+    : []),
+  ...(auth.temPermissao(CodigoPermissao.Usuarios)
+    ? [{ id: 'usuarios' as const, titulo: 'Usuários', descricao: 'Cadastrar pessoas e bots' }]
+    : []),
+  ...(auth.temPermissao(CodigoPermissao.Ferramentas)
+    ? [{ id: 'ferramentas' as const, titulo: 'Ferramentas', descricao: 'APIs externas que os bots podem chamar' }]
+    : []),
+  ...(auth.temPermissao(CodigoPermissao.Conhecimento)
+    ? [{ id: 'conhecimento' as const, titulo: 'Conhecimento', descricao: 'Documentos que os bots consultam' }]
+    : []),
+  // Bots: quem cria e quem cuida dos acessos (que vê todos)
+  ...(auth.temPermissao(CodigoPermissao.Bots) || auth.temPermissao(CodigoPermissao.Permissoes)
+    ? [{ id: 'bots' as const, titulo: 'Bots', descricao: 'Bots de IA: instruções e o que cada um pode fazer' }]
     : []),
 ])
 
@@ -851,13 +885,15 @@ async function salvarPerfil() {
     return
   }
 
+  // Só vai o que a pessoa pode mudar: o servidor recusa o resto
+  const alteracoes = {
+    ...(auth.pode(CodigoPermissao.Nome) ? { nome: nomeUsuario.value } : {}),
+    ...(auth.pode(CodigoPermissao.Email) ? { email: emailUsuario.value } : {}),
+  }
   salvandoPerfil.value = true
   try {
-    await api.atualizarUsuario(auth.user.id, {
-      nome: nomeUsuario.value,
-      email: emailUsuario.value,
-    })
-    auth.atualizarPerfil({ nome: nomeUsuario.value, email: emailUsuario.value })
+    await api.atualizarUsuario(auth.user.id, alteracoes)
+    auth.atualizarPerfil(alteracoes)
     sucessoPerfil.value = 'Dados atualizados com sucesso.'
   } catch (e) {
     erroPerfil.value = e instanceof Error ? e.message : 'Nao foi possivel salvar os dados do usuario.'

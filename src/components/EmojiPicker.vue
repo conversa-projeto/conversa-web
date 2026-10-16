@@ -9,7 +9,7 @@
     ]"
   >
     <!-- Abas: só onde a figurinha pode ser enviada (no campo de mensagem) -->
-    <div v-if="comFigurinhas" class="flex gap-1 border-b border-surface-200 px-2 pt-2">
+    <div v-if="comFigurinhas && !soFigurinhas" class="flex gap-1 border-b border-surface-200 px-2 pt-2">
       <button
         v-for="opcao in abas"
         :key="opcao.id"
@@ -20,7 +20,8 @@
       >{{ opcao.nome }}</button>
     </div>
 
-    <div v-if="aba === 'figurinhas'" class="max-h-[280px] overflow-y-auto p-2">
+    <!-- Mesma altura da aba de emojis: pesquisa (45px) + categorias (37px) + lista (260px) -->
+    <div v-if="aba === 'figurinhas'" class="h-[342px] overflow-y-auto p-2">
       <template v-for="pacote in PACOTES_FIGURINHAS" :key="pacote.id">
         <p class="mb-1 px-1 text-[11px] font-medium text-surface-400">
           {{ pacote.nome }}
@@ -115,17 +116,20 @@ import { useEmojis } from '../composables/useEmojis'
 import { PACOTES_FIGURINHAS } from '../utils/figurinhas'
 import FigurinhaLottie from './FigurinhaLottie.vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   alinhamento?: 'left' | 'right'
   direcao?: 'baixo' | 'cima'
   estatico?: boolean
   // Mostra a aba de figurinhas, que são enviadas na hora
   comFigurinhas?: boolean
+  // Sem a permissão de emoji: só a aba de figurinhas, sem as abas em cima
+  soFigurinhas?: boolean
 }>(), {
   alinhamento: 'left',
   direcao: 'baixo',
   estatico: false,
-  comFigurinhas: false
+  comFigurinhas: false,
+  soFigurinhas: false
 })
 
 const emit = defineEmits<{
@@ -136,7 +140,7 @@ const emit = defineEmits<{
 
 // Abre sempre nos emojis, como no WhatsApp
 const abas = [{ id: 'emojis', nome: 'Emojis' }, { id: 'figurinhas', nome: 'Figurinhas' }] as const
-const aba = ref<(typeof abas)[number]['id']>('emojis')
+const aba = ref<(typeof abas)[number]['id']>(props.comFigurinhas && props.soFigurinhas ? 'figurinhas' : 'emojis')
 
 const popupRef = ref<HTMLElement>()
 

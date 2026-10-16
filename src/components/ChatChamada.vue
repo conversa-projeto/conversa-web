@@ -41,7 +41,7 @@
         v-if="call.conversaChatId && chat.conversaAtivaId === call.conversaChatId"
         ref="campoCompleto"
         class="absolute inset-x-0 bottom-0 z-10"
-        @message-sent="listaCompleta?.rolarParaFinal()"
+        @message-sent="listaCompleta?.rolarParaFinalAoEnviar()"
         @altura-mudou="(altura: number) => alturaInput = altura"
         @open-image-preview="(blob: Blob, nome: string, mime: string) => emit('open-image-preview', blob, nome, mime)"
         @open-fila-image="(url: string, nome: string, identificador: string, galeria: ItemFila[]) => emit('open-fila-image', url, nome, identificador, galeria)"

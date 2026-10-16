@@ -158,38 +158,17 @@
           </div>
         </div>
         <template v-else>
-          <!-- Prévia: o primeiro quadro com o play; o vídeo toca no visualizador das imagens -->
-          <div
-            class="relative h-[236px] w-[420px] max-w-full overflow-hidden rounded border border-surface-200 bg-black"
-            :class="conteudo.localUrl ? '' : 'cursor-pointer'"
-            :title="conteudo.localUrl ? undefined : 'Reproduzir vídeo'"
-            @click="!conteudo.localUrl && emit('open-image', conteudo.conteudo, conteudo.nome || 'Vídeo')"
-          >
-            <video
+          <!-- O vídeo toca aqui mesmo, com controles próprios; a barra baixa e abre no visualizador -->
+          <div class="h-[236px] w-[420px] max-w-full overflow-hidden rounded border border-surface-200 bg-black">
+            <PlayerVideo
               v-if="previaVideo(conteudo)"
               :src="previaVideo(conteudo)"
-              muted
-              playsinline
-              preload="metadata"
-              class="pointer-events-none h-full w-full object-contain"
-              @error="onImagemErro(conteudo)"
+              :enviado="!conteudo.localUrl"
+              @expandir="emit('open-image', conteudo.conteudo, conteudo.nome || 'Vídeo')"
+              @baixar="emit('download', conteudo.conteudo, conteudo.nome || 'video')"
+              @erro="onImagemErro(conteudo)"
             />
-            <span class="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span class="flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="ml-1 h-7 w-7">
-                  <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z" />
-                </svg>
-              </span>
-            </span>
           </div>
-          <button
-            v-if="!conteudo.localUrl"
-            class="mt-1 flex items-center gap-1 text-xs underline"
-            @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'video')"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Baixar video
-          </button>
         </template>
       </template>
       <div v-else class="-mx-1.5 flex items-center gap-2 rounded-lg px-2 py-2" :class="isOwn ? 'bg-enviada-texto/10 text-enviada-suave' : 'bg-black/[0.04] dark:bg-white/[0.06] text-surface-800'">
@@ -200,10 +179,10 @@
           </div>
         </div>
         <button
-          v-if="!conteudo.localUrl && (ehPdf(conteudo) || ehHtml(conteudo))"
+          v-if="!conteudo.localUrl && (ehPdf(conteudo) || ehHtml(conteudo) || formatoOffice(conteudo))"
           class="ml-auto flex items-center gap-1 rounded px-2 py-1 text-xs"
           :class="isOwn ? 'bg-enviada-suave/20 hover:bg-enviada-suave/30 text-enviada-suave' : 'bg-primary-600 hover:bg-primary-700 text-white'"
-          @click.prevent="ehPdf(conteudo) ? (pdfAberto = true) : (htmlAberto = true)"
+          @click.prevent="ehPdf(conteudo) ? (pdfAberto = true) : ehHtml(conteudo) ? (htmlAberto = true) : (officeAberto = true)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
           Abrir
@@ -222,10 +201,18 @@
           @fechar="htmlAberto = false"
           @baixar="emit('download', conteudo.conteudo, conteudo.nome || 'Arquivo')"
         />
+        <VisualizadorOffice
+          v-if="officeAberto && formatoOffice(conteudo)"
+          :identificador="conteudo.conteudo"
+          :nome="conteudo.nome || 'Arquivo'"
+          :formato="formatoOffice(conteudo)!"
+          @fechar="officeAberto = false"
+          @baixar="emit('download', conteudo.conteudo, conteudo.nome || 'Arquivo')"
+        />
         <button
           v-if="!conteudo.localUrl"
           class="flex items-center gap-1 rounded px-2 py-1 text-xs"
-          :class="[isOwn ? 'bg-enviada-suave/20 hover:bg-enviada-suave/30 text-enviada-suave' : 'bg-primary-600 hover:bg-primary-700 text-white', ehPdf(conteudo) || ehHtml(conteudo) ? '' : 'ml-auto']"
+          :class="[isOwn ? 'bg-enviada-suave/20 hover:bg-enviada-suave/30 text-enviada-suave' : 'bg-primary-600 hover:bg-primary-700 text-white', ehPdf(conteudo) || ehHtml(conteudo) || formatoOffice(conteudo) ? '' : 'ml-auto']"
           @click.prevent="emit('download', conteudo.conteudo, conteudo.nome || 'Arquivo')"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
@@ -241,6 +228,8 @@
       :mensagem-id="mensagemId"
       :reproduzida="reproduzida"
       :nome="conteudo.nome || 'Audio'"
+      :duracao="conteudo.duracao"
+      :intensidade="conteudo.intensidade"
       :is-own="isOwn"
     >
       <template #status><slot name="audio-status" /></template>
@@ -252,6 +241,8 @@
       :conversa-id="conversaId"
       :mensagem-id="mensagemId"
       :reproduzida="reproduzida"
+      :duracao="conteudo.duracao"
+      :intensidade="conteudo.intensidade"
       :is-own="isOwn"
     >
       <template #status><slot name="audio-status" /></template>
@@ -278,7 +269,7 @@
 import { defineAsyncComponent, inject, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { TipoConteudo } from '../types/api'
 import type { ConteudoMensagem } from '../types/api'
-import { classeTextoMensagem, isVideoConteudo, normalizarExtensaoArquivo, parseLinks, parseTextSegments, formatarUrl } from '../utils/formatters'
+import { classeTextoMensagem, formatoOffice, isVideoConteudo, normalizarExtensaoArquivo, parseLinks, parseTextSegments, formatarUrl } from '../utils/formatters'
 import MencaoLink from './MencaoLink.vue'
 import { useCodeHighlight, temCodigoFormatado, parseCodeBlocks } from '../composables/useCodeHighlight'
 import { carregarMarkdown, ehLinguagemMarkdown } from '../composables/useMarkdown'
@@ -287,6 +278,7 @@ import { useTheme } from '../composables/useTheme'
 import type { SegmentoTexto } from '../utils/codeBlocks'
 import { useConexao } from '../composables/useConexao'
 import AudioPlayerArquivo from './AudioPlayerArquivo.vue'
+import PlayerVideo from './PlayerVideo.vue'
 import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
 import TranscricaoAudio from './TranscricaoAudio.vue'
 import FigurinhaLottie from './FigurinhaLottie.vue'
@@ -295,6 +287,7 @@ import EnqueteResumo from './EnqueteResumo.vue'
 // Carregado só ao abrir um PDF: é ele que traz o pdf.js
 const VisualizadorPdf = defineAsyncComponent(() => import('./VisualizadorPdf.vue'))
 const VisualizadorHtml = defineAsyncComponent(() => import('./VisualizadorHtml.vue'))
+const VisualizadorOffice = defineAsyncComponent(() => import('./VisualizadorOffice.vue'))
 
 const { conexaoLenta } = useConexao()
 const renovarAnexoUrl = inject<(id: string) => Promise<void>>('renovarAnexoUrl')
@@ -436,6 +429,9 @@ const htmlAberto = ref(false)
 function ehHtml(conteudo: ConteudoMensagem) {
   return ['html', 'htm'].includes(normalizarExtensaoArquivo(conteudo))
 }
+
+// Word, Excel e PowerPoint (ver VisualizadorOffice)
+const officeAberto = ref(false)
 
 // Estilo do Markdown formatado (o reset do Tailwind tira o de titulos, listas e tabelas).
 const CLASSES_MARKDOWN = 'overflow-x-auto break-words bg-surface-50 p-3 text-sm leading-relaxed text-surface-800 '

@@ -5,14 +5,15 @@ import type { Atividade } from '../types/api'
 
 const POR_PAGINA = 30
 
-// Atividades do usuário (reagiram, responderam, mencionaram, chamada perdida)
-// e quantas chegaram desde a última vez que ele abriu a tela
+// Atividades do usuário (reagiram, responderam, mencionaram, chamada perdida,
+// pediram confirmação de leitura) e quantas estão pendentes
 export const useAtividadesStore = defineStore('atividades', () => {
   const lista = ref<Atividade[]>([])
+  // Pendentes (o número na barra)
   const novas = ref(0)
   const carregando = ref(false)
   const fim = ref(false)
-  // A tela está aberta: o que chegar já entra como visto
+  // A tela está aberta: o que chegar já entra na lista
   const aberta = ref(false)
 
   async function atualizarNovas() {
@@ -47,24 +48,25 @@ export const useAtividadesStore = defineStore('atividades', () => {
     }
   }
 
-  // As da lista continuam destacadas como novas enquanto a tela está aberta
-  async function marcarVistas() {
-    await api.marcarAtividadesVistas()
-    novas.value = 0
+  // À mão, ou ao abrir a chamada perdida; o aviso do servidor acerta o número nas outras abas
+  async function concluir(id: number) {
+    const atividade = lista.value.find((a) => a.id === id)
+    if (!atividade?.pendente) return
+    await api.concluirAtividade(id)
+    atividade.pendente = false
+    novas.value = Math.max(0, novas.value - 1)
   }
 
   async function abrir() {
     aberta.value = true
-    await carregar()
-    await marcarVistas()
+    await Promise.all([carregar(), atualizarNovas()])
   }
 
   function fechar() {
     aberta.value = false
   }
 
-  // Aviso do servidor: com a tela aberta, recarrega e marca como visto;
-  // fechada, só atualiza o contador
+  // Aviso do servidor: com a tela aberta, recarrega a lista também
   async function aoReceberAviso() {
     if (aberta.value) {
       await abrir()
@@ -80,5 +82,5 @@ export const useAtividadesStore = defineStore('atividades', () => {
     aberta.value = false
   }
 
-  return { lista, novas, carregando, fim, aberta, atualizarNovas, carregar, carregarMais, marcarVistas, abrir, fechar, aoReceberAviso, limpar }
+  return { lista, novas, carregando, fim, aberta, atualizarNovas, carregar, carregarMais, concluir, abrir, fechar, aoReceberAviso, limpar }
 })

@@ -3,7 +3,7 @@ import { getRecursos } from '../services/conversaApi'
 
 // O que está ligado no servidor (transcrição de áudio, IA). Carregado uma vez
 // por janela, no primeiro uso; recarregar() depois de mudar os parâmetros.
-const recursos = ref({ transcricao: false, ia: false })
+const recursos = ref({ transcricao: false, ia: false, conhecimento: false })
 let carregamento: Promise<void> | null = null
 
 function recarregar() {

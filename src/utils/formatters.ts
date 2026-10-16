@@ -97,6 +97,14 @@ export function normalizarExtensaoArquivo(conteudo: ArquivoComNome): string {
   return extBruta.trim().toLowerCase().replace(/^\./, '')
 }
 
+// Arquivo do Office que abre no VisualizadorOffice
+export type FormatoOffice = 'docx' | 'xlsx' | 'pptx'
+
+export function formatoOffice(conteudo: ArquivoComNome): FormatoOffice | null {
+  const ext = normalizarExtensaoArquivo(conteudo)
+  return ext === 'docx' || ext === 'xlsx' || ext === 'pptx' ? ext : null
+}
+
 export function isVideoConteudo(conteudo: ArquivoComNome): boolean {
   const ext = normalizarExtensaoArquivo(conteudo)
   return ['mp4', 'webm', 'ogg', 'mov', 'm4v', 'mkv'].includes(ext)

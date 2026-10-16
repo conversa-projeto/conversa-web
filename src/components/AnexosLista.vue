@@ -163,6 +163,14 @@
       @fechar="htmlAberto = null"
       @baixar="baixarItem(htmlAberto)"
     />
+    <VisualizadorOffice
+      v-if="officeAberto && formatoOffice(officeAberto)"
+      :identificador="officeAberto.identificador"
+      :nome="officeAberto.nome || 'Arquivo'"
+      :formato="formatoOffice(officeAberto)!"
+      @fechar="officeAberto = null"
+      @baixar="baixarItem(officeAberto)"
+    />
   </div>
 </template>
 
@@ -171,9 +179,10 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { AnexoItem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import * as api from '../services/conversaApi'
-import { formatarTamanho, isVideoConteudo } from '../utils/formatters'
+import { formatarTamanho, formatoOffice, isVideoConteudo } from '../utils/formatters'
 
 const VisualizadorHtml = defineAsyncComponent(() => import('./VisualizadorHtml.vue'))
+const VisualizadorOffice = defineAsyncComponent(() => import('./VisualizadorOffice.vue'))
 
 const props = withDefaults(defineProps<{
   conversaId?: number
@@ -303,12 +312,17 @@ function abrirItem(item: AnexoItem) {
     htmlAberto.value = item
     return
   }
+  if (item.tipo === TipoConteudo.Arquivo && formatoOffice(item)) {
+    officeAberto.value = item
+    return
+  }
   if (item.tipo === TipoConteudo.Arquivo && item.url) {
     window.open(item.url, '_blank', 'noopener,noreferrer')
   }
 }
 
 const htmlAberto = ref<AnexoItem | null>(null)
+const officeAberto = ref<AnexoItem | null>(null)
 
 function ehHtml(item: AnexoItem) {
   const extensao = (item.extensao || item.nome?.split('.').pop() || '').trim().toLowerCase().replace(/^\./, '')

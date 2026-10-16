@@ -61,8 +61,13 @@ describe('visualizador de imagem', () => {
     const video = tela.find('.flex-1 video')
     expect(video.exists()).toBe(true)
     expect(video.attributes('src')).toBe('https://localhost/storage/v')
-    expect(video.attributes()).toHaveProperty('controls')
+    expect(video.attributes()).not.toHaveProperty('controls')
     expect(video.attributes()).toHaveProperty('autoplay')
+    expect(video.classes()).toContain('max-h-[70vh]')
+    for (const titulo of ['Velocidade', 'Silenciar', 'Volume', 'Baixar vídeo', 'Tela cheia']) {
+      expect(tela.find(`[title="${titulo}"]`).exists()).toBe(true)
+    }
+    expect(tela.find('[title="Abrir no visualizador"]').exists()).toBe(false)
     expect(tela.find('.flex-1 img').exists()).toBe(false)
     expect(tela.text()).toContain('Carregando vídeo')
     expect(tela.text()).toContain('A festa')
@@ -80,6 +85,53 @@ describe('visualizador de imagem', () => {
     await tela.setProps({ identificadorAtual: 'a', url: 'https://localhost/storage/a', nome: 'a.png' })
     expect(tela.find('.flex-1 img').exists()).toBe(true)
     expect(tela.findAll('button').some((b) => b.text() === '+')).toBe(true)
+  })
+
+  test('vídeo no visualizador: velocidade, volume acima de 100% em vermelho, mudo e download', async () => {
+    const ganhos: number[] = []
+    class ContextoFalso {
+      destination = {}
+      createGain() { return { gain: { set value(v: number) { ganhos.push(v) } }, connect: (d: unknown) => d } }
+      createMediaElementSource() { return { connect: (d: unknown) => d } }
+      async resume() {}
+      async close() {}
+    }
+    const original = globalThis.AudioContext
+    globalThis.AudioContext = ContextoFalso as never
+    try {
+      rota('GET', '/anexo', { url: 'https://localhost/storage/v' })
+      const galeria = [{ identificador: 'v', nome: 'festa.mp4', video: true }]
+      const tela = montar(ImageViewerModal, { props: { ...base, url: 'https://localhost/storage/v', nome: 'festa.mp4', identificadorAtual: 'v', galeria, anexosUrl: {} } })
+      const video = tela.find('video').element as HTMLVideoElement
+
+      await tela.find('[title="Velocidade"]').trigger('click')
+      await tela.findAll('button').find((b) => b.text() === '2x')!.trigger('click')
+      expect(video.playbackRate).toBe(2)
+      expect(tela.find('[title="Velocidade"]').text()).toBe('2x')
+
+      const barraVolume = tela.find('[title="Volume"]')
+      barraVolume.element.getBoundingClientRect = () => ({ left: 0, width: 100 }) as DOMRect
+      ;(barraVolume.element as HTMLElement).setPointerCapture = () => {}
+      barraVolume.element.dispatchEvent(new PointerEvent('pointerdown', { clientX: 75 }))
+      await aguardar(0)
+      expect(tela.text()).toContain('150%')
+      expect(tela.findAll('span').find((s) => s.text() === '150%')!.classes()).toContain('text-red-400')
+      expect(video.volume).toBe(1)
+      expect(ganhos.at(-1)).toBe(1.5)
+
+      await tela.find('[title="Silenciar"]').trigger('click')
+      expect(video.muted).toBe(true)
+      expect(tela.text()).toContain('0%')
+      await tela.find('[title="Ativar som"]').trigger('click')
+      expect(video.muted).toBe(false)
+      expect(tela.text()).toContain('150%')
+
+      await tela.find('[title="Baixar vídeo"]').trigger('click')
+      await aguardar(10)
+      expect(pedidosDe('GET', '/anexo')).toHaveLength(1)
+    } finally {
+      globalThis.AudioContext = original
+    }
   })
 
   test('fechada, não mostra nada', () => {
@@ -154,8 +206,8 @@ describe('visualizador de HTML', () => {
 describe('arquivo no chat', () => {
   const props = (nome: string, extras = {}) => ({ conteudo: conteudo(TipoConteudo.Arquivo, 'id-1', { nome, ...extras }), mensagemId: 1, getAnexoUrl: () => '' })
 
-  test('HTML e PDF têm botão Abrir; outros arquivos só Download', () => {
-    for (const [nome, abrir] of [['pagina.html', true], ['pagina.HTM', true], ['doc.pdf', true], ['planilha.xlsx', false]] as const) {
+  test('HTML, PDF e Office têm botão Abrir; outros arquivos só Download', () => {
+    for (const [nome, abrir] of [['pagina.html', true], ['pagina.HTM', true], ['doc.pdf', true], ['planilha.xlsx', true], ['texto.DOCX', true], ['slides.pptx', true], ['antigo.doc', false], ['pacote.zip', false]] as const) {
       const tela = montar(MessageContent, { props: props(nome) })
       expect(tela.findAll('button').some((b) => b.text() === 'Abrir')).toBe(abrir)
       expect(tela.findAll('button').some((b) => b.text() === 'Download')).toBe(true)
@@ -171,22 +223,65 @@ describe('arquivo no chat', () => {
     expect(document.querySelector('iframe[sandbox="allow-scripts"]')).not.toBeNull()
   })
 
-  test('vídeo aparece como prévia (primeiro quadro com play) e o clique abre no visualizador', async () => {
+  test('vídeo aparece como prévia, o play toca no chat e o botão do canto abre no visualizador', async () => {
     const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'festa.mp4' }), mensagemId: 1, getAnexoUrl: (id: string) => `https://localhost/storage/${id}` } })
     const video = tela.find('video')
     expect(video.attributes('src')).toBe('https://localhost/storage/vid-1#t=0.1')
     expect(video.attributes()).not.toHaveProperty('controls')
+    const elemento = video.element as HTMLVideoElement
+    let tocou = false
+    let pausou = false
+    elemento.play = async () => { tocou = true }
+    elemento.pause = () => { pausou = true }
+    Object.defineProperty(elemento, 'paused', { value: true, configurable: true })
     await tela.find('[title="Reproduzir vídeo"]').trigger('click')
+    await aguardar(300)
+    expect(tocou).toBe(true)
+    await video.trigger('play')
+    expect(tela.find('[title="Reproduzir vídeo"]').exists()).toBe(false)
+    expect(tela.find('[title="Pausar"]').exists()).toBe(true)
+    expect(tela.find('[title="Tela cheia"]').exists()).toBe(true)
+    expect(tela.emitted('open-image')).toBeUndefined()
+    await tela.find('[title="Abrir no visualizador"]').trigger('click')
+    expect(pausou).toBe(true)
     expect(tela.emitted('open-image')).toEqual([['vid-1', 'festa.mp4']])
+    await tela.find('[title="Baixar vídeo"]').trigger('click')
+    expect(tela.emitted('download')).toEqual([['vid-1', 'festa.mp4']])
   })
 
-  test('vídeo sem endereço ainda: só o fundo com o play; enviando (local): não abre', async () => {
+  test('a barra do vídeo começa escondida e aparece com o mouse sobre ele', async () => {
+    const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'festa.mp4' }), mensagemId: 1, getAnexoUrl: (id: string) => `https://localhost/storage/${id}` } })
+    expect(tela.find('.bg-gradient-to-t').classes()).toContain('opacity-0')
+    const caixa = tela.find('video').element.parentElement!
+    caixa.dispatchEvent(new Event('mousemove'))
+    caixa.dispatchEvent(new Event('mouseleave'))
+    await aguardar(0)
+    expect(tela.find('.bg-gradient-to-t').classes()).toContain('opacity-100')
+  })
+
+  test('dois cliques rápidos no vídeo entram na tela cheia sem tocar', async () => {
+    const tela = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'festa.mp4' }), mensagemId: 1, getAnexoUrl: (id: string) => `https://localhost/storage/${id}` } })
+    const video = tela.find('video')
+    const elemento = video.element as HTMLVideoElement
+    let tocou = false
+    let telaCheia = false
+    elemento.play = async () => { tocou = true }
+    elemento.parentElement!.requestFullscreen = async () => { telaCheia = true }
+    await video.trigger('click')
+    await video.trigger('click')
+    await aguardar(300)
+    expect(telaCheia).toBe(true)
+    expect(tocou).toBe(false)
+  })
+
+  test('vídeo sem endereço ainda: só o fundo com o play; enviando (local): toca, mas não expande', async () => {
     const semUrl = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-1', { nome: 'v.mp4' }), mensagemId: 1, getAnexoUrl: () => '' } })
     expect(semUrl.find('video').exists()).toBe(false)
     const local = montar(MessageContent, { props: { conteudo: conteudo(TipoConteudo.Arquivo, 'vid-2', { nome: 'v.webm', localUrl: 'blob:x' }), mensagemId: 1, getAnexoUrl: () => '' } })
     expect(local.find('video').attributes('src')).toBe('blob:x#t=0.1')
-    await local.find('.bg-black').trigger('click')
-    expect(local.emitted('open-image')).toBeUndefined()
+    expect(local.find('[title="Reproduzir vídeo"]').exists()).toBe(true)
+    expect(local.find('[title="Abrir no visualizador"]').exists()).toBe(false)
+    expect(local.find('[title="Baixar vídeo"]').exists()).toBe(false)
   })
 
   test('Download emite o identificador e o nome', async () => {
@@ -280,19 +375,22 @@ describe('tela de Anexos', () => {
     expect(tela.text()).toContain('Ana')
   })
 
-  test('HTML abre no visualizador isolado, e não numa aba nova', async () => {
+  test('HTML e Office abrem no visualizador, e não numa aba nova', async () => {
     const abertos: string[] = []
     const abrirOriginal = window.open
     window.open = ((url: string) => void abertos.push(url)) as unknown as typeof window.open
     try {
       rota('GET', '/anexo', { url: 'https://localhost/storage/h' })
       rota('GET', '/storage/h', new Response('<p>pagina</p>'))
-      const tela = await montarLista([anexo(1, 'pagina.html'), anexo(2, 'planilha.xlsx')])
+      const tela = await montarLista([anexo(1, 'pagina.html'), anexo(2, 'pacote.zip'), anexo(3, 'planilha.xlsx')])
       await tela.findAll('div.cursor-pointer').find((d) => d.text().includes('pagina.html'))!.trigger('click')
       await aguardar(20)
       expect(document.querySelector('iframe[sandbox="allow-scripts"]')).not.toBeNull()
       expect(abertos).toEqual([])
       await tela.findAll('div.cursor-pointer').find((d) => d.text().includes('planilha.xlsx'))!.trigger('click')
+      await aguardar(20)
+      expect(abertos).toEqual([])
+      await tela.findAll('div.cursor-pointer').find((d) => d.text().includes('pacote.zip'))!.trigger('click')
       expect(abertos).toEqual(['https://localhost/storage/2'])
     } finally {
       window.open = abrirOriginal

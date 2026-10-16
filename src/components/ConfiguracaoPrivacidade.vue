@@ -1,5 +1,6 @@
 <template>
   <div class="space-y-4">
+    <p v-if="!podeMudar" class="rounded-xl bg-surface-100 px-3 py-2 text-sm text-surface-600">Você não tem permissão para mudar a privacidade.</p>
     <p v-if="carregando" class="text-sm text-surface-500">Carregando...</p>
     <template v-else>
       <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
@@ -14,7 +15,7 @@
               type="checkbox"
               class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500"
               :checked="privacidade[opcao.chave]"
-              :disabled="salvando || (opcao.chave !== 'aparecer_offline' && privacidade.aparecer_offline)"
+              :disabled="!podeMudar || salvando || (opcao.chave !== 'aparecer_offline' && privacidade.aparecer_offline)"
               @change="alterar(opcao.chave, ($event.target as HTMLInputElement).checked)"
             />
             <span class="min-w-0">
@@ -33,6 +34,7 @@
           type="checkbox"
           class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500"
           :checked="sugestoes.ligadas.value"
+          :disabled="!podeMudar"
           @change="sugestoes.alterar(($event.target as HTMLInputElement).checked)"
         />
         <span class="min-w-0">
@@ -50,11 +52,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import { usePreferenciaSugestoes } from '../composables/useSugestaoIa'
-import type { Privacidade } from '../types/api'
+import { CodigoPermissao, type Privacidade } from '../types/api'
 
 const OPCOES: Array<{ chave: keyof Privacidade; titulo: string; descricao: string }> = [
   { chave: 'aparecer_offline', titulo: 'Aparecer offline', descricao: 'Para os outros você fica offline, sem visto por último nem a conversa aberta.' },
@@ -63,6 +65,7 @@ const OPCOES: Array<{ chave: keyof Privacidade; titulo: string; descricao: strin
 ]
 
 const auth = useAuthStore()
+const podeMudar = computed(() => auth.pode(CodigoPermissao.Privacidade))
 const sugestoes = usePreferenciaSugestoes()
 const privacidade = ref<Privacidade>({ mostrar_visto_em: true, mostrar_na_conversa: true, aparecer_offline: false })
 const carregando = ref(true)

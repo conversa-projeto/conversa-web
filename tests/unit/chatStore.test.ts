@@ -286,6 +286,71 @@ describe('enviar', () => {
     }
   })
 
+  test('gravação de áudio: duração e onda medidas no navegador vão no envio do anexo e já aparecem na mensagem', async () => {
+    rota('GET', '/anexo/existe', { existe: false })
+    rota('PUT', '/anexo', { id: 4, upload_url: 'https://localhost/storage/upload', existe: false })
+    rota('PUT', '/mensagem', { id: 103 })
+    rota('GET', '/conversas', [])
+    class XhrFalso {
+      status = 200
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      open() {}
+      send() { this.onload?.() }
+    }
+    // O happy-dom não decodifica áudio: 2 segundos, alto só no começo
+    class AudioContextFalso {
+      async decodeAudioData() {
+        const amostras = new Float32Array(9600).map((_, i) => (i < 4800 ? 0.8 : 0.2))
+        return { duration: 2.004, getChannelData: () => amostras }
+      }
+      async close() {}
+    }
+    const originais = { xhr: globalThis.XMLHttpRequest, audio: globalThis.AudioContext }
+    globalThis.XMLHttpRequest = XhrFalso as never
+    globalThis.AudioContext = AudioContextFalso as never
+    try {
+      const chat = novaStore()
+      chat.conversaAtivaId = 1
+      await chat.enviarMensagemComConteudos('', [{ blob: new Blob(['audio']), nomeArquivo: 'g.webm', mimeType: 'audio/webm', isAudio: true, isGravacaoAudio: true }])
+      const corpo = pedidosDe('PUT', '/anexo')[0]!.corpo
+      expect(corpo).toMatchObject({ tipo: TipoConteudo.GravacaoAudio, duracao: 2 })
+      expect(corpo.intensidade).toHaveLength(48)
+      expect(corpo.intensidade.slice(0, 24).every((v: number) => v === 100)).toBe(true)
+      expect(corpo.intensidade.slice(24).every((v: number) => v === 25)).toBe(true)
+      expect(chat.mensagensAtivas[0]!.conteudos[0]).toMatchObject({ duracao: 2 })
+    } finally {
+      globalThis.XMLHttpRequest = originais.xhr
+      globalThis.AudioContext = originais.audio
+    }
+  })
+
+  test('arquivo que não é áudio não é medido', async () => {
+    rota('GET', '/anexo/existe', { existe: false })
+    rota('PUT', '/anexo', { id: 5, upload_url: 'https://localhost/storage/upload', existe: false })
+    rota('PUT', '/mensagem', { id: 104 })
+    rota('GET', '/conversas', [])
+    class XhrFalso {
+      status = 200
+      upload = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      open() {}
+      send() { this.onload?.() }
+    }
+    const original = globalThis.XMLHttpRequest
+    globalThis.XMLHttpRequest = XhrFalso as never
+    try {
+      const chat = novaStore()
+      chat.conversaAtivaId = 1
+      await chat.enviarArquivo(new Blob(['x']), 'nota.txt', 'text/plain')
+      expect(pedidosDe('PUT', '/anexo')[0]!.corpo.duracao).toBeUndefined()
+    } finally {
+      globalThis.XMLHttpRequest = original
+    }
+  })
+
   test('editor avançado: texto e imagens vão na ordem dos blocos', async () => {
     rota('GET', '/anexo/existe', { existe: false })
     rota('PUT', '/anexo', { id: 3, upload_url: 'https://localhost/storage/upload', existe: false })

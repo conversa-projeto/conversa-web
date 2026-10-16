@@ -104,7 +104,99 @@ export interface LoginResponse extends Omit<Usuario, 'login'> {
   dispositivo: Dispositivo
 }
 
-export interface Contato extends Usuario { }
+export interface Contato extends Usuario {
+  /** Usuário que é um bot de IA */
+  bot?: boolean
+}
+
+/** Bot de IA: um usuário comum com as instruções de personalidade e do que faz */
+export interface Bot {
+  id: number
+  usuario_id: number
+  nome: string
+  login: string
+  instrucoes: string
+  ativo: boolean
+  criado_por: number | null
+  criado_por_nome: string | null
+  /** Permissões de uso do bot */
+  permissoes: string[]
+  /** Ferramentas externas ligadas no bot (ids) */
+  ferramentas: number[]
+  /** Bases de conhecimento que ele consulta (ids) */
+  bases: number[]
+}
+
+/** Base de conhecimento dos bots (RAG) */
+export interface BaseConhecimento {
+  id: number
+  nome: string
+  descricao: string
+  documentos: number
+  trechos: number
+}
+
+export const StatusDocumento = { Processando: 1, Pronto: 2, Erro: 3 } as const
+export type StatusDocumento = (typeof StatusDocumento)[keyof typeof StatusDocumento]
+
+export interface DocumentoConhecimento {
+  id: number
+  base_id: number
+  nome: string
+  caracteres: number
+  trechos: number
+  status: StatusDocumento
+  erro: string | null
+  criado_em: Date
+}
+
+/** Trecho achado na busca, com o documento de origem e a semelhança (0 a 1) */
+export interface TrechoConhecimento {
+  documento: string
+  texto: string
+  nota: number
+}
+
+export type TipoParametroFerramenta = 'string' | 'number' | 'boolean'
+
+export interface ParametroFerramenta {
+  nome: string
+  tipo: TipoParametroFerramenta
+  descricao: string
+  obrigatorio: boolean
+}
+
+/** Ferramenta externa dos bots (API HTTP com JSON). Dos cabeçalhos só vêm os nomes: o valor nunca sai do servidor */
+export interface FerramentaExterna {
+  id: number
+  nome: string
+  descricao: string
+  metodo: 'GET' | 'POST'
+  url: string
+  cabecalhos: string[]
+  parametros: ParametroFerramenta[]
+  ativo: boolean
+}
+
+/** Para salvar: cabeçalho sem valor mantém o que está salvo */
+export interface DadosFerramenta {
+  nome: string
+  descricao: string
+  metodo: 'GET' | 'POST'
+  url: string
+  cabecalhos: { nome: string; valor: string | null }[]
+  parametros: ParametroFerramenta[]
+  ativo: boolean
+}
+
+/** Resposta de POST /ferramenta/testar */
+export interface TesteFerramenta {
+  ok: boolean
+  status: number
+  resposta: string
+  erro: string
+  milissegundos: number
+}
 
 export interface Conversa {
   id: number
@@ -138,6 +230,9 @@ export interface ConteudoMensagem {
   /** Audio: situacao da transcricao (StatusTranscricao) e o texto, quando pronto. */
   transcricao_status?: number
   transcricao?: string
+  /** Audio: duração em segundos e picos de 0 a 100 para a onda, gravados no envio */
+  duracao?: number | null
+  intensidade?: number[] | null
   /** Mensagem de chamada: o chat criado na ligação, para quem é membro dele */
   chat_chamada_id?: number
 }
@@ -369,15 +464,46 @@ export interface Enquete {
   pode_alterar_prazo: boolean
 }
 
-/** Permissões do sistema (tabela permissao no servidor) */
+/** Permissões do sistema (tabela permissao no servidor): as de administração e as de uso do app */
 export const CodigoPermissao = {
   Parametros: 'parametros',
   Permissoes: 'permissoes',
+  Bots: 'bots',
+  Usuarios: 'usuarios',
+  Ferramentas: 'ferramentas',
+  Conhecimento: 'conhecimento',
+  Emoji: 'emoji',
+  Figurinha: 'figurinha',
+  Imagem: 'imagem',
+  Video: 'video',
+  Audio: 'audio',
+  Arquivo: 'arquivo',
+  Responder: 'responder',
+  Encaminhar: 'encaminhar',
+  Reagir: 'reagir',
+  Postagem: 'postagem',
+  Votacao: 'votacao',
+  Confirmacao: 'confirmacao',
+  Agendar: 'agendar',
+  Grupo: 'grupo',
+  ChamadaAudio: 'chamada_audio',
+  ChamadaVideo: 'chamada_video',
+  CompartilharTela: 'compartilhar_tela',
+  Telefonia: 'telefonia',
+  Ocultar: 'ocultar',
+  Nome: 'nome',
+  Email: 'email',
+  Avatar: 'avatar',
+  Senha: 'senha',
+  Privacidade: 'privacidade',
+  Cores: 'cores',
+  ConfigChamadas: 'config_chamadas',
 } as const
 export type CodigoPermissao = (typeof CodigoPermissao)[keyof typeof CodigoPermissao]
 
 export interface PermissoesSistema {
-  permissoes: { codigo: string; descricao: string }[]
+  /** uso: permissão de uso do app (enviar, chamar...); as outras são de administração */
+  permissoes: { codigo: string; descricao: string; uso: boolean }[]
   usuarios: { id: number; nome: string; login: string; permissoes: string[] }[]
   /** Ninguém tem a permissão de Acessos: todos têm todas, até alguém receber */
   modo_aberto: boolean
@@ -397,6 +523,10 @@ export interface ParametrosSistema {
   ia_modelo: string
   // O token nunca volta: só se está preenchido
   ia_token_configurado: boolean
+  /** Cadastro pela tela de login; fechado, só quem tem a permissão Usuários cadastra */
+  cadastro_aberto: boolean
+  /** Modelo de embeddings da base de conhecimento (vazio desliga) */
+  ia_modelo_embeddings: string
 }
 
 export interface AlteracaoParametros {
@@ -410,6 +540,8 @@ export interface AlteracaoParametros {
   ia_url?: string
   ia_token?: string
   ia_modelo?: string
+  cadastro_aberto?: boolean
+  ia_modelo_embeddings?: string
 }
 
 /** Resposta de POST /parametros/ia/testar */
@@ -441,12 +573,13 @@ export interface ResumoConversa {
   erro: string
 }
 
-/** O que aconteceu com o usuário: reagiram, responderam, mencionaram, chamada perdida */
+/** O que aconteceu com o usuário: reagiram, responderam, mencionaram, chamada perdida, pediram confirmação de leitura */
 export const TipoAtividade = {
   Reacao: 1,
   Resposta: 2,
   Mencao: 3,
   ChamadaPerdida: 4,
+  Confirmacao: 5,
 } as const
 export type TipoAtividade = (typeof TipoAtividade)[keyof typeof TipoAtividade]
 
@@ -454,8 +587,8 @@ export interface Atividade {
   id: number
   tipo: TipoAtividade
   criado_em: Date
-  /** Chegou depois da última vez que o usuário abriu as atividades */
-  nova: boolean
+  /** Ainda não concluída: confirmar a leitura pedida, ver a reação na mensagem, ler a resposta ou menção, abrir a chamada perdida ou concluir à mão */
+  pendente: boolean
   autor_id: number
   autor_nome: string
   autor_avatar_url: string | null

@@ -16,6 +16,8 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { CodigoPermissao } from '../types/api'
 
 type TipoAnexo = 'arquivo' | 'codigo' | 'votacao' | 'postagem' | 'confirmacao' | 'close'
 
@@ -75,7 +77,18 @@ const todosItens = [
   }
 ]
 
-const itens = computed(() => todosItens.filter((item) => (item.tipo !== 'votacao' && item.tipo !== 'postagem') || props.comVotacao))
+const auth = useAuthStore()
+
+// Cada item some sem a permissão; Arquivo fica com qualquer uma dos anexos
+const permitido: Partial<Record<TipoAnexo, () => boolean>> = {
+  arquivo: () => [CodigoPermissao.Imagem, CodigoPermissao.Video, CodigoPermissao.Audio, CodigoPermissao.Arquivo].some((codigo) => auth.pode(codigo)),
+  votacao: () => auth.pode(CodigoPermissao.Votacao),
+  postagem: () => auth.pode(CodigoPermissao.Postagem),
+  confirmacao: () => auth.pode(CodigoPermissao.Confirmacao),
+}
+
+const itens = computed(() => todosItens.filter((item) =>
+  ((item.tipo !== 'votacao' && item.tipo !== 'postagem') || props.comVotacao) && (permitido[item.tipo]?.() ?? true)))
 
 function onClickOutside(e: MouseEvent) {
   if (popupRef.value && !popupRef.value.contains(e.target as Node)) {

@@ -28,7 +28,7 @@
       :style="menuStyle"
     >
       <!-- Emojis rápidos: linha 1 (4 emojis) -->
-      <div class="grid grid-cols-4 gap-0.5 px-2 pt-1.5">
+      <div v-if="podeReagir" class="grid grid-cols-4 gap-0.5 px-2 pt-1.5">
         <button
           v-for="emoji in emojisLinha1"
           :key="emoji"
@@ -40,7 +40,7 @@
         </button>
       </div>
       <!-- Emojis rápidos: linha 2 (3 emojis + botão picker) -->
-      <div class="grid grid-cols-4 gap-0.5 px-2 pb-1.5 border-b border-surface-200">
+      <div v-if="podeReagir" class="grid grid-cols-4 gap-0.5 px-2 pb-1.5 border-b border-surface-200">
         <button
           v-for="emoji in emojisLinha2"
           :key="emoji"
@@ -62,6 +62,7 @@
       </div>
 
       <button
+        v-if="auth.pode(CodigoPermissao.Responder)"
         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoResponder"
       >
@@ -71,7 +72,7 @@
         Responder
       </button>
       <button
-        v-if="isGroup && !isOwn"
+        v-if="isGroup && !isOwn && auth.pode(CodigoPermissao.Responder) && auth.pode(CodigoPermissao.Encaminhar)"
         class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoResponderPrivado"
       >
@@ -81,6 +82,7 @@
         Responder no privado
       </button>
       <button
+        v-if="auth.pode(CodigoPermissao.Encaminhar)"
         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoEncaminhar"
       >
@@ -108,7 +110,7 @@
         Pedir confirmação de leitura
       </button>
       <button
-        v-if="isOwn && podeExcluir"
+        v-if="isOwn && podeExcluir && auth.pode(CodigoPermissao.Ocultar)"
         class="flex w-full items-center gap-2 border-t border-surface-200 px-3 py-1.5 text-left text-sm text-danger-600 transition hover:bg-danger-500/10 dark:text-danger-400 dark:hover:bg-danger-500/15"
         @click="acaoExcluir"
       >
@@ -173,7 +175,8 @@ import { computed, ref, nextTick, onMounted, onBeforeUnmount, type CSSProperties
 
 const BTN_ALTURA = 28 // h-6 (24px) + margem
 import type { Mensagem } from '../types/api'
-import { TipoConteudo } from '../types/api'
+import { CodigoPermissao, TipoConteudo } from '../types/api'
+import { useAuthStore } from '../stores/auth'
 import EmojiPicker from './EmojiPicker.vue'
 import { emojiNome } from '../utils/emojiNomes'
 import type { AlvoCopia } from '../utils/copiarImagem'
@@ -210,6 +213,9 @@ const emojisRapidos = [...emojisLinha1, ...emojisLinha2]
 // Largura e altura da barra de reações rápidas (7 emojis e o "mais", de 36px, + espaços)
 const REACOES_LARGURA = 8 * 36 + 7 * 2 + 10
 const REACOES_ALTURA = 46
+
+const auth = useAuthStore()
+const podeReagir = computed(() => auth.pode(CodigoPermissao.Reagir))
 
 const topOffset = ref(0)
 const menuAberto = ref(false)
@@ -315,6 +321,7 @@ function fecharMenu() {
 
 // Barra só com os emojis, logo acima do ponto do clique (abaixo, se não couber)
 function abrirReacoesRapidas(x: number, y: number) {
+  if (!podeReagir.value) return
   document.dispatchEvent(new CustomEvent('fechar-menu-acoes', { detail: props.mensagem.id }))
   menuAberto.value = false
   pickerAberto.value = false
@@ -382,7 +389,7 @@ const podeExcluir = computed(() => !props.mensagem.excluida_em)
 // Quem enviou pode passar a pedir confirmação de leitura até 24 horas depois do envio
 const PRAZO_PEDIR_CONFIRMACAO_MS = 24 * 60 * 60 * 1000
 const podePedirConfirmacao = computed(() => {
-  if (!props.isOwn || props.mensagem.confirmacao || props.mensagem.excluida_em || props.mensagem.id <= 0) return false
+  if (!props.isOwn || props.mensagem.confirmacao || props.mensagem.excluida_em || props.mensagem.id <= 0 || !auth.pode(CodigoPermissao.Confirmacao)) return false
   const enviada = new Date(props.mensagem.visivel_em ?? props.mensagem.inserida).getTime()
   return enviada <= Date.now() && Date.now() - enviada < PRAZO_PEDIR_CONFIRMACAO_MS
 })

@@ -286,6 +286,19 @@ describe('campo com imagens, áudio, arquivos e figurinhas no meio do texto', ()
     expect(campo.find('button[title="Enviar"]').exists()).toBe(true)
   })
 
+  test('sem a permissão, o arquivo não entra no campo e avisa; o microfone e o emoji somem', async () => {
+    const auth = useAuthStore()
+    auth.permissoesCarregadas = true
+    auth.permissoes = ['arquivo']
+    const campo = await montarCampo()
+    expect(campo.find('button[title="Gravar áudio"]').exists()).toBe(false)
+    expect(campo.find('button[title="Emoji"]').exists()).toBe(false)
+    colarNo(campo, { arquivos: [imagem(), new File(['mp4'], 'filme.mp4', { type: 'video/mp4' }), new File(['txt'], 'nota.txt', { type: 'text/plain' })] })
+    await aguardar()
+    expect(editavel(campo).querySelectorAll('[data-anexo]')).toHaveLength(1)
+    expect(campo.text()).toContain('Você não tem permissão para enviar imagens, vídeos.')
+  })
+
   test('o "×" no canto da imagem a tira do campo', async () => {
     const campo = await montarCampo()
     colarNo(campo, { arquivos: [imagem()] })

@@ -27,14 +27,16 @@
         </svg>
       </button>
 
-      <!-- Progress bar -->
+      <!-- Progress bar (a onda, quando o áudio tem a intensidade gravada) -->
       <div
         ref="barraRef"
-        class="relative h-1.5 min-w-0 flex-1 cursor-pointer rounded-full border"
-        :class="isOwn ? 'border-enviada-suave/40 bg-enviada-suave/25' : 'border-surface-300 bg-surface-200'"
+        class="relative min-w-0 flex-1 cursor-pointer"
+        :class="intensidade?.length ? 'h-7' : ['h-1.5 rounded-full border', isOwn ? 'border-enviada-suave/40 bg-enviada-suave/25' : 'border-surface-300 bg-surface-200']"
         @pointerdown="iniciarSeek"
       >
+        <OndaAudio v-if="intensidade?.length" :intensidade="intensidade" :progresso="progresso" :is-own="isOwn" />
         <div
+          v-else
           class="absolute inset-y-0 left-0 rounded-full"
           :class="isOwn ? 'bg-enviada-destaque' : 'bg-primary-500'"
           :style="{ width: progresso + '%' }"
@@ -45,7 +47,7 @@
     <!-- Duration + status (same line) -->
     <div class="flex items-center justify-between pl-7">
       <span class="text-[10px] tabular-nums" :class="isOwn ? 'text-enviada-suave/70' : 'text-surface-500'">
-        {{ tocando || tempoAtual > 0 ? formatarDuracao(tempoAtual) : formatarDuracao(duracaoTotal) }}
+        {{ tocando || tempoAtual > 0 ? formatarDuracao(tempoAtual) + (duracaoTotal ? ` / ${formatarDuracao(duracaoTotal)}` : '') : formatarDuracao(duracaoTotal) }}
       </span>
       <slot name="status" />
     </div>
@@ -64,6 +66,7 @@
 
 <script setup lang="ts">
 import { useAudioPlayer, formatarDuracao } from '../composables/useAudioPlayer'
+import OndaAudio from './OndaAudio.vue'
 
 const props = defineProps<{
   src?: string
@@ -71,6 +74,9 @@ const props = defineProps<{
   conversaId?: number
   mensagemId?: number
   reproduzida?: boolean
+  // Gravados no envio: a duração aparece e a onda é desenhada sem baixar o áudio
+  duracao?: number | null
+  intensidade?: number[] | null
   nome: string
   isOwn?: boolean
 }>()

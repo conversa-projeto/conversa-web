@@ -9,6 +9,17 @@
       </section>
 
       <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
+        <h4 class="text-sm font-semibold text-surface-800">Cadastro</h4>
+        <label class="mt-3 flex cursor-pointer items-start gap-3">
+          <input v-model="form.cadastro_aberto" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" />
+          <span>
+            <span class="block text-sm text-surface-800">Permitir que as pessoas se cadastrem</span>
+            <span class="block text-xs text-surface-500">Desligado, a tela de entrada não oferece o cadastro: só quem tem a permissão Usuários cria contas, na aba Usuários.</span>
+          </span>
+        </label>
+      </section>
+
+      <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
         <h4 class="text-sm font-semibold text-surface-800">Notificações (Firebase)</h4>
         <p class="mt-1 text-xs text-surface-500">Conta de serviço do Firebase Cloud Messaging, usada para avisar quem está com o app fechado.</p>
         <div class="mt-3 space-y-3">
@@ -85,6 +96,11 @@
           <label class="block text-sm text-surface-700">
             Modelo
             <input v-model="form.ia_modelo" type="text" :class="[CAMPO, 'w-full']" placeholder="llama3.1, qwen2.5:14b, gpt-4o-mini..." autocomplete="off" />
+          </label>
+          <label class="block text-sm text-surface-700">
+            Modelo de embeddings
+            <input v-model="form.ia_modelo_embeddings" type="text" :class="[CAMPO, 'w-full']" placeholder="nomic-embed-text, text-embedding-3-small..." autocomplete="off" />
+            <span class="block text-xs text-surface-500">Para a base de conhecimento dos bots, no mesmo servidor. Vazio desliga a base. Trocou de modelo: use "Reindexar tudo" em Conhecimento.</span>
           </label>
           <label class="block text-sm text-surface-700">
             Token
@@ -166,7 +182,7 @@ const tokenIaConfigurado = computed(() => !!original.value?.ia_token_configurado
 const testandoIa = ref(false)
 const testeIa = ref<TesteIa | null>(null)
 
-const CAMPOS = ['fcm_project_id', 'fcm_client_email', 'turn_forcar_relay', 'transcritor_url', 'transcritor_idioma', 'gravacao_dias', 'ia_url', 'ia_modelo'] as const
+const CAMPOS = ['fcm_project_id', 'fcm_client_email', 'turn_forcar_relay', 'transcritor_url', 'transcritor_idioma', 'gravacao_dias', 'ia_url', 'ia_modelo', 'cadastro_aberto', 'ia_modelo_embeddings'] as const
 
 // Só o que mudou vai para o servidor; a chave, só se foi digitada
 const alteracao = computed<AlteracaoParametros>(() => {

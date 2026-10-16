@@ -39,7 +39,7 @@ describe('barra de navegação', () => {
 
   test('itens principais; Ramal só com SIP disponível', async () => {
     const tela = montar(NavBar, { props })
-    expect(desktop(tela).findAll('button').map((b) => b.text())).toEqual(['E', 'Chat', 'Atividades', 'Chamadas', 'Anexos'])
+    expect(desktop(tela).findAll('button').map((b) => b.attributes('title') === 'Ocultar menu' ? 'Ocultar' : b.text())).toEqual(['E', 'Chat', 'Atividades', 'Chamadas', 'Anexos', 'Ocultar'])
     await tela.setProps({ sipDisponivel: true })
     expect(desktop(tela).text()).toContain('Ramal')
   })
@@ -58,6 +58,25 @@ describe('barra de navegação', () => {
   test.each([['conectado', 'bg-success-500'], ['conectando', 'bg-warning-400'], ['erro', 'bg-danger-500']] as const)('status do ramal %s tem a cor certa', (sipStatus, cor) => {
     const tela = montar(NavBar, { props: { ...props, sipDisponivel: true, sipStatus } })
     expect(desktop(tela).find(`span.${cor}`).exists()).toBe(true)
+  })
+
+  test('ocultar a barra deixa uma aba para mostrar de novo, com ponto de atividades novas; a escolha fica salva', async () => {
+    localStorage.removeItem('conversa.menuOculto')
+    const tela = montar(NavBar, { props: { ...props, atividadesNovas: 2 } })
+    await tela.find('button[title="Ocultar menu"]').trigger('click')
+    expect(tela.findAll('nav')).toHaveLength(1)
+    expect(localStorage.getItem('conversa.menuOculto')).toBe('1')
+    const aba = tela.find('button[title="Mostrar menu"]')
+    expect(aba.find('span.bg-danger-500').exists()).toBe(true)
+    // Abrir de novo a página mantém oculta
+    tela.unmount()
+    const outra = montar(NavBar, { props })
+    expect(outra.findAll('nav')).toHaveLength(1)
+    expect(outra.find('button[title="Mostrar menu"] span.bg-danger-500').exists()).toBe(false)
+    await outra.find('button[title="Mostrar menu"]').trigger('click')
+    expect(outra.findAll('nav')).toHaveLength(2)
+    expect(outra.find('button[title="Mostrar menu"]').exists()).toBe(false)
+    expect(localStorage.getItem('conversa.menuOculto')).toBe('0')
   })
 
   test('ramal desconectado não mostra bolinha', () => {
@@ -175,9 +194,9 @@ describe('cabeçalho da conversa', () => {
     [TipoConversa.Grupo, [], [2], 'Bruno está gravando áudio...'],
   ])('atividade: tipo %p, digitando %p, gravando %p', async (tipo, digitando, gravando, esperado) => {
     rota('GET', '/conversa/usuarios', [])
-    const tela = montarCabecalho(conversa(1, { tipo, destinatario_id: 2 }))
-    // Os avisos chegam pelo socket
+    // Os avisos chegam pelo socket; o token antes de montar, que já cria o auth
     localStorage.setItem('conversa.token', 'token')
+    const tela = montarCabecalho(conversa(1, { tipo, destinatario_id: 2 }))
     const chat = useChatStore()
     chat.conectarWebSocket()
     const socket = SocketFalso.ultimo()

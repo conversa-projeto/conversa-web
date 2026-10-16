@@ -5,6 +5,11 @@ import ProfileSettingsModal from '@/components/ProfileSettingsModal.vue'
 import ConfiguracaoSistema from '@/components/ConfiguracaoSistema.vue'
 import ConfiguracaoAcessos from '@/components/ConfiguracaoAcessos.vue'
 import ConfiguracaoPrivacidade from '@/components/ConfiguracaoPrivacidade.vue'
+import ConfiguracaoBots from '@/components/ConfiguracaoBots.vue'
+import ConfiguracaoUsuarios from '@/components/ConfiguracaoUsuarios.vue'
+import ConfiguracaoFerramentas from '@/components/ConfiguracaoFerramentas.vue'
+import ConfiguracaoConhecimento from '@/components/ConfiguracaoConhecimento.vue'
+import { useRecursos } from '@/composables/useRecursos'
 import { useAuthStore } from '@/stores/auth'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
 
@@ -25,7 +30,7 @@ afterEach(() => {
 const parametrosApi = (extras: Record<string, unknown> = {}) => ({
   fcm_project_id: 'projeto', fcm_client_email: 'conta@projeto.iam', fcm_private_key_configurada: true,
   turn_forcar_relay: false, transcritor_url: '', transcritor_idioma: 'pt', gravacao_dias: 90, s3_bucket: 'chat',
-  ia_url: '', ia_modelo: '', ia_token_configurado: false,
+  ia_url: '', ia_modelo: '', ia_token_configurado: false, cadastro_aberto: true, ia_modelo_embeddings: '',
   ...extras,
 })
 
@@ -69,6 +74,28 @@ describe('abas restritas nas configurações', () => {
     expect(abas).not.toContain('Sistema')
   })
 
+  test('Usuários com a sua permissão; Cores, Chamadas e Voip somem sem as de uso', async () => {
+    const abas = await abrir(['usuarios', 'cores'])
+    expect(abas).toContain('Usuários')
+    expect(abas).toContain('Cores')
+    expect(abas).not.toContain('Chamadas')
+    expect(abas).not.toContain('Voip')
+  })
+
+  test('aba Usuário: sem nome e avatar, trava o nome e some a foto; salvar manda só o e-mail; sem senha, some a troca', async () => {
+    rota('PATCH', '/usuario', {})
+    await abrir(['email'])
+    const [nome, email] = tela!.findAll('form input:not([type="password"])')
+    expect(nome!.attributes('disabled')).toBeDefined()
+    expect(email!.attributes('disabled')).toBeUndefined()
+    expect(tela!.text()).toContain('Você não tem permissão para mudar o avatar.')
+    expect(tela!.text()).not.toContain('Salvar senha')
+    await email!.setValue('novo@teste.test')
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/usuario')[0]!.corpo).toEqual({ id: EU, email: 'novo@teste.test' })
+  })
+
   test('link direto para uma aba sem permissão volta para Usuário', async () => {
     await abrir([], 'sistema')
     expect(tela!.emitted('update:abaAtiva')).toEqual([['usuario']])
@@ -96,10 +123,12 @@ describe('tela Sistema', () => {
     rota('PATCH', '/parametros', (pedido: { corpo: Record<string, unknown> }) => parametrosApi(pedido.corpo))
     await abrir()
     await tela!.find('input[type="number"]').setValue('30')
-    await tela!.find('input[type="checkbox"]').setValue(true)
+    const caixa = (texto: string) => tela!.findAll('label').find((l) => l.text().includes(texto))!.find('input[type="checkbox"]')
+    await caixa('Forçar relay pelo TURN').setValue(true)
+    await caixa('Permitir que as pessoas se cadastrem').setValue(false)
     await salvar()
     await aguardar(10)
-    expect(pedidosDe('PATCH', '/parametros')[0]!.corpo).toEqual({ gravacao_dias: 30, turn_forcar_relay: true })
+    expect(pedidosDe('PATCH', '/parametros')[0]!.corpo).toEqual({ gravacao_dias: 30, turn_forcar_relay: true, cadastro_aberto: false })
     expect(tela!.text()).toContain('Configurações salvas.')
 
     await tela!.find('textarea').setValue('-----BEGIN PRIVATE KEY-----nova')
@@ -164,10 +193,15 @@ describe('tela Sistema', () => {
 
 describe('tela Acessos', () => {
   const permissoesApi = () => ({
-    permissoes: [{ codigo: 'parametros', descricao: 'Ver e alterar as configurações do sistema' }, { codigo: 'permissoes', descricao: 'Conceder e retirar permissões dos usuários' }],
+    permissoes: [
+      { codigo: 'parametros', descricao: 'Ver e alterar as configurações do sistema', uso: false },
+      { codigo: 'permissoes', descricao: 'Conceder e retirar permissões dos usuários', uso: false },
+      { codigo: 'emoji', descricao: 'Enviar emojis no texto das mensagens', uso: true },
+      { codigo: 'chamada_video', descricao: 'Fazer chamadas de vídeo e ligar o vídeo na chamada', uso: true },
+    ],
     usuarios: [
-      { id: 2, nome: 'Ana', login: 'ana', permissoes: [] },
-      { id: EU, nome: 'Eu Mesmo', login: 'eu', permissoes: ['parametros', 'permissoes'] },
+      { id: 2, nome: 'Ana', login: 'ana', permissoes: ['emoji'] },
+      { id: EU, nome: 'Eu Mesmo', login: 'eu', permissoes: ['parametros', 'permissoes', 'emoji'] },
     ],
   })
   async function abrir(extras: Record<string, unknown> = {}) {
@@ -177,36 +211,70 @@ describe('tela Acessos', () => {
     await aguardar(10)
     return tela
   }
-  const caixa = (nome: string) => tela!.find(`input[aria-label="${nome}"]`)
+  const pessoa = (nome: string) => tela!.findAll('button[aria-expanded]').find((b) => b.text().includes(nome))!
+  // "Sistema para Ana": abre o painel da Ana (um aberto por vez) e acha a caixa
+  async function caixa(rotulo: string) {
+    const botao = pessoa(rotulo.split(' para ')[1]!)
+    if (botao.attributes('aria-expanded') !== 'true') await botao.trigger('click')
+    return tela!.find(`input[aria-label="${rotulo}"]`)
+  }
 
   test('lista quem tem cada permissão; a busca filtra', async () => {
     await abrir()
-    expect((caixa('Sistema para Eu Mesmo').element as HTMLInputElement).checked).toBe(true)
-    expect((caixa('Sistema para Ana').element as HTMLInputElement).checked).toBe(false)
+    expect(((await caixa('Sistema para Eu Mesmo')).element as HTMLInputElement).checked).toBe(true)
+    expect(((await caixa('Sistema para Ana')).element as HTMLInputElement).checked).toBe(false)
     expect(tela!.text()).toContain('(você)')
     await tela!.find('input[type="text"]').setValue('ana')
-    expect(tela!.findAll('tbody tr')).toHaveLength(1)
+    expect(tela!.findAll('button[aria-expanded]')).toHaveLength(1)
   })
 
   test('marcar concede e desmarcar retira', async () => {
     rota('PUT', '/permissao/usuario', { usuario_id: 2, codigo: 'parametros' })
     rota('DELETE', '/permissao/usuario', { usuario_id: 2, codigo: 'parametros' })
     await abrir()
-    await caixa('Sistema para Ana').setValue(true)
+    await (await caixa('Sistema para Ana')).setValue(true)
     await aguardar(10)
     expect(pedidosDe('PUT', '/permissao/usuario')[0]!.corpo).toEqual({ usuario_id: 2, codigo: 'parametros' })
-    await caixa('Sistema para Ana').setValue(false)
+    await (await caixa('Sistema para Ana')).setValue(false)
     await aguardar(10)
     expect(pedidosDe('DELETE', '/permissao/usuario')[0]!.consulta).toEqual({ usuario_id: '2', codigo: 'parametros' })
   })
 
   test('recusa do servidor mostra o motivo e a caixa volta', async () => {
-    rota('DELETE', '/permissao/usuario', erro(400, 'Ao menos uma pessoa precisa poder gerenciar as permissões.'))
+    rota('PUT', '/permissao/usuario', erro(403, 'Acesso negado!'))
     await abrir()
-    await caixa('Acessos para Eu Mesmo').setValue(false)
+    await (await caixa('Acessos para Ana')).setValue(true)
     await aguardar(10)
-    expect(tela!.text()).toContain('Ao menos uma pessoa precisa poder gerenciar as permissões.')
-    expect((caixa('Acessos para Eu Mesmo').element as HTMLInputElement).checked).toBe(true)
+    expect(tela!.text()).toContain('Acesso negado!')
+    expect(((await caixa('Acessos para Ana')).element as HTMLInputElement).checked).toBe(false)
+  })
+
+  test('as próprias permissões marcadas ficam travadas; as dos outros não', async () => {
+    await abrir()
+    expect((await caixa('Acessos para Eu Mesmo')).attributes('disabled')).toBeDefined()
+    expect((await caixa('Sistema para Eu Mesmo')).attributes('disabled')).toBeDefined()
+    expect((await caixa('Sistema para Ana')).attributes('disabled')).toBeUndefined()
+  })
+
+  test('cada pessoa abre com a administração em cima e o uso embaixo; conta todas', async () => {
+    rota('PUT', '/permissao/usuario', { usuario_id: 2, codigo: 'chamada_video' })
+    await abrir()
+    expect(tela!.find('table').exists()).toBe(false)
+    expect(pessoa('Ana').text()).toContain('1 de 4')
+    expect(pessoa('Ana').text()).not.toContain('Administração')
+    expect(pessoa('Eu Mesmo').text()).toContain('Administração')
+    await pessoa('Ana').trigger('click')
+    expect(tela!.findAll('fieldset legend').map((l) => l.text())).toEqual(['Administração', 'Enviar', 'Chamadas'])
+    const opcao = (texto: string) => tela!.findAll('fieldset label').find((l) => l.text().includes(texto))!.find('input')
+    expect((opcao('Emojis no texto').element as HTMLInputElement).checked).toBe(true)
+    await opcao('Chamadas de vídeo').setValue(true)
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/permissao/usuario')[0]!.corpo).toEqual({ usuario_id: 2, codigo: 'chamada_video' })
+    expect(pessoa('Ana').text()).toContain('2 de 4')
+    // As próprias de uso também ficam travadas
+    await pessoa('Eu Mesmo').trigger('click')
+    expect(opcao('Emojis no texto').attributes('disabled')).toBeDefined()
+    expect(opcao('Chamadas de vídeo').attributes('disabled')).toBeUndefined()
   })
 
   test('modo aberto: avisa; marcar Acessos para alguém encerra e atualiza o que você vê', async () => {
@@ -214,19 +282,309 @@ describe('tela Acessos', () => {
     await abrir({ modo_aberto: true })
     expect(tela!.text()).toContain('Ninguém tem a permissão Acessos ainda')
     rota('GET', '/usuario/permissoes', [])
-    await caixa('Acessos para Ana').setValue(true)
+    await (await caixa('Acessos para Ana')).setValue(true)
     await aguardar(10)
     expect(tela!.text()).not.toContain('Ninguém tem a permissão Acessos ainda')
     expect(useAuthStore().permissoes).toEqual([])
   })
 
   test('mexer nas próprias permissões atualiza o que você vê', async () => {
-    rota('DELETE', '/permissao/usuario', { usuario_id: EU, codigo: 'parametros' })
-    await abrir()
-    rota('GET', '/usuario/permissoes', ['permissoes'])
-    await caixa('Sistema para Eu Mesmo').setValue(false)
+    rota('PUT', '/permissao/usuario', { usuario_id: 2, codigo: 'parametros' })
+    await abrir({
+      usuarios: [
+        { id: 2, nome: 'Ana', login: 'ana', permissoes: [] },
+        { id: EU, nome: 'Eu Mesmo', login: 'eu', permissoes: ['permissoes'] },
+      ],
+    })
+    rota('GET', '/usuario/permissoes', ['parametros', 'permissoes'])
+    await (await caixa('Sistema para Eu Mesmo')).setValue(true)
     await aguardar(10)
-    expect(useAuthStore().permissoes).toEqual(['permissoes'])
+    expect(useAuthStore().permissoes).toEqual(['parametros', 'permissoes'])
+  })
+})
+
+describe('tela Bots', () => {
+  const bot = (extras: Record<string, unknown> = {}) => ({
+    id: 3, usuario_id: 40, nome: 'Compras', login: 'bot-compras-a1b2c3', instrucoes: 'Ajuda com compras.', ativo: true,
+    criado_por: EU, criado_por_nome: 'Eu Mesmo', permissoes: ['emoji', 'responder', 'reagir'], ferramentas: [], bases: [], ...extras,
+  })
+  async function abrir(ia: boolean, minhas: string[], bots: unknown[] = [bot()]) {
+    rota('GET', '/recursos', { transcricao: false, ia })
+    await useRecursos().recarregar()
+    const auth = useAuthStore()
+    auth.permissoes = minhas
+    auth.permissoesCarregadas = true
+    rota('GET', '/bots', bots)
+    tela = mount(ConfiguracaoBots, { attachTo: document.body })
+    await aguardar(10)
+    return tela
+  }
+  const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
+  const opcao = (texto: string) => tela!.findAll('fieldset label').find((l) => l.text() === texto)!.find('input')
+
+  test('lista os bots; Novo bot cria com nome e instruções e ele entra na lista', async () => {
+    rota('PUT', '/bot', bot({ id: 4, usuario_id: 41, nome: 'Suporte', login: 'bot-suporte-x' }))
+    await abrir(true, ['bots', 'emoji'])
+    expect(tela!.text()).toContain('Compras')
+    expect(tela!.text()).toContain('Ligado')
+    await botao('Novo bot').trigger('click')
+    await tela!.find('input[type="text"]').setValue('Suporte')
+    await tela!.find('textarea').setValue('Você ajuda com dúvidas de TI.')
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/bot')[0]!.corpo).toEqual({ nome: 'Suporte', instrucoes: 'Você ajuda com dúvidas de TI.' })
+    expect(tela!.find('form').exists()).toBe(false)
+    expect(tela!.text()).toContain('bot-suporte-x')
+  })
+
+  test('editar: só libera o que você tem; marcar manda a lista nova; salvar manda só o que mudou', async () => {
+    rota('PUT', '/bot/permissoes', bot({ permissoes: ['emoji', 'responder', 'reagir', 'figurinha'] }))
+    rota('PATCH', '/bot', bot({ ativo: false }))
+    await abrir(true, ['bots', 'emoji', 'figurinha'])
+    await botao('Editar').trigger('click')
+    expect(opcao('Vídeos').attributes('disabled')).toBeDefined()
+    // Já liberada, pode tirar mesmo sem ter
+    expect(opcao('Responder').attributes('disabled')).toBeUndefined()
+    await opcao('Figurinhas').setValue(true)
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/bot/permissoes')[0]!.corpo).toEqual({ id: 3, permissoes: ['emoji', 'responder', 'reagir', 'figurinha'] })
+    await tela!.findAll('form input[type="checkbox"]')[0]!.setValue(false)
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/bot')[0]!.corpo).toEqual({ id: 3, ativo: false })
+    expect(tela!.text()).toContain('Desligado')
+  })
+
+  test('Excluir bot pede confirmação; confirmado, some da lista', async () => {
+    rota('DELETE', '/bot', { id: 3, apagado: false })
+    await abrir(true, ['bots'])
+    await botao('Editar').trigger('click')
+    const noCorpo = (texto: string) => [...document.body.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent?.trim() === texto) as HTMLButtonElement
+    await botao('Excluir bot').trigger('click')
+    await aguardar(5)
+    expect(document.body.textContent).toContain('Excluir Compras?')
+    noCorpo('Cancelar').click()
+    await aguardar(10)
+    expect(pedidosDe('DELETE', '/bot')).toHaveLength(0)
+    await botao('Excluir bot').trigger('click')
+    await aguardar(5)
+    noCorpo('Excluir').click()
+    await aguardar(10)
+    expect(pedidosDe('DELETE', '/bot')[0]!.consulta).toEqual({ id: '3' })
+    expect(tela!.text()).toContain('Nenhum bot ainda.')
+    expect(tela!.find('form').exists()).toBe(false)
+  })
+
+  test('ferramentas externas: lista as disponíveis e marcar manda a lista nova', async () => {
+    rota('GET', '/ferramentas/disponiveis', [{ id: 9, nome: 'consultar_conhecimento', descricao: 'Busca na base' }])
+    rota('PUT', '/bot/ferramentas', bot({ ferramentas: [9] }))
+    await abrir(true, ['bots'])
+    await botao('Editar').trigger('click')
+    const caixa = tela!.findAll('label').find((l) => l.text().includes('consultar_conhecimento'))!.find('input')
+    expect((caixa.element as HTMLInputElement).checked).toBe(false)
+    await caixa.setValue(true)
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/bot/ferramentas')[0]!.corpo).toEqual({ id: 3, ferramentas: [9] })
+    expect((caixa.element as HTMLInputElement).checked).toBe(true)
+  })
+
+  test('bases de conhecimento: lista as disponíveis e marcar manda a lista nova', async () => {
+    rota('GET', '/conhecimento/disponiveis', [{ id: 4, nome: 'RH', descricao: 'Políticas' }])
+    rota('PUT', '/bot/conhecimento', bot({ bases: [4] }))
+    await abrir(true, ['bots'])
+    await botao('Editar').trigger('click')
+    const caixa = tela!.findAll('label').find((l) => l.text().startsWith('RH'))!.find('input')
+    await caixa.setValue(true)
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/bot/conhecimento')[0]!.corpo).toEqual({ id: 3, bases: [4] })
+  })
+
+  test('IA desligada: avisa e não deixa criar', async () => {
+    await abrir(false, ['bots'], [])
+    expect(tela!.text()).toContain('A IA está desligada')
+    expect(botao('Novo bot').attributes('disabled')).toBeDefined()
+    expect(tela!.text()).toContain('Nenhum bot ainda.')
+  })
+})
+
+describe('tela Ferramentas', () => {
+  const ferramenta = (extras: Record<string, unknown> = {}) => ({
+    id: 9, nome: 'consultar_conhecimento', descricao: 'Busca na base', metodo: 'GET', url: 'https://base.test/buscar',
+    cabecalhos: ['Authorization'], parametros: [{ nome: 'pergunta', tipo: 'string', descricao: 'O que procurar', obrigatorio: true }], ativo: true, ...extras,
+  })
+  async function abrir(lista: unknown[] = []) {
+    rota('GET', '/ferramentas', lista)
+    tela = mount(ConfiguracaoFerramentas, { attachTo: document.body })
+    await aguardar(10)
+    return tela
+  }
+  const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
+  const campo = (rotulo: string) => tela!.findAll('label').find((l) => l.text().startsWith(rotulo))!.find('input, textarea, select')
+
+  test('cria com cabeçalho e parâmetro; fica aberta para testar', async () => {
+    rota('PUT', '/ferramenta', ferramenta())
+    await abrir()
+    expect(tela!.text()).toContain('Nenhuma ferramenta ainda.')
+    await botao('Nova ferramenta').trigger('click')
+    await campo('Nome').setValue('consultar_conhecimento')
+    await campo('Descrição').setValue('Busca na base')
+    await campo('Endereço').setValue('https://base.test/buscar')
+    await botao('+ Cabeçalho').trigger('click')
+    await tela!.find('input[aria-label="Nome do cabeçalho"]').setValue('Authorization')
+    await tela!.find('input[aria-label="Valor do cabeçalho"]').setValue('Bearer x')
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/ferramenta')[0]!.corpo).toEqual({
+      nome: 'consultar_conhecimento', descricao: 'Busca na base', metodo: 'GET', url: 'https://base.test/buscar',
+      cabecalhos: [{ nome: 'Authorization', valor: 'Bearer x' }],
+      parametros: [{ nome: 'pergunta', tipo: 'string', descricao: '', obrigatorio: true }],
+      ativo: true,
+    })
+    expect(tela!.text()).toContain('Testar')
+    expect(tela!.find('input[aria-label="Valor do cabeçalho"]').attributes('placeholder')).toBe('Salvo: deixe vazio para manter')
+  })
+
+  test('editar manda o cabeçalho salvo sem valor; Testar mostra a resposta', async () => {
+    rota('PATCH', '/ferramenta', ferramenta({ descricao: 'Outra' }))
+    rota('POST', '/ferramenta/testar', { ok: true, status: 200, resposta: '{"trechos":["5 dias"]}', erro: '', milissegundos: 42 })
+    await abrir([ferramenta()])
+    await botao('Editar').trigger('click')
+    await campo('Descrição').setValue('Outra')
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/ferramenta')[0]!.corpo).toMatchObject({ id: 9, descricao: 'Outra', cabecalhos: [{ nome: 'Authorization', valor: null }] })
+    await campo('pergunta').setValue('prazo')
+    await botao('Testar').trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('POST', '/ferramenta/testar')[0]!.corpo).toEqual({ id: 9, argumentos: { pergunta: 'prazo' } })
+    expect(tela!.text()).toContain('Respondeu 200 · 42 ms')
+    expect(tela!.text()).toContain('{"trechos":["5 dias"]}')
+  })
+})
+
+describe('tela Conhecimento', () => {
+  const base = (extras: Record<string, unknown> = {}) => ({ id: 4, nome: 'RH', descricao: 'Políticas', documentos: 1, trechos: 3, ...extras })
+  const documento = (extras: Record<string, unknown> = {}) => ({
+    id: 10, base_id: 4, nome: 'ferias.pdf', caracteres: 2500, trechos: 3, status: 2, erro: null, criado_em: '2026-10-15T10:00:00.000Z', ...extras,
+  })
+  async function abrir(ligada = true, bases: unknown[] = [base()], documentos: unknown[] = [documento()]) {
+    rota('GET', '/recursos', { transcricao: false, ia: true, conhecimento: ligada })
+    await useRecursos().recarregar()
+    rota('GET', '/conhecimento/bases', bases)
+    rota('GET', '/conhecimento/documentos', documentos)
+    tela = mount(ConfiguracaoConhecimento, { attachTo: document.body })
+    await aguardar(20)
+    return tela
+  }
+  const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
+
+  test('abre a primeira base com os documentos e o status; documento com erro mostra o motivo', async () => {
+    await abrir(true, [base()], [documento(), documento({ id: 11, nome: 'escaneado.pdf', status: 3, erro: 'O servidor de IA respondeu 404', trechos: 0 })])
+    expect(pedidosDe('GET', '/conhecimento/documentos')[0]!.consulta).toEqual({ base: '4' })
+    expect(tela!.text()).toContain('ferias.pdf')
+    expect(tela!.text()).toContain('2.500 caracteres · 3 trechos')
+    expect(tela!.text()).toContain('Pronto')
+    expect(tela!.text()).toContain('O servidor de IA respondeu 404')
+  })
+
+  test('enviar um .txt manda o texto para a base', async () => {
+    rota('PUT', '/conhecimento/documento', documento({ id: 12, nome: 'faq.txt', status: 1 }))
+    await abrir()
+    const input = tela!.find('input[type="file"]')
+    const texto = 'Pergunta: horário?\n\nResposta: 8h às 17h.'
+    Object.defineProperty(input.element, 'files', { value: [new File([texto], 'faq.txt', { type: 'text/plain' })] })
+    await input.trigger('change')
+    await aguardar(20)
+    expect(pedidosDe('PUT', '/conhecimento/documento')[0]!.corpo).toEqual({ base_id: 4, nome: 'faq.txt', texto })
+  })
+
+  test('formato não aceito avisa e não envia', async () => {
+    await abrir()
+    const input = tela!.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [new File(['x'], 'planilha.xlsx')] })
+    await input.trigger('change')
+    await aguardar(20)
+    expect(pedidosDe('PUT', '/conhecimento/documento')).toHaveLength(0)
+    expect(tela!.text()).toContain('planilha.xlsx: Formato não aceito')
+  })
+
+  test('Testar busca mostra os trechos com o documento e a semelhança', async () => {
+    rota('POST', '/conhecimento/buscar', [{ documento: 'ferias.pdf', texto: 'Peça com 45 dias de antecedência.', nota: 0.87 }])
+    await abrir()
+    await tela!.find('input[aria-label="Pergunta de teste"]').setValue('antecedência das férias')
+    await botao('Buscar').trigger('submit')
+    await tela!.findAll('form').find((f) => f.text().includes('Testar busca'))!.trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('POST', '/conhecimento/buscar')[0]!.corpo).toEqual({ bases: [4], pergunta: 'antecedência das férias' })
+    expect(tela!.text()).toContain('ferias.pdf · semelhança 0.87')
+    expect(tela!.text()).toContain('Peça com 45 dias de antecedência.')
+  })
+
+  test('nova base é criada e já fica aberta; desligada, avisa e não deixa enviar', async () => {
+    rota('PUT', '/conhecimento/base', base({ id: 5, nome: 'Suporte', documentos: 0, trechos: 0 }))
+    await abrir(false, [], [])
+    expect(tela!.text()).toContain('A base de conhecimento está desligada')
+    await botao('Nova base').trigger('click')
+    await tela!.find('input[placeholder="Ex.: RH"]').setValue('Suporte')
+    rota('GET', '/conhecimento/bases', [base({ id: 5, nome: 'Suporte', documentos: 0, trechos: 0 })])
+    await tela!.find('form').trigger('submit')
+    await aguardar(20)
+    expect(pedidosDe('PUT', '/conhecimento/base')[0]!.corpo).toEqual({ nome: 'Suporte', descricao: '' })
+    expect(botao('Enviar documentos').attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('tela Usuários', () => {
+  async function abrir(ia = true) {
+    rota('GET', '/recursos', { transcricao: false, ia })
+    await useRecursos().recarregar()
+    rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Ana', login: 'ana', bot: false }, { id: 40, nome: 'Compras', login: 'bot-compras', bot: true }])
+    tela = mount(ConfiguracaoUsuarios, { attachTo: document.body })
+    await aguardar(10)
+    return tela
+  }
+  const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
+  const campo = (rotulo: string) => tela!.findAll('label').find((l) => l.text().startsWith(rotulo))!.find('input, textarea')
+
+  test('lista com a marca de bot; cria uma pessoa com login, e-mail e senha', async () => {
+    rota('PUT', '/usuario/novo', { id: 50, nome: 'Bruno', login: 'bruno', bot: false })
+    await abrir()
+    expect(tela!.text()).toContain('Compras')
+    expect(tela!.text()).toContain('Bot')
+    await botao('Novo usuário').trigger('click')
+    await campo('Nome').setValue('Bruno')
+    await campo('Login').setValue('bruno')
+    await campo('E-mail').setValue('bruno@teste.test')
+    expect(botao('Criar').attributes('disabled')).toBeDefined()
+    await campo('Senha').setValue('segredo')
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/usuario/novo')[0]!.corpo).toEqual({ nome: 'Bruno', login: 'bruno', email: 'bruno@teste.test', senha: 'segredo' })
+    expect(tela!.text()).toContain('Conta de Bruno criada (login bruno).')
+    expect(tela!.find('form').exists()).toBe(false)
+  })
+
+  test('bot: troca login, e-mail e senha pelas instruções; com a IA desligada não cria', async () => {
+    rota('PUT', '/usuario/novo', { id: 51, nome: 'Suporte', login: 'bot-suporte-x', bot: true })
+    await abrir()
+    await botao('Novo usuário').trigger('click')
+    await campo('É um bot').setValue(true)
+    expect(tela!.findAll('input[type="password"]')).toHaveLength(0)
+    await campo('Nome').setValue('Suporte')
+    await campo('Instruções').setValue('Ajuda com TI.')
+    await tela!.find('form').trigger('submit')
+    await aguardar(10)
+    expect(pedidosDe('PUT', '/usuario/novo')[0]!.corpo).toEqual({ nome: 'Suporte', bot: true, instrucoes: 'Ajuda com TI.' })
+    expect(tela!.text()).toContain('Bot Suporte criado.')
+
+    tela!.unmount()
+    await abrir(false)
+    await botao('Novo usuário').trigger('click')
+    await campo('É um bot').setValue(true)
+    await campo('Nome').setValue('Outro')
+    await campo('Instruções').setValue('x')
+    expect(tela!.text()).toContain('A IA está desligada')
+    expect(botao('Criar').attributes('disabled')).toBeDefined()
   })
 })
 
@@ -243,6 +601,17 @@ describe('privacidade', () => {
     await aguardar(5)
     expect(pedidosDe('PATCH', '/usuario')[0]!.corpo).toEqual({ id: EU, aparecer_offline: true })
     expect(caixa('Mostrar o visto por último').attributes('disabled')).toBeDefined()
+  })
+
+  test('sem a permissão, avisa e as opções ficam travadas', async () => {
+    rota('GET', '/usuario/privacidade', { mostrar_visto_em: true, mostrar_na_conversa: true, aparecer_offline: false })
+    const auth = useAuthStore()
+    auth.permissoes = []
+    auth.permissoesCarregadas = true
+    tela = mount(ConfiguracaoPrivacidade, { attachTo: document.body })
+    await flushPromises()
+    expect(tela.text()).toContain('Você não tem permissão para mudar a privacidade.')
+    expect(caixa('Aparecer offline').attributes('disabled')).toBeDefined()
   })
 
   test('erro ao salvar volta a opção e avisa', async () => {

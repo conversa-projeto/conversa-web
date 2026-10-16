@@ -1,6 +1,6 @@
 <template>
-  <!-- Desktop: barra vertical à esquerda -->
-  <nav class="hidden w-[60px] shrink-0 flex-col items-center justify-between border-r border-surface-300 bg-surface-200 pb-2 md:flex">
+  <!-- Desktop: barra vertical à esquerda (pode ser ocultada) -->
+  <nav v-if="!oculta" class="hidden w-[60px] shrink-0 flex-col items-center justify-between border-r border-surface-300 bg-surface-200 pb-2 md:flex">
     <div class="flex w-full flex-col items-center">
       <!-- Avatar do usuário -->
       <button
@@ -62,7 +62,30 @@
         <span>{{ item.label }}</span>
       </button>
     </div>
+
+    <button
+      type="button"
+      class="flex h-8 w-8 items-center justify-center rounded-full text-surface-500 hover:bg-surface-300 hover:text-surface-700"
+      title="Ocultar menu"
+      aria-label="Ocultar menu"
+      @click="alternarOculta(true)"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m18.75 4.5-7.5 7.5 7.5 7.5m-6-15L5.25 12l7.5 7.5" /></svg>
+    </button>
   </nav>
+
+  <!-- Menu oculto: uma aba no pé da borda esquerda, perto de onde ficava o botão de ocultar, abre de novo (com um ponto se há atividades novas) -->
+  <button
+    v-else
+    type="button"
+    class="fixed bottom-2 left-0 z-30 hidden h-10 w-4 items-center justify-center rounded-r-lg border border-l-0 border-surface-300 bg-surface-200 text-surface-500 shadow hover:w-5 hover:text-surface-800 md:flex"
+    title="Mostrar menu"
+    aria-label="Mostrar menu"
+    @click="alternarOculta(false)"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+    <span v-if="atividadesNovas > 0" class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-danger-500 ring-2 ring-surface-200"></span>
+  </button>
 
   <!-- Mobile: barra horizontal no rodapé -->
   <nav class="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-surface-300 bg-surface-200 md:hidden">
@@ -128,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import IndicadorPresenca from './IndicadorPresenca.vue'
@@ -157,6 +180,27 @@ const emit = defineEmits<{
   'avatar-error': []
   'open-dialer': []
 }>()
+
+// Barra do computador oculta; a escolha fica neste navegador
+const CHAVE_OCULTA = 'conversa.menuOculto'
+const oculta = ref(lerOculta())
+
+function lerOculta() {
+  try {
+    return localStorage.getItem(CHAVE_OCULTA) === '1'
+  } catch {
+    return false
+  }
+}
+
+function alternarOculta(valor: boolean) {
+  oculta.value = valor
+  try {
+    localStorage.setItem(CHAVE_OCULTA, valor ? '1' : '0')
+  } catch {
+    // vale só até fechar a página
+  }
+}
 
 function onItemClick(id: string) {
   if (id === 'ramal') {

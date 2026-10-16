@@ -195,6 +195,12 @@ export const useAuthStore = defineStore('auth', () => {
     return permissoes.value.includes(codigo)
   }
 
+  // Permissão de uso (enviar, chamar...): até a lista chegar, mostra tudo; o
+  // servidor recusa o que não pode
+  function pode(codigo: string) {
+    return !permissoesCarregadas.value || permissoes.value.includes(codigo)
+  }
+
   function logout() {
     token.value = ''
     user.value = null
@@ -236,6 +242,7 @@ export const useAuthStore = defineStore('auth', () => {
     permissoesCarregadas,
     carregarPermissoes,
     temPermissao,
+    pode,
     dispositivoId,
     avatarUrl,
     isAuthenticated,

@@ -18,6 +18,7 @@ import PesquisaAvancada from '@/components/PesquisaAvancada.vue'
 import TranscricaoAudio from '@/components/TranscricaoAudio.vue'
 import { useRecursos } from '@/composables/useRecursos'
 import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 import { useUploadProgress } from '@/composables/useUploadProgress'
 import { StatusTranscricao, TipoConteudo, TipoConversa, TipoMensagemReferencia, type Contato, type Conversa, type MensagemReferencia } from '@/types/api'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
@@ -65,6 +66,29 @@ describe('ações da mensagem', () => {
     expect((tela.emitted('reply') as unknown[][])[0]![0]).toMatchObject({ id: 5 })
     expect((tela.emitted('forward') as unknown[][])[0]![0]).toMatchObject({ id: 5 })
     expect(tela.emitted('copiar')![0]).toEqual([expect.objectContaining({ id: 5 }), null])
+  })
+
+  test('sem a permissão, a ação some do menu (e as reações rápidas também)', async () => {
+    const auth = useAuthStore()
+    auth.permissoes = ['responder']
+    auth.permissoesCarregadas = true
+    const tela = acoes()
+    await abrir(tela)
+    expect(botao(corpo(), 'Responder')).toBeDefined()
+    expect(botao(corpo(), 'Encaminhar')).toBeUndefined()
+    expect(corpo().findAll('button').some((b) => b.text() === '👍')).toBe(false)
+  })
+
+  test('Ocultar a própria mensagem só com a permissão', async () => {
+    const auth = useAuthStore()
+    auth.permissoesCarregadas = true
+    auth.permissoes = []
+    const tela = acoes({ isOwn: true })
+    await abrir(tela)
+    expect(botao(corpo(), 'Ocultar')).toBeUndefined()
+    auth.permissoes = ['ocultar']
+    await tela.vm.$nextTick()
+    expect(botao(corpo(), 'Ocultar')).toBeDefined()
   })
 
   test('o menu vai para o body, fora da lista (que isola o empilhamento e o deixava por trás da caixa de mensagem)', async () => {

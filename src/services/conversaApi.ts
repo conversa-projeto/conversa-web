@@ -1,5 +1,6 @@
-import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteIa } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteIa } from '../types/api'
 import { api, dados } from './eden'
+import type { DadosAudio } from '../utils/dadosAudio'
 
 // Chamadas da API pelo cliente Eden: caminho, corpo, consulta e resposta sao
 // conferidos contra as rotas da API (conversa/src/rotas.ts) na compilacao.
@@ -185,7 +186,7 @@ export async function uploadMinio(url: string, file: Blob, onProgress?: (percent
   })
 }
 
-export async function uploadAnexo(tipo: TipoConteudo, nome: string, extensao: string, data: Blob, onProgress?: (percent: number) => void): Promise<AnexoResponse> {
+export async function uploadAnexo(tipo: TipoConteudo, nome: string, extensao: string, data: Blob, onProgress?: (percent: number) => void, audio?: DadosAudio | null): Promise<AnexoResponse> {
   const identificador = await sha256File(data)
 
   const existe = await dados(api().anexo.existe.get({ query: { identificador } }))
@@ -200,7 +201,8 @@ export async function uploadAnexo(tipo: TipoConteudo, nome: string, extensao: st
     tipo,
     nome,
     extensao,
-    tamanho: data.size
+    tamanho: data.size,
+    ...(audio ? { duracao: audio.duracao, intensidade: audio.intensidade } : {})
   }))
 
   await uploadMinio(presign.upload_url, data, onProgress)
@@ -302,12 +304,123 @@ export function getMinhasPermissoes(): Promise<string[]> {
   return dados(api().usuario.permissoes.get())
 }
 
-export function getRecursos(): Promise<{ transcricao: boolean; ia: boolean }> {
+// Público: se a tela de login oferece o cadastro
+export function getCadastro(): Promise<{ aberto: boolean }> {
+  return dados(api().cadastro.get())
+}
+
+export function cadastrarUsuario(campos: {
+  nome: string
+  login?: string
+  email?: string
+  senha?: string
+  avatar_anexo_id?: number | null
+  bot?: boolean
+  instrucoes?: string
+}): Promise<{ id: number; nome: string; login: string; bot: boolean }> {
+  return dados(api().usuario.novo.put(campos))
+}
+
+export function getRecursos(): Promise<{ transcricao: boolean; ia: boolean; conhecimento: boolean }> {
   return dados(api().recursos.get())
 }
 
 export function getPermissoes(): Promise<PermissoesSistema> {
   return dados(api().permissoes.get())
+}
+
+export function getBots(): Promise<Bot[]> {
+  return dados(api().bots.get())
+}
+
+export function criarBot(nome: string, instrucoes: string): Promise<Bot> {
+  return dados(api().bot.put({ nome, instrucoes }))
+}
+
+export function alterarBot(id: number, campos: { nome?: string; instrucoes?: string; ativo?: boolean }): Promise<Bot> {
+  return dados(api().bot.patch({ id, ...campos }))
+}
+
+export function excluirBot(id: number): Promise<{ id: number; apagado: boolean }> {
+  return dados(api().bot.delete(undefined, { query: { id } }))
+}
+
+export function definirConhecimentoBot(id: number, bases: number[]): Promise<Bot> {
+  return dados(api().bot.conhecimento.put({ id, bases }))
+}
+
+export function getBasesConhecimento(): Promise<BaseConhecimento[]> {
+  return dados(api().conhecimento.bases.get())
+}
+
+// Para a tela do bot
+export function getBasesDisponiveis(): Promise<Pick<BaseConhecimento, 'id' | 'nome' | 'descricao'>[]> {
+  return dados(api().conhecimento.disponiveis.get())
+}
+
+export function incluirBaseConhecimento(nome: string, descricao: string): Promise<BaseConhecimento> {
+  return dados(api().conhecimento.base.put({ nome, descricao }))
+}
+
+export function alterarBaseConhecimento(id: number, nome: string, descricao: string): Promise<BaseConhecimento> {
+  return dados(api().conhecimento.base.patch({ id, nome, descricao }))
+}
+
+export function excluirBaseConhecimento(id: number): Promise<{ id: number }> {
+  return dados(api().conhecimento.base.delete(undefined, { query: { id } }))
+}
+
+export function getDocumentosConhecimento(base: number): Promise<DocumentoConhecimento[]> {
+  return dados(api().conhecimento.documentos.get({ query: { base } }))
+}
+
+export function incluirDocumentoConhecimento(base: number, nome: string, texto: string): Promise<DocumentoConhecimento> {
+  return dados(api().conhecimento.documento.put({ base_id: base, nome, texto }))
+}
+
+export function excluirDocumentoConhecimento(id: number): Promise<{ id: number }> {
+  return dados(api().conhecimento.documento.delete(undefined, { query: { id } }))
+}
+
+export function buscarConhecimento(bases: number[], pergunta: string): Promise<TrechoConhecimento[]> {
+  return dados(api().conhecimento.buscar.post({ bases, pergunta }))
+}
+
+export function reindexarConhecimento(): Promise<{ documentos: number }> {
+  return dados(api().conhecimento.reindexar.post())
+}
+
+export function definirFerramentasBot(id: number, ferramentas: number[]): Promise<Bot> {
+  return dados(api().bot.ferramentas.put({ id, ferramentas }))
+}
+
+export function getFerramentas(): Promise<FerramentaExterna[]> {
+  return dados(api().ferramentas.get())
+}
+
+// Para a tela do bot: só nome e descrição
+export function getFerramentasDisponiveis(): Promise<Pick<FerramentaExterna, 'id' | 'nome' | 'descricao'>[]> {
+  return dados(api().ferramentas.disponiveis.get())
+}
+
+export function incluirFerramenta(campos: DadosFerramenta): Promise<FerramentaExterna> {
+  return dados(api().ferramenta.put(campos))
+}
+
+export function alterarFerramenta(id: number, campos: DadosFerramenta): Promise<FerramentaExterna> {
+  return dados(api().ferramenta.patch({ id, ...campos }))
+}
+
+export function excluirFerramenta(id: number): Promise<{ id: number }> {
+  return dados(api().ferramenta.delete(undefined, { query: { id } }))
+}
+
+export function testarFerramenta(id: number, argumentos: Record<string, unknown>): Promise<TesteFerramenta> {
+  return dados(api().ferramenta.testar.post({ id, argumentos }))
+}
+
+export function definirPermissoesBot(id: number, permissoes: string[]): Promise<Bot> {
+  return dados(api().bot.permissoes.put({ id, permissoes }))
 }
 
 export function concederPermissao(usuarioId: number, codigo: string): Promise<{ usuario_id: number; codigo: string }> {
@@ -337,8 +450,13 @@ export function getAtividadesNovas(): Promise<{ quantidade: number }> {
   return dados(api().atividades.novas.get())
 }
 
-export function marcarAtividadesVistas(): Promise<{ vistas_em: Date }> {
-  return dados(api().atividades.vistas.post())
+export function concluirAtividade(id: number): Promise<{ sucesso: boolean }> {
+  return dados(api().atividade.concluir.post({ id }))
+}
+
+// As próprias mensagens que receberam reação apareceram na tela
+export function concluirReacoesVistas(mensagens: number[]): Promise<{ concluidas: number }> {
+  return dados(api().atividades['reacoes-vistas'].post({ mensagens }))
 }
 
 export function chamadaSair(chamadaId: number): Promise<{ id: number }> {

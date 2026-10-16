@@ -126,6 +126,23 @@ describe('ir até uma mensagem (pesquisa, resposta)', () => {
     expect(rolagens.map((r) => r.comportamento)).toEqual(['instant', 'instant'])
   })
 
+  test('enviar depois de ir até uma mensagem antiga recarrega as recentes, mantendo a que está sendo enviada', async () => {
+    await montar([50, 51])
+    rota('GET', '/mensagens', [mensagemApi(9), mensagemApi(10), mensagemApi(11)])
+    await gerente.irParaMensagem(10)
+    await aguardar(40)
+    // A resposta entra no fim do trecho antigo até a lista recarregar
+    chat.definirMensagens(1, [...chat.mensagensAtivas, mensagem({ id: -1, conteudos: [texto('resposta')], enviando: true })])
+    rota('GET', '/mensagens', [mensagemApi(50), mensagemApi(51)])
+    await gerente.rolarParaFinalAoEnviar()
+    expect(pedidosDe('GET', '/mensagens').at(-1)!.consulta).toMatchObject({ mensagemreferencia: '0' })
+    expect(chat.mensagensAtivas.map((m) => m.id)).toEqual([50, 51, -1])
+    // Já nas recentes: o próximo envio não recarrega
+    const antes = pedidosDe('GET', '/mensagens').length
+    await gerente.rolarParaFinalAoEnviar()
+    expect(pedidosDe('GET', '/mensagens')).toHaveLength(antes)
+  })
+
   test('mensagem que não existe mais: informa que não achou', async () => {
     await montar([1])
     rota('GET', '/mensagens', [])
@@ -145,5 +162,44 @@ describe('abertura da conversa', () => {
     await montar([])
     expect(await gerente.posicionarAberturaConversaAtiva()).toBeNull()
     expect(observadores.size).toBe(0)
+  })
+})
+
+describe('reação vista na própria mensagem', () => {
+  const caixaOriginal = HTMLElement.prototype.getBoundingClientRect
+  const focoOriginal = document.hasFocus
+  afterEach(() => {
+    HTMLElement.prototype.getBoundingClientRect = caixaOriginal
+    document.hasFocus = focoOriginal
+  })
+
+  test('avisa o servidor uma vez por reação nova de outra pessoa nas próprias mensagens na tela', async () => {
+    // Tudo dentro da área visível
+    HTMLElement.prototype.getBoundingClientRect = () => ({ top: 0, bottom: 100, left: 0, right: 100, width: 100, height: 100, x: 0, y: 0, toJSON: () => ({}) })
+    document.hasFocus = () => true
+    rota('POST', '/atividades/reacoes-vistas', { concluidas: 1 })
+    chat.definirMensagens(1, [
+      mensagem({ id: 1, remetente_id: 7, conteudos: [texto('com reação')], reacoes: [{ emoji: '👍', quantidade: 1, reagiu: false }] }),
+      mensagem({ id: 2, remetente_id: 7, conteudos: [texto('só a minha')], reacoes: [{ emoji: '👍', quantidade: 1, reagiu: true }] }),
+      mensagem({ id: 3, remetente_id: 2, conteudos: [texto('de outra pessoa')], visualizada: true, reacoes: [{ emoji: '👍', quantidade: 1, reagiu: false }] }),
+    ])
+    host = mount(Lista, { attachTo: document.body })
+    await flushPromises()
+    const avisos = () => pedidosDe('POST', '/atividades/reacoes-vistas')
+    const esperarAvisos = async (quantos: number) => {
+      for (let i = 0; i < 50 && avisos().length < quantos; i++) await aguardar(20)
+    }
+    gerente.aoScrollChat()
+    await esperarAvisos(1)
+    expect(avisos().map((p) => p.corpo)).toEqual([{ mensagens: [1] }])
+
+    // Rolar de novo não repete; uma reação nova na mesma mensagem avisa outra vez
+    gerente.aoScrollChat()
+    await aguardar(100)
+    expect(avisos()).toHaveLength(1)
+    chat.mensagensAtivas[0]!.reacoes = [{ emoji: '👍', quantidade: 2, reagiu: false }]
+    gerente.aoScrollChat()
+    await esperarAvisos(2)
+    expect(avisos().map((p) => p.corpo)).toEqual([{ mensagens: [1] }, { mensagens: [1] }])
   })
 })

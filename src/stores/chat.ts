@@ -12,6 +12,7 @@ import { playNotificationSound, showNotification, fecharNotificacao, requestNoti
 import { resumirTexto } from '../utils/formatters'
 import { ordenarMensagens, primeiraMensagemSalva } from '../utils/ordemMensagens'
 import { useUploadProgress } from '../composables/useUploadProgress'
+import { medirAudio, type DadosAudio } from '../utils/dadosAudio'
 
 // Bloco do campo de mensagem: textos, arquivos e figurinhas na ordem em que
 // foram compostos
@@ -477,7 +478,7 @@ export const useChatStore = defineStore('chat', () => {
       ordem += 1
     }
 
-    const arquivosInfo: Array<{ blob: Blob; nomeArquivo: string; extensao: string; tipo: TipoConteudo; ordem: number }> = []
+    const arquivosInfo: Array<{ blob: Blob; nomeArquivo: string; extensao: string; tipo: TipoConteudo; ordem: number; audio: DadosAudio | null }> = []
 
     // Com blocos (editor avançado), textos e arquivos vão na ordem deles
     for (const item of blocos ?? arquivos.map((arquivo) => ({ arquivo }))) {
@@ -500,6 +501,8 @@ export const useChatStore = defineStore('chat', () => {
       const tipo = arq.isGravacaoAudio ? TipoConteudo.GravacaoAudio : arq.isAudio ? TipoConteudo.Audio : mimeType.startsWith('image/') ? TipoConteudo.Imagem : TipoConteudo.Arquivo
       const localUrl = URL.createObjectURL(arq.blob)
       localUrlsParaLimpar.push(localUrl)
+      // Áudio: duração e onda medidas aqui vão para o servidor e já aparecem na otimista
+      const audio = tipo === TipoConteudo.Audio || tipo === TipoConteudo.GravacaoAudio ? await medirAudio(arq.blob) : null
 
       conteudosOptimistas.push({
         ordem,
@@ -507,10 +510,11 @@ export const useChatStore = defineStore('chat', () => {
         conteudo: nomeArquivo,
         nome: nomeArquivo,
         extensao,
-        localUrl
+        localUrl,
+        ...(audio ? { duracao: audio.duracao, intensidade: audio.intensidade } : {})
       })
 
-      arquivosInfo.push({ blob: arq.blob, nomeArquivo, extensao, tipo, ordem })
+      arquivosInfo.push({ blob: arq.blob, nomeArquivo, extensao, tipo, ordem, audio })
       ordem += 1
     }
 
@@ -565,7 +569,7 @@ export const useChatStore = defineStore('chat', () => {
       for (const arq of arquivosInfo) {
         const uploadId = `${tempId}-${arq.ordem}`
         const onProgress = iniciarUpload(uploadId, arq.nomeArquivo)
-        const anexo = await api.uploadAnexo(arq.tipo, arq.nomeArquivo, arq.extensao, arq.blob, onProgress)
+        const anexo = await api.uploadAnexo(arq.tipo, arq.nomeArquivo, arq.extensao, arq.blob, onProgress, arq.audio)
         finalizarUpload(uploadId)
         conteudosApi.push({
           ordem: arq.ordem,

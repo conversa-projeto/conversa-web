@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import LoginForm from '@/components/LoginForm.vue'
 import RegisterForm from '@/components/RegisterForm.vue'
@@ -75,6 +75,13 @@ describe('login', () => {
     const tela = montar(LoginForm)
     await botao(tela, 'Criar conta').trigger('click')
     expect(tela.emitted('go-register')).toHaveLength(1)
+  })
+
+  test('com o cadastro fechado pelo administrador, não oferece Criar conta', async () => {
+    rota('GET', '/cadastro', { aberto: false })
+    const tela = montar(LoginForm)
+    await flushPromises()
+    expect(tela.text()).not.toContain('Criar conta')
   })
 })
 

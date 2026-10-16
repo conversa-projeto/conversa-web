@@ -102,6 +102,21 @@ export function useScrollManager() {
   }
 
   /**
+   * Depois de enviar. Com um trecho antigo carregado (foi até uma mensagem
+   * antiga), a lista não tem as mais recentes e a enviada ficaria no fim desse
+   * trecho: recarrega as recentes (a que está sendo enviada fica) e vai ao fim.
+   */
+  async function rolarParaFinalAoEnviar() {
+    const conversaId = chat.conversaAtivaId
+    if (!semMaisSeguintes && conversaId) {
+      await chat.recarregarMensagensRecentes(conversaId)
+      semMaisSeguintes = true
+      await nextTick()
+    }
+    rolarParaFinal()
+  }
+
+  /**
    * Scroll para o final com garantia: executa duas vezes (antes e depois do nextTick)
    * para cobrir casos onde o DOM ainda não refletiu a última mudança.
    */
@@ -387,9 +402,27 @@ export function useScrollManager() {
 
     const limite = container.getBoundingClientRect()
     const idsVisiveis: number[] = []
+    const reacoesVistas: number[] = []
+    const chavesReacoes: string[] = []
 
     for (const mensagem of chat.mensagensAtivas) {
-      if (mensagem.remetente_id === usuarioId || mensagem.visualizada) continue
+      if (mensagem.remetente_id === usuarioId) {
+        // Própria mensagem com reação de outra pessoa na tela: a atividade da
+        // reação deixa de estar pendente (uma vez por quantidade de reações)
+        const deOutros = (mensagem.reacoes ?? []).reduce((total, r) => total + r.quantidade - (r.reagiu ? 1 : 0), 0)
+        const chave = `${mensagem.id}:${deOutros}`
+        if (mensagem.id > 0 && deOutros > 0 && !reacoesAvisadas.has(chave)) {
+          const node = document.getElementById(`msg-${mensagem.id}`)
+          const box = node?.getBoundingClientRect()
+          if (box && box.bottom > limite.top && box.top < limite.bottom) {
+            reacoesAvisadas.add(chave)
+            chavesReacoes.push(chave)
+            reacoesVistas.push(mensagem.id)
+          }
+        }
+        continue
+      }
+      if (mensagem.visualizada) continue
 
       const node = document.getElementById(`msg-${mensagem.id}`)
       if (!node) continue
@@ -402,10 +435,19 @@ export function useScrollManager() {
       }
     }
 
+    if (reacoesVistas.length > 0) {
+      // Falhou: avisa de novo na próxima vez que aparecerem
+      api.concluirReacoesVistas(reacoesVistas).catch(() => {
+        for (const chave of chavesReacoes) reacoesAvisadas.delete(chave)
+      })
+    }
     if (idsVisiveis.length > 0) {
       await chat.marcarMensagensComoVisualizadas(conversaId, idsVisiveis)
     }
   }
+
+  // Reações já avisadas ao servidor como vistas (id da mensagem e quantas reações de outros)
+  const reacoesAvisadas = new Set<string>()
 
   // =====================================================================
   // HANDLER DE SCROLL
@@ -1039,6 +1081,7 @@ export function useScrollManager() {
     indicadorNaoLidasAtivo,
     rolarParaFinal,
     rolarParaFinalAnimado,
+    rolarParaFinalAoEnviar,
     irParaMensagem,
     aoScrollChat,
     aoCarregarImagemNoChat,
