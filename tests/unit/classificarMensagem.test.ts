@@ -25,6 +25,13 @@ describe('classificarMensagem', () => {
     expect(classificarMensagem(mensagem({ conteudos: [figurinha], ...comReferencia([texto('oi')]) }))).toBe(TipoExibicaoMensagem.ComReferencia)
   })
 
+  test('uma localização sem referência; com referência vai para a bolha de referência', () => {
+    const local = { ...conteudo(TipoConteudo.Localizacao), conteudo: '{"pontos":[{"lat":1,"lng":2}]}' }
+    expect(classificarMensagem(mensagem({ conteudos: [local] }))).toBe(TipoExibicaoMensagem.Localizacao)
+    expect(classificarMensagem(mensagem({ conteudos: [local], ...comReferencia([texto('oi')]) }))).toBe(TipoExibicaoMensagem.ComReferencia)
+    expect(classificarMensagem(mensagem({ conteudos: [texto('veja'), { ...local, ordem: 2 }] }))).toBe(TipoExibicaoMensagem.Padrao)
+  })
+
   test('imagem com referência não é bolha de imagem', () => {
     const m = mensagem({ conteudos: [conteudo(TipoConteudo.Imagem)], ...comReferencia([texto('oi')]) })
     expect(classificarMensagem(m)).toBe(TipoExibicaoMensagem.ComReferencia)

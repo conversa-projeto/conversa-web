@@ -56,11 +56,21 @@ describe('configuração de cores', () => {
     useTheme().isDark.value = false
   })
 
+  test('os botões Claro e Escuro trocam o tema', async () => {
+    const tela = montar(ConfiguracaoCores)
+    await tela.findAll('button[aria-pressed]').find((b) => b.text() === 'Escuro')!.trigger('click')
+    expect(useTheme().isDark.value).toBe(true)
+    await tela.findAll('button[aria-pressed]').find((b) => b.text() === 'Escuro')!.trigger('click')
+    expect(useTheme().isDark.value).toBe(true)
+    await tela.findAll('button[aria-pressed]').find((b) => b.text() === 'Claro')!.trigger('click')
+    expect(useTheme().isDark.value).toBe(false)
+  })
+
   test('escolher um tema pronto aplica as cores dele nos dois temas e apaga os ajustes', async () => {
     useTheme().isDark.value = true
     const tela = montar(ConfiguracaoCores)
     useCoresPersonalizadas().definirCor('escuro', '--color-primary-500', '#abcdef')
-    expect(tela.findAll('button[aria-pressed]').map((b) => b.text())).toEqual(['Padrão', 'Teams', 'WhatsApp', 'Messenger'])
+    expect(tela.findAll('button[aria-pressed]').map((b) => b.text())).toEqual(['Claro', 'Escuro', 'Padrão', 'Teams', 'WhatsApp', 'Messenger'])
     await tela.findAll('button[aria-pressed]').find((b) => b.text() === 'Teams')!.trigger('click')
     expect(useCoresPersonalizadas().personalizacao.value.escuro).toEqual({})
     expect(localStorage.getItem('conversa.temaCores')).toBe('teams')
@@ -69,7 +79,7 @@ describe('configuração de cores', () => {
     expect(css).toContain('--color-primary-600:#2b2b40;')
     expect(css).toContain('--color-surface-100:#141414;')
     expect(css.split('html.dark')[0]).toContain('--color-primary-600:#5b5fc7;')
-    expect(tela.find('button[aria-pressed="true"]').text()).toBe('Teams')
+    expect(tela.findAll('button[aria-pressed="true"]').map((b) => b.text())).toEqual(['Escuro', 'Teams'])
     // A edição mostra as cores do tema escolhido
     expect(tela.text()).toContain('#7f85f5')
   })
@@ -194,10 +204,10 @@ describe('página de anexos', () => {
     ]
   }
 
-  test('busca conversas pelo nome, as mais recentes primeiro, e escolhe uma', async () => {
+  test('sem pesquisar, os anexos de todas as conversas; busca conversas pelo nome, as mais recentes primeiro, e escolhe uma', async () => {
     preparar()
     const tela = montar(AnexosPage)
-    expect(tela.text()).toContain('Selecione um contato ou grupo')
+    expect(tela.findComponent(AnexosLista).props('conversaId')).toBe(0)
     await tela.find('input').setValue('br')
     const resultados = tela.findAll('button.border-b')
     expect(resultados.map((r) => r.find('.truncate').text())).toEqual(['Equipe Bravo', 'Bruno'])
@@ -209,7 +219,8 @@ describe('página de anexos', () => {
     expect(tela.findComponent(AnexosLista).props('conversaId')).toBe(1)
     await tela.find('button[title="Limpar selecao"]').trigger('click')
     expect(tela.emitted('update:conversa-id')).toEqual([[1], [null]])
-    expect(tela.findComponent(AnexosLista).exists()).toBe(false)
+    // Sem conversa e sem pesquisa, volta aos anexos de todas
+    expect(tela.findComponent(AnexosLista).props('conversaId')).toBe(0)
   })
 
   test('sem resultado avisa', async () => {

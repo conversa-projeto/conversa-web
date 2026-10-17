@@ -3,9 +3,8 @@ import { CodigoPermissao } from '../types/api'
 // Nome curto de cada permissão nas telas Acessos e Bots
 export const NOMES_PERMISSAO: Record<string, string> = {
   [CodigoPermissao.Parametros]: 'Sistema',
-  [CodigoPermissao.Permissoes]: 'Acessos',
+  [CodigoPermissao.Permissoes]: 'Pessoas',
   [CodigoPermissao.Bots]: 'Bots',
-  [CodigoPermissao.Usuarios]: 'Usuários',
   [CodigoPermissao.Ferramentas]: 'Ferramentas',
   [CodigoPermissao.Conhecimento]: 'Conhecimento',
   [CodigoPermissao.Emoji]: 'Emojis no texto',
@@ -14,6 +13,7 @@ export const NOMES_PERMISSAO: Record<string, string> = {
   [CodigoPermissao.Video]: 'Vídeos',
   [CodigoPermissao.Audio]: 'Áudios e gravações',
   [CodigoPermissao.Arquivo]: 'Arquivos',
+  [CodigoPermissao.Localizacao]: 'Localização e trajeto',
   [CodigoPermissao.Responder]: 'Responder',
   [CodigoPermissao.Encaminhar]: 'Encaminhar',
   [CodigoPermissao.Reagir]: 'Reagir',
@@ -38,7 +38,7 @@ export const NOMES_PERMISSAO: Record<string, string> = {
 
 // As permissões de uso, na ordem e nos grupos em que aparecem
 export const GRUPOS_USO: { titulo: string; codigos: string[] }[] = [
-  { titulo: 'Enviar', codigos: [CodigoPermissao.Emoji, CodigoPermissao.Figurinha, CodigoPermissao.Imagem, CodigoPermissao.Video, CodigoPermissao.Audio, CodigoPermissao.Arquivo] },
+  { titulo: 'Enviar', codigos: [CodigoPermissao.Emoji, CodigoPermissao.Figurinha, CodigoPermissao.Imagem, CodigoPermissao.Video, CodigoPermissao.Audio, CodigoPermissao.Arquivo, CodigoPermissao.Localizacao] },
   { titulo: 'Mensagens', codigos: [CodigoPermissao.Responder, CodigoPermissao.Encaminhar, CodigoPermissao.Reagir, CodigoPermissao.Agendar, CodigoPermissao.Confirmacao, CodigoPermissao.Ocultar] },
   { titulo: 'Grupos', codigos: [CodigoPermissao.Grupo, CodigoPermissao.Postagem, CodigoPermissao.Votacao] },
   { titulo: 'Chamadas', codigos: [CodigoPermissao.ChamadaAudio, CodigoPermissao.ChamadaVideo, CodigoPermissao.CompartilharTela, CodigoPermissao.Telefonia] },

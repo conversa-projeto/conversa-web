@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-4">
     <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4 text-sm text-surface-600">
-      Crie contas para pessoas ou bots, mesmo com o cadastro pela tela de entrada fechado (em Sistema). Conta nova começa com todas as
-      permissões de uso; o bot, só com o básico. Ajuste depois em Acessos (e o bot também em Bots).
+      Crie contas para pessoas ou bots, já escolhendo o que cada uma pode fazer, mesmo com o cadastro pela tela de entrada fechado
+      (em Sistema). Abra uma pessoa na lista para ver e mudar os acessos dela; o bot também se ajusta em Bots.
     </section>
 
     <p v-if="erro" class="rounded-xl bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
@@ -26,7 +26,7 @@
       </div>
 
       <label class="flex cursor-pointer items-start gap-3">
-        <input v-model="form.bot" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" />
+        <input :checked="form.bot" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500" @change="trocarTipo(($event.target as HTMLInputElement).checked)" />
         <span>
           <span class="block text-sm text-surface-800">É um bot de IA</span>
           <span class="block text-xs text-surface-500">Responde com a IA; não entra pelo login, então não tem login, e-mail nem senha.</span>
@@ -61,8 +61,35 @@
         </label>
       </div>
 
+      <div>
+        <p class="text-sm font-medium text-surface-800">Acessos</p>
+        <p class="text-xs text-surface-500">
+          {{ form.bot ? 'O bot só recebe permissões de uso; vem com o básico marcado.' : 'Vem com todas as de uso marcadas e nenhuma de administração.' }}
+        </p>
+        <p v-if="!grupos.length" class="mt-2 text-xs text-surface-500">Carregando as permissões...</p>
+        <div class="mt-2 grid gap-4 sm:grid-cols-2">
+          <fieldset v-for="grupo in grupos" :key="grupo.titulo">
+            <legend class="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">{{ grupo.titulo }}</legend>
+            <label
+              v-for="permissao in grupo.permissoes"
+              :key="permissao.codigo"
+              class="flex items-start gap-2 py-1 text-sm text-surface-700"
+              :title="permissao.descricao"
+            >
+              <input
+                v-model="form.permissoes"
+                type="checkbox"
+                :value="permissao.codigo"
+                class="mt-0.5 h-4 w-4 shrink-0 accent-primary-600 dark:accent-primary-500"
+              />
+              <span>{{ NOMES_PERMISSAO[permissao.codigo] ?? permissao.descricao }}</span>
+            </label>
+          </fieldset>
+        </div>
+      </div>
+
       <div class="flex justify-end gap-2">
-        <button type="button" class="rounded-xl px-4 py-2 text-sm text-surface-700 hover:bg-surface-200" @click="fechar">Cancelar</button>
+        <button type="button" class="rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="fechar">Cancelar</button>
         <button
           type="submit"
           :disabled="salvando || !completo"
@@ -75,82 +102,81 @@
       <button type="button" class="rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700" @click="novo">Novo usuário</button>
     </div>
 
-    <input
-      v-model="busca"
-      type="text"
-      placeholder="Buscar usuário"
-      class="w-full rounded-xl border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-    />
-
-    <p v-if="carregando" class="text-sm text-surface-500">Carregando...</p>
-    <section v-else class="overflow-hidden rounded-2xl border border-surface-200">
-      <div v-for="usuario in filtrados" :key="usuario.id" class="flex items-center gap-3 border-t border-surface-200 px-4 py-2 first:border-t-0">
-        <span class="min-w-0 flex-1">
-          <span class="flex items-center gap-2">
-            <span class="truncate text-sm text-surface-800">{{ usuario.nome }}</span>
-            <span v-if="usuario.bot" class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300">Bot</span>
-          </span>
-          <span class="block truncate text-xs text-surface-500">{{ usuario.login }}</span>
-        </span>
-      </div>
-      <p v-if="filtrados.length === 0" class="px-4 py-3 text-sm text-surface-500">Nenhum usuário encontrado.</p>
-    </section>
+    <!-- A lista com os acessos de cada um; volta a carregar com a conta nova -->
+    <ConfiguracaoAcessos :key="versaoLista" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import * as api from '../services/conversaApi'
 import { useRecursos } from '../composables/useRecursos'
-import { TipoConteudo, type Contato } from '../types/api'
+import { CodigoPermissao, TipoConteudo, type PermissoesSistema } from '../types/api'
 import { inicialNome } from '../utils/formatters'
 import { redimensionarImagem } from '../utils/imageResize'
+import { GRUPOS_USO, NOMES_PERMISSAO } from '../utils/permissoesUso'
+import ConfiguracaoAcessos from './ConfiguracaoAcessos.vue'
 
 const CAMPO = 'mt-1 block rounded-xl border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
+// O padrão do servidor para o bot, que o formulário mostra já marcado
+const BASICO_BOT = [CodigoPermissao.Emoji, CodigoPermissao.Responder, CodigoPermissao.Reagir]
+
+type Permissao = PermissoesSistema['permissoes'][number]
 
 const { recursos } = useRecursos()
 
-const usuarios = ref<Pick<Contato, 'id' | 'nome' | 'login' | 'bot'>[]>([])
-const carregando = ref(true)
 const erro = ref('')
 const criado = ref('')
-const busca = ref('')
 const salvando = ref(false)
-const form = ref<{ nome: string; bot: boolean; instrucoes: string; login: string; email: string; senha: string } | null>(null)
+const versaoLista = ref(0)
+const permissoes = ref<Permissao[]>([])
+const form = ref<{ nome: string; bot: boolean; instrucoes: string; login: string; email: string; senha: string; permissoes: string[] } | null>(null)
 const inputAvatar = ref<HTMLInputElement | null>(null)
 // A foto só sobe ao criar
 const avatar = ref<Blob | null>(null)
 const previa = ref('')
 
-const filtrados = computed(() => {
-  const termo = busca.value.trim().toLowerCase()
-  return termo ? usuarios.value.filter((u) => u.nome.toLowerCase().includes(termo) || u.login.toLowerCase().includes(termo)) : usuarios.value
+// Administração em cima (pessoa) e as de uso nos grupos delas, como no painel da lista
+const grupos = computed(() => {
+  const porCodigo = new Map(permissoes.value.map((p) => [p.codigo, p]))
+  const deUso = GRUPOS_USO
+    .map((grupo) => ({ titulo: grupo.titulo, permissoes: grupo.codigos.map((c) => porCodigo.get(c)).filter((p): p is Permissao => !!p) }))
+    .filter((grupo) => grupo.permissoes.length)
+  const administracao = permissoes.value.filter((p) => !p.uso)
+  return form.value?.bot || !administracao.length ? deUso : [{ titulo: 'Administração', permissoes: administracao }, ...deUso]
 })
 
 const completo = computed(() => {
   const f = form.value
-  if (!f || !f.nome.trim()) return false
+  if (!f || !f.nome.trim() || !permissoes.value.length) return false
   return f.bot ? !!f.instrucoes.trim() && recursos.value.ia : !!f.login.trim() && !!f.email.trim() && f.senha.length >= 4
-})
-
-onMounted(async () => {
-  try {
-    usuarios.value = (await api.getContatos()).sort((a, b) => a.nome.localeCompare(b.nome))
-  } catch (e) {
-    erro.value = e instanceof Error ? e.message : 'Erro ao carregar os usuários'
-  } finally {
-    carregando.value = false
-  }
 })
 
 onBeforeUnmount(() => {
   if (previa.value) URL.revokeObjectURL(previa.value)
 })
 
-function novo() {
+function padrao(bot: boolean) {
+  return bot ? [...BASICO_BOT] : permissoes.value.filter((p) => p.uso).map((p) => p.codigo)
+}
+
+async function novo() {
   erro.value = ''
   criado.value = ''
-  form.value = { nome: '', bot: false, instrucoes: '', login: '', email: '', senha: '' }
+  form.value = { nome: '', bot: false, instrucoes: '', login: '', email: '', senha: '', permissoes: [] }
+  try {
+    if (!permissoes.value.length) permissoes.value = (await api.getPermissoes()).permissoes
+    if (form.value) form.value.permissoes = padrao(form.value.bot)
+  } catch (e) {
+    erro.value = e instanceof Error ? e.message : 'Erro ao carregar as permissões'
+  }
+}
+
+// Pessoa e bot têm padrões diferentes: trocar o tipo volta ao padrão dele
+function trocarTipo(bot: boolean) {
+  if (!form.value) return
+  form.value.bot = bot
+  form.value.permissoes = padrao(bot)
 }
 
 function tirarAvatar() {
@@ -190,9 +216,10 @@ async function salvar() {
       nome: f.nome.trim(),
       ...(anexo ? { avatar_anexo_id: Number(anexo.id) } : {}),
       ...(f.bot ? { bot: true, instrucoes: f.instrucoes } : { login: f.login.trim(), email: f.email.trim(), senha: f.senha }),
+      permissoes: f.permissoes,
     })
-    usuarios.value = [...usuarios.value, conta].sort((a, b) => a.nome.localeCompare(b.nome))
     criado.value = conta.bot ? `Bot ${conta.nome} criado.` : `Conta de ${conta.nome} criada (login ${conta.login}).`
+    versaoLista.value++
     fechar()
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao criar o usuário'

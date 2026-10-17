@@ -10,9 +10,23 @@
     <p v-if="carregando" class="text-sm text-surface-500">Carregando...</p>
 
     <template v-else>
-      <form v-if="form" class="space-y-3 rounded-2xl border border-surface-200 bg-surface-50 p-4" @submit.prevent="salvar">
-        <h4 class="text-sm font-semibold text-surface-800">{{ form.id ? `Editar ${form.nome}` : 'Nova ferramenta' }}</h4>
+      <form
+        v-if="form"
+        class="space-y-3 rounded-2xl border border-surface-200 bg-surface-50 p-4"
+        :aria-label="vendo ? 'Ferramenta embutida' : undefined"
+        @submit.prevent="salvar"
+      >
+        <div v-if="vendo" class="flex items-center gap-2">
+          <h4 class="font-mono text-sm font-semibold text-surface-800">{{ vendo.nome }}</h4>
+          <span class="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300">Embutida</span>
+        </div>
+        <h4 v-else class="text-sm font-semibold text-surface-800">{{ form.id ? `Editar ${form.nome}` : 'Nova ferramenta' }}</h4>
+        <p v-if="vendo" class="text-xs text-surface-500">
+          Vem com o Conversa e não se altera nem se remove: serve de exemplo de como fica uma ferramenta configurada. Os bots a usam quando têm uma base ligada, em Bots.
+        </p>
 
+        <!-- Embutida: os mesmos campos, travados -->
+        <fieldset :disabled="!!vendo" class="space-y-3">
         <label class="block text-sm text-surface-700">
           Nome
           <input v-model="form.nome" type="text" maxlength="60" :class="[CAMPO, 'w-full font-mono']" placeholder="consultar_conhecimento" autocomplete="off" />
@@ -32,7 +46,8 @@
         <div class="flex gap-2">
           <label class="block text-sm text-surface-700">
             Método
-            <select v-model="form.metodo" :class="CAMPO">
+            <input v-if="vendo" value="Interna" type="text" :class="[CAMPO, 'w-24']" />
+            <select v-else v-model="form.metodo" :class="CAMPO">
               <option value="GET">GET</option>
               <option value="POST">POST</option>
             </select>
@@ -42,7 +57,8 @@
             <input v-model="form.url" type="text" :class="[CAMPO, 'w-full font-mono']" placeholder="https://base.empresa/colecoes/{colecao}/buscar" autocomplete="off" />
           </label>
         </div>
-        <p class="-mt-2 text-xs text-surface-500">
+        <p v-if="vendo" class="-mt-2 text-xs text-surface-500">{{ vendo.origem }}</p>
+        <p v-else class="-mt-2 text-xs text-surface-500">
           <code>{parametro}</code> no endereço vira o valor; os outros parâmetros vão na consulta (GET) ou no corpo JSON (POST).
         </p>
 
@@ -58,9 +74,10 @@
               aria-label="Valor do cabeçalho"
               autocomplete="new-password"
             />
-            <button type="button" class="shrink-0 rounded-lg px-2 text-sm text-danger-600 hover:bg-danger-500/10 dark:text-danger-400" @click="form.cabecalhos.splice(indice, 1)">Remover</button>
+            <button v-if="!vendo" type="button" class="shrink-0 rounded-lg px-2 text-sm text-danger-600 hover:bg-danger-500/10 dark:text-danger-400" @click="form.cabecalhos.splice(indice, 1)">Remover</button>
           </div>
-          <button type="button" class="mt-2 text-sm text-primary-600 hover:underline dark:text-primary-400" @click="form.cabecalhos.push({ nome: '', valor: '', salvo: false })">+ Cabeçalho</button>
+          <p v-if="vendo" class="mt-1 text-sm text-surface-500">Nenhum: ela não chama endereço externo.</p>
+          <button v-else type="button" class="mt-2 text-sm text-primary-600 hover:underline dark:text-primary-400" @click="form.cabecalhos.push({ nome: '', valor: '', salvo: false })">+ Cabeçalho</button>
         </fieldset>
 
         <fieldset>
@@ -77,17 +94,26 @@
               <input v-model="parametro.obrigatorio" type="checkbox" class="h-4 w-4 accent-primary-600 dark:accent-primary-500" />
               obrigatório
             </label>
-            <button type="button" class="shrink-0 rounded-lg px-2 text-sm text-danger-600 hover:bg-danger-500/10 dark:text-danger-400" @click="form.parametros.splice(indice, 1)">Remover</button>
+            <button v-if="!vendo" type="button" class="shrink-0 rounded-lg px-2 text-sm text-danger-600 hover:bg-danger-500/10 dark:text-danger-400" @click="form.parametros.splice(indice, 1)">Remover</button>
           </div>
-          <button type="button" class="mt-2 text-sm text-primary-600 hover:underline dark:text-primary-400" @click="form.parametros.push({ nome: '', tipo: 'string', descricao: '', obrigatorio: true })">+ Parâmetro</button>
+          <button v-if="!vendo" type="button" class="mt-2 text-sm text-primary-600 hover:underline dark:text-primary-400" @click="form.parametros.push({ nome: '', tipo: 'string', descricao: '', obrigatorio: true })">+ Parâmetro</button>
         </fieldset>
 
         <label class="flex cursor-pointer items-center gap-3 text-sm text-surface-800">
           <input v-model="form.ativo" type="checkbox" class="h-4 w-4 accent-primary-600 dark:accent-primary-500" />
           Ligada (desligada, nenhum bot a usa)
         </label>
+        </fieldset>
 
-        <div class="flex justify-end gap-2">
+        <details v-if="vendo" class="text-sm text-surface-700">
+          <summary class="cursor-pointer text-xs font-medium">Como o modelo recebe (com as bases cadastradas)</summary>
+          <pre class="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-surface-200 bg-surface-base p-3 text-xs text-surface-700">{{ JSON.stringify(vendo.definicao, null, 2) }}</pre>
+        </details>
+
+        <div v-if="vendo" class="flex justify-end">
+          <button type="button" class="rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="fechar">Fechar</button>
+        </div>
+        <div v-else class="flex justify-end gap-2">
           <button
             v-if="form.id"
             type="button"
@@ -95,7 +121,7 @@
             class="mr-auto rounded-xl px-4 py-2 text-sm text-danger-600 hover:bg-danger-500/10 disabled:opacity-50 dark:text-danger-400"
             @click="excluir"
           >Excluir</button>
-          <button type="button" class="rounded-xl px-4 py-2 text-sm text-surface-700 hover:bg-surface-200" @click="fechar">Cancelar</button>
+          <button type="button" class="rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="fechar">Cancelar</button>
           <button
             type="submit"
             :disabled="salvando || !form.nome.trim() || !form.descricao.trim() || !form.url.trim()"
@@ -113,7 +139,7 @@
           <button
             type="button"
             :disabled="testando"
-            class="rounded-xl border border-surface-300 px-4 py-2 text-sm text-surface-700 hover:bg-surface-200 disabled:opacity-50"
+            class="rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10"
             @click="testar"
           >{{ testando ? 'Chamando...' : 'Testar' }}</button>
           <div v-if="teste" class="rounded-xl border p-3 text-sm" :class="teste.ok ? 'border-success-300 bg-success-50 dark:bg-success-900/30' : 'border-danger-300 bg-danger-50 dark:bg-danger-900/30'">
@@ -129,7 +155,17 @@
         <button type="button" class="rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700" @click="nova">Nova ferramenta</button>
       </div>
 
-      <section class="overflow-hidden rounded-2xl border border-surface-200">
+      <section class="overflow-hidden rounded-2xl border border-surface-200 bg-surface-50">
+        <div v-for="embutida in embutidas" :key="embutida.nome" class="flex items-center gap-3 border-t border-surface-200 px-4 py-3 first:border-t-0">
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center gap-2">
+              <span class="truncate font-mono text-sm text-surface-800">{{ embutida.nome }}</span>
+              <span class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300">Embutida</span>
+            </span>
+            <span class="block truncate text-xs text-surface-500">Interna, sem endereço externo</span>
+          </span>
+          <button type="button" class="shrink-0 rounded-lg border border-primary-600 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="ver(embutida)">Ver</button>
+        </div>
         <div v-for="ferramenta in ferramentas" :key="ferramenta.id" class="flex items-center gap-3 border-t border-surface-200 px-4 py-3 first:border-t-0">
           <span class="min-w-0 flex-1">
             <span class="flex items-center gap-2">
@@ -141,9 +177,9 @@
             </span>
             <span class="block truncate text-xs text-surface-500">{{ ferramenta.metodo }} {{ ferramenta.url }}</span>
           </span>
-          <button type="button" class="shrink-0 rounded-lg px-3 py-1.5 text-sm text-primary-600 hover:bg-surface-200 dark:text-primary-400" @click="editar(ferramenta)">Editar</button>
+          <button type="button" class="shrink-0 rounded-lg border border-primary-600 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="editar(ferramenta)">Editar</button>
         </div>
-        <p v-if="ferramentas.length === 0" class="px-4 py-3 text-sm text-surface-500">Nenhuma ferramenta ainda.</p>
+        <p v-if="ferramentas.length === 0" class="border-t border-surface-200 px-4 py-3 text-sm text-surface-500 first:border-t-0">Nenhuma API externa cadastrada ainda: use Nova ferramenta para cadastrar a primeira.</p>
       </section>
     </template>
 
@@ -155,7 +191,7 @@
 import { computed, onMounted, ref } from 'vue'
 import * as api from '../services/conversaApi'
 import { useDialogo } from '../composables/useDialogo'
-import type { FerramentaExterna, ParametroFerramenta, TesteFerramenta } from '../types/api'
+import type { FerramentaEmbutida, FerramentaExterna, ParametroFerramenta, TesteFerramenta } from '../types/api'
 import DialogoConfirmacao from './DialogoConfirmacao.vue'
 
 const CAMPO = 'mt-1 block rounded-xl border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
@@ -174,6 +210,8 @@ interface Formulario {
 
 const dialogo = useDialogo()
 const ferramentas = ref<FerramentaExterna[]>([])
+const embutidas = ref<FerramentaEmbutida[]>([])
+const vendo = ref<FerramentaEmbutida | null>(null)
 const carregando = ref(true)
 const erro = ref('')
 const salvando = ref(false)
@@ -186,6 +224,8 @@ const teste = ref<TesteFerramenta | null>(null)
 const salva = computed(() => (form.value?.id ? ferramentas.value.find((f) => f.id === form.value!.id) ?? null : null))
 
 onMounted(async () => {
+  // Sem a lista das embutidas, só não aparece o exemplo
+  api.getFerramentasEmbutidas().then((lista) => { embutidas.value = lista }).catch(() => {})
   try {
     ferramentas.value = await api.getFerramentas()
   } catch (e) {
@@ -195,7 +235,25 @@ onMounted(async () => {
   }
 })
 
+// A embutida abre no mesmo formulário, travado
+function ver(embutida: FerramentaEmbutida) {
+  erro.value = ''
+  teste.value = null
+  vendo.value = embutida
+  form.value = {
+    id: null,
+    nome: embutida.nome,
+    descricao: embutida.descricao,
+    metodo: 'GET',
+    url: 'Qdrant, nas bases ligadas ao bot',
+    cabecalhos: [],
+    parametros: embutida.parametros.map((p) => ({ ...p })),
+    ativo: true,
+  }
+}
+
 function nova() {
+  vendo.value = null
   erro.value = ''
   teste.value = null
   form.value = {
@@ -211,6 +269,7 @@ function nova() {
 }
 
 function editar(ferramenta: FerramentaExterna) {
+  vendo.value = null
   erro.value = ''
   teste.value = null
   exemplo.value = {}
@@ -227,6 +286,7 @@ function editar(ferramenta: FerramentaExterna) {
 }
 
 function fechar() {
+  vendo.value = null
   form.value = null
   teste.value = null
 }

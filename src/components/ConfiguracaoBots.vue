@@ -113,7 +113,7 @@
             class="mr-auto rounded-xl px-4 py-2 text-sm text-danger-600 hover:bg-danger-500/10 disabled:opacity-50 dark:text-danger-400"
             @click="excluir"
           >Excluir bot</button>
-          <button type="button" class="rounded-xl px-4 py-2 text-sm text-surface-700 hover:bg-surface-200" @click="fechar">Cancelar</button>
+          <button type="button" class="rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="fechar">Cancelar</button>
           <button
             type="submit"
             :disabled="salvando || !form.nome.trim() || !form.instrucoes.trim() || (!form.id && !recursos.ia)"

@@ -54,6 +54,11 @@ export default defineConfig(({ command }) => ({
             return 'editor'
           }
 
+          // Mapa das localizações: só carrega quando aparece uma
+          if (id.includes('node_modules/leaflet')) {
+            return 'leaflet'
+          }
+
           if (id.includes('node_modules/lottie-web')) {
             return 'lottie'
           }

@@ -9,6 +9,7 @@ import ConfiguracaoBots from '@/components/ConfiguracaoBots.vue'
 import ConfiguracaoUsuarios from '@/components/ConfiguracaoUsuarios.vue'
 import ConfiguracaoFerramentas from '@/components/ConfiguracaoFerramentas.vue'
 import ConfiguracaoConhecimento from '@/components/ConfiguracaoConhecimento.vue'
+import EspacoUsado from '@/components/EspacoUsado.vue'
 import { useRecursos } from '@/composables/useRecursos'
 import { useAuthStore } from '@/stores/auth'
 import { aguardar, erro, pedidosDe, rota } from './apiFalsa'
@@ -31,6 +32,7 @@ const parametrosApi = (extras: Record<string, unknown> = {}) => ({
   fcm_project_id: 'projeto', fcm_client_email: 'conta@projeto.iam', fcm_private_key_configurada: true,
   turn_forcar_relay: false, transcritor_url: '', transcritor_idioma: 'pt', gravacao_dias: 90, s3_bucket: 'chat',
   ia_url: '', ia_modelo: '', ia_token_configurado: false, cadastro_aberto: true, ia_modelo_embeddings: '',
+  ia_embeddings_url: '', ia_embeddings_token_configurado: false,
   ...extras,
 })
 
@@ -49,7 +51,7 @@ describe('permissões do usuário', () => {
 })
 
 describe('abas restritas nas configurações', () => {
-  async function abrir(permissoes: string[], abaAtiva: 'usuario' | 'sistema' = 'usuario') {
+  async function abrir(permissoes: string[], abaAtiva: 'usuario' | 'sistema' | 'chamadas' | 'acessos' | 'usuarios' = 'usuario') {
     rota('GET', '/usuario/permissoes', permissoes)
     rota('GET', '/sip', {})
     rota('GET', '/parametros', parametrosApi())
@@ -59,27 +61,43 @@ describe('abas restritas nas configurações', () => {
     await flushPromises()
     return tela.findAll('aside button').map((b) => b.find('span').text())
   }
+  const subabas = () => tela!.findAll('[data-subaba]').map((b) => b.text())
 
-  test('sem permissão, Sistema e Acessos não aparecem', async () => {
-    const abas = await abrir([])
-    expect(abas).not.toContain('Sistema')
-    expect(abas).not.toContain('Acessos')
+  test('sem permissão, só os menus pessoais, sem a seção Administração', async () => {
+    const menus = await abrir([])
+    expect(menus).toEqual(['Conta', 'Dispositivos'])
+    expect(tela!.text()).not.toContain('Administração')
+    expect(subabas()).toEqual(['Perfil', 'Privacidade'])
   })
 
-  test('cada aba aparece com a sua permissão', async () => {
-    expect(await abrir(['parametros'])).toContain('Sistema')
+  test('cada menu aparece com a sua permissão', async () => {
+    expect(await abrir(['parametros'])).toEqual(['Conta', 'Dispositivos', 'Sistema', 'IA'])
+    expect(tela!.text()).toContain('Administração')
     tela!.unmount()
-    const abas = await abrir(['permissoes'])
-    expect(abas).toContain('Acessos')
-    expect(abas).not.toContain('Sistema')
+    expect(await abrir(['permissoes'])).toEqual(['Conta', 'Dispositivos', 'Pessoas', 'IA'])
   })
 
-  test('Usuários com a sua permissão; Cores, Chamadas e Voip somem sem as de uso', async () => {
-    const abas = await abrir(['usuarios', 'cores'])
-    expect(abas).toContain('Usuários')
-    expect(abas).toContain('Cores')
-    expect(abas).not.toContain('Chamadas')
-    expect(abas).not.toContain('Voip')
+  test('Pessoas é uma tela só, Usuários, com a permissão Pessoas; o endereço antigo de Acessos leva para ela', async () => {
+    await abrir(['permissoes'], 'acessos')
+    expect(tela!.emitted('update:abaAtiva')).toEqual([['usuarios']])
+    tela!.unmount()
+    await abrir(['permissoes'], 'usuarios')
+    // Uma aba só: sem a barra de sub-abas, direto na tela
+    expect(subabas()).toEqual([])
+    expect(tela!.text()).toContain('Novo usuário')
+  })
+
+  test('Chamadas junta Qualidade e Voip; os dois somem sem as permissões de uso', async () => {
+    expect(await abrir(['permissoes', 'cores'])).toEqual(['Conta', 'Aparência', 'Dispositivos', 'Pessoas', 'IA'])
+    tela!.unmount()
+    await abrir(['config_chamadas', 'telefonia'], 'chamadas')
+    expect(subabas()).toEqual(['Qualidade', 'Voip'])
+  })
+
+  test('clicar num menu abre a primeira sub-aba dele', async () => {
+    await abrir(['parametros', 'bots'])
+    await tela!.findAll('aside button').find((b) => b.text().startsWith('IA'))!.trigger('click')
+    expect(tela!.emitted('update:abaAtiva')).toEqual([['bots']])
   })
 
   test('aba Usuário: sem nome e avatar, trava o nome e some a foto; salvar manda só o e-mail; sem senha, some a troca', async () => {
@@ -103,9 +121,9 @@ describe('abas restritas nas configurações', () => {
 })
 
 describe('tela Sistema', () => {
-  async function abrir(parametros = parametrosApi()) {
+  async function abrir(parametros = parametrosApi(), parte: 'geral' | 'ia' = 'geral') {
     rota('GET', '/parametros', parametros)
-    tela = mount(ConfiguracaoSistema, { attachTo: document.body })
+    tela = mount(ConfiguracaoSistema, { props: { parte }, attachTo: document.body })
     await aguardar(10)
     return tela
   }
@@ -117,6 +135,39 @@ describe('tela Sistema', () => {
     expect(tela!.text()).toContain('(configurada)')
     expect(tela!.text()).toContain('chat')
     expect(tela!.find('button[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+
+  const campo = (rotulo: string) => tela!.findAll('label').find((l) => l.text().startsWith(rotulo))!.find('input')
+  const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
+
+  test('servidor de embeddings próprio: o token só aparece com o endereço e vai junto ao salvar', async () => {
+    rota('PATCH', '/parametros', (pedido: { corpo: Record<string, unknown> }) => parametrosApi({ ...pedido.corpo, ia_embeddings_token_configurado: true }))
+    await abrir(parametrosApi({ ia_url: 'http://ia.test:1234', ia_modelo: 'gemma', ia_modelo_embeddings: 'nomic-embed-text' }), 'ia')
+    expect(tela!.text()).not.toContain('Token do servidor de embeddings')
+    await campo('Endereço do servidor de embeddings').setValue('http://embeddings.test:8081')
+    await campo('Token do servidor de embeddings').setValue('segredo')
+    await salvar()
+    await aguardar(10)
+    expect(pedidosDe('PATCH', '/parametros')[0]!.corpo).toEqual({ ia_embeddings_url: 'http://embeddings.test:8081', ia_embeddings_token: 'segredo' })
+    expect(tela!.text()).toContain('(configurado)')
+  })
+
+  test('Testar embeddings: no servidor próprio com o token dele; sem endereço, no da IA com o token da IA', async () => {
+    rota('POST', '/parametros/ia/testar-embeddings', { ok: true, dimensoes: 768, erro: '', milissegundos: 120 })
+    await abrir(parametrosApi({ ia_url: 'http://ia.test:1234', ia_modelo: 'gemma', ia_modelo_embeddings: 'nomic-embed-text' }), 'ia')
+    await campo('Token').setValue('token-da-ia')
+    await botao('Testar embeddings').trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('POST', '/parametros/ia/testar-embeddings')[0]!.corpo).toEqual({ url: '', url_ia: 'http://ia.test:1234', modelo: 'nomic-embed-text', token: 'token-da-ia' })
+    expect(tela!.text()).toContain('vetores de 768 dimensões')
+
+    await campo('Endereço do servidor de embeddings').setValue('http://embeddings.test:8081')
+    await campo('Token do servidor de embeddings').setValue('token-dos-embeddings')
+    rota('POST', '/parametros/ia/testar-embeddings', { ok: false, dimensoes: 0, erro: 'Não foi possível falar com o servidor de IA', milissegundos: 5 })
+    await botao('Testar embeddings').trigger('click')
+    await aguardar(10)
+    expect(pedidosDe('POST', '/parametros/ia/testar-embeddings')[1]!.corpo).toEqual({ url: 'http://embeddings.test:8081', url_ia: 'http://ia.test:1234', modelo: 'nomic-embed-text', token: 'token-dos-embeddings' })
+    expect(tela!.text()).toContain('Não foi possível falar com o servidor de IA')
   })
 
   test('salva só o que mudou; a chave vai só se for digitada', async () => {
@@ -151,7 +202,7 @@ describe('tela Sistema', () => {
 
   test('IA: endereço e modelo salvam; o token só vai se digitado, ou vazio para remover', async () => {
     rota('PATCH', '/parametros', (pedido: { corpo: Record<string, unknown> }) => parametrosApi({ ...pedido.corpo, ia_token_configurado: true }))
-    await abrir()
+    await abrir(parametrosApi(), 'ia')
     const campo = (placeholder: string) => tela!.find(`input[placeholder^="${placeholder}"]`)
     await campo('http://ollama').setValue('http://ollama:11434/v1')
     await campo('llama3.1').setValue('llama3.1')
@@ -171,7 +222,7 @@ describe('tela Sistema', () => {
 
   test('IA: testar usa o que está na tela, antes de salvar, e mostra o resultado', async () => {
     rota('POST', '/parametros/ia/testar', { ok: true, resposta: 'ok', erro: '', milissegundos: 1234 })
-    await abrir(parametrosApi({ ia_url: 'http://ollama:11434', ia_modelo: 'llama3.1' }))
+    await abrir(parametrosApi({ ia_url: 'http://ollama:11434', ia_modelo: 'llama3.1' }), 'ia')
     const testar = () => tela!.findAll('button').find((b) => b.text().startsWith('Testar'))!
     await testar().trigger('click')
     await aguardar(10)
@@ -181,6 +232,16 @@ describe('tela Sistema', () => {
     await testar().trigger('click')
     await aguardar(10)
     expect(tela!.text()).toContain('O servidor de IA respondeu 401')
+  })
+
+  test('cada parte mostra só as suas seções', async () => {
+    await abrir()
+    expect(tela!.text()).toContain('Transcrição de áudio')
+    expect(tela!.text()).not.toContain('Inteligência artificial')
+    tela!.unmount()
+    await abrir(parametrosApi(), 'ia')
+    expect(tela!.text()).toContain('Inteligência artificial')
+    expect(tela!.text()).not.toContain('Transcrição de áudio')
   })
 
   test('sem permissão, mostra o motivo', async () => {
@@ -243,15 +304,15 @@ describe('tela Acessos', () => {
   test('recusa do servidor mostra o motivo e a caixa volta', async () => {
     rota('PUT', '/permissao/usuario', erro(403, 'Acesso negado!'))
     await abrir()
-    await (await caixa('Acessos para Ana')).setValue(true)
+    await (await caixa('Pessoas para Ana')).setValue(true)
     await aguardar(10)
     expect(tela!.text()).toContain('Acesso negado!')
-    expect(((await caixa('Acessos para Ana')).element as HTMLInputElement).checked).toBe(false)
+    expect(((await caixa('Pessoas para Ana')).element as HTMLInputElement).checked).toBe(false)
   })
 
   test('as próprias permissões marcadas ficam travadas; as dos outros não', async () => {
     await abrir()
-    expect((await caixa('Acessos para Eu Mesmo')).attributes('disabled')).toBeDefined()
+    expect((await caixa('Pessoas para Eu Mesmo')).attributes('disabled')).toBeDefined()
     expect((await caixa('Sistema para Eu Mesmo')).attributes('disabled')).toBeDefined()
     expect((await caixa('Sistema para Ana')).attributes('disabled')).toBeUndefined()
   })
@@ -280,11 +341,11 @@ describe('tela Acessos', () => {
   test('modo aberto: avisa; marcar Acessos para alguém encerra e atualiza o que você vê', async () => {
     rota('PUT', '/permissao/usuario', { usuario_id: 2, codigo: 'permissoes' })
     await abrir({ modo_aberto: true })
-    expect(tela!.text()).toContain('Ninguém tem a permissão Acessos ainda')
+    expect(tela!.text()).toContain('Ninguém tem a permissão Pessoas ainda')
     rota('GET', '/usuario/permissoes', [])
-    await (await caixa('Acessos para Ana')).setValue(true)
+    await (await caixa('Pessoas para Ana')).setValue(true)
     await aguardar(10)
-    expect(tela!.text()).not.toContain('Ninguém tem a permissão Acessos ainda')
+    expect(tela!.text()).not.toContain('Ninguém tem a permissão Pessoas ainda')
     expect(useAuthStore().permissoes).toEqual([])
   })
 
@@ -421,10 +482,45 @@ describe('tela Ferramentas', () => {
   const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
   const campo = (rotulo: string) => tela!.findAll('label').find((l) => l.text().startsWith(rotulo))!.find('input, textarea, select')
 
+  test('a embutida da base de conhecimento aparece primeiro e abre só para leitura, com a definição', async () => {
+    rota('GET', '/ferramentas/embutidas', [{
+      nome: 'consultar_conhecimento',
+      descricao: 'Procura na base de conhecimento (RH: Políticas) os trechos de documentos que respondem à pergunta.',
+      origem: 'Interna: busca no Qdrant. Não chama endereço externo e não tem cabeçalhos.',
+      parametros: [
+        { nome: 'pergunta', tipo: 'string', descricao: 'O que procurar, em poucas palavras', obrigatorio: true },
+        { nome: 'base', tipo: 'string', descricao: 'Em qual base procurar', obrigatorio: false },
+      ],
+      definicao: { type: 'function', function: { name: 'consultar_conhecimento', parameters: { required: ['pergunta'] } } },
+    }])
+    await abrir([ferramenta({ id: 9, nome: 'buscar_pedidos' })])
+    const linhas = tela!.findAll('section.overflow-hidden > div').map((l) => l.text())
+    expect(linhas[0]).toContain('consultar_conhecimento')
+    expect(linhas[0]).toContain('Embutida')
+    expect(linhas[1]).toContain('buscar_pedidos')
+    await botao('Ver').trigger('click')
+    // O mesmo formulário das cadastradas, com os mesmos campos, todos travados
+    const painel = tela!.find('form[aria-label="Ferramenta embutida"]')
+    const valor = (rotulo: string) => (painel.findAll('label').find((l) => l.text().startsWith(rotulo))!.find('input, textarea').element as HTMLInputElement).value
+    expect(valor('Nome')).toBe('consultar_conhecimento')
+    expect(valor('Descrição')).toContain('RH: Políticas')
+    expect(valor('Método')).toBe('Interna')
+    expect(painel.text()).toContain('Não chama endereço externo')
+    expect(painel.text()).toContain('Nenhum: ela não chama endereço externo.')
+    expect(painel.findAll('input[aria-label="Nome do parâmetro"]').map((i) => (i.element as HTMLInputElement).value)).toEqual(['pergunta', 'base'])
+    expect(painel.find('fieldset').attributes('disabled')).toBeDefined()
+    expect(painel.find('pre').text()).toContain('"required": [')
+    // Sem editar: nada de remover, acrescentar, salvar, excluir nem testar
+    expect(painel.findAll('button').map((b) => b.text())).toEqual(['Fechar'])
+    await botao('Fechar').trigger('click')
+    expect(tela!.find('form').exists()).toBe(false)
+    expect(botao('Nova ferramenta').exists()).toBe(true)
+  })
+
   test('cria com cabeçalho e parâmetro; fica aberta para testar', async () => {
     rota('PUT', '/ferramenta', ferramenta())
     await abrir()
-    expect(tela!.text()).toContain('Nenhuma ferramenta ainda.')
+    expect(tela!.text()).toContain('Nenhuma API externa cadastrada ainda: use Nova ferramenta para cadastrar a primeira.')
     await botao('Nova ferramenta').trigger('click')
     await campo('Nome').setValue('consultar_conhecimento')
     await campo('Descrição').setValue('Busca na base')
@@ -518,6 +614,8 @@ describe('tela Conhecimento', () => {
     expect(pedidosDe('POST', '/conhecimento/buscar')[0]!.corpo).toEqual({ bases: [4], pergunta: 'antecedência das férias' })
     expect(tela!.text()).toContain('ferias.pdf · semelhança 0.87')
     expect(tela!.text()).toContain('Peça com 45 dias de antecedência.')
+    // As palavras da pergunta aparecem destacadas no trecho
+    expect(tela!.findAll('mark').map((m) => m.text())).toEqual(['antecedência'])
   })
 
   test('nova base é criada e já fica aberta; desligada, avisa e não deixa enviar', async () => {
@@ -535,56 +633,110 @@ describe('tela Conhecimento', () => {
 })
 
 describe('tela Usuários', () => {
+  const permissoesApi = () => ({
+    permissoes: [
+      { codigo: 'parametros', descricao: 'Ver e alterar as configurações do sistema', uso: false },
+      { codigo: 'permissoes', descricao: 'Cadastrar pessoas e bots e conceder e retirar permissões', uso: false },
+      { codigo: 'emoji', descricao: 'Enviar emojis', uso: true },
+      { codigo: 'figurinha', descricao: 'Enviar figurinhas', uso: true },
+      { codigo: 'responder', descricao: 'Responder', uso: true },
+      { codigo: 'reagir', descricao: 'Reagir', uso: true },
+    ],
+    usuarios: [
+      { id: 2, nome: 'Ana', login: 'ana', criado_em: new Date(2026, 2, 9), bot: false, permissoes: ['emoji'], espaco: 1572864 },
+      { id: 40, nome: 'Compras', login: 'bot-compras', criado_em: null, bot: true, permissoes: ['emoji', 'responder', 'reagir'], espaco: 0 },
+    ],
+    modo_aberto: false,
+  })
   async function abrir(ia = true) {
     rota('GET', '/recursos', { transcricao: false, ia })
     await useRecursos().recarregar()
-    rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Ana', login: 'ana', bot: false }, { id: 40, nome: 'Compras', login: 'bot-compras', bot: true }])
+    rota('GET', '/permissoes', permissoesApi())
+    rota('GET', '/usuario/permissoes', ['permissoes'])
     tela = mount(ConfiguracaoUsuarios, { attachTo: document.body })
     await aguardar(10)
     return tela
   }
   const botao = (texto: string) => tela!.findAll('button').find((b) => b.text() === texto)!
   const campo = (rotulo: string) => tela!.findAll('label').find((l) => l.text().startsWith(rotulo))!.find('input, textarea')
+  const acesso = (nome: string) => tela!.find('form').findAll('fieldset label').find((l) => l.text() === nome)!.find('input')
+  const marcado = (nome: string) => (acesso(nome).element as HTMLInputElement).checked
 
-  test('lista com a marca de bot; cria uma pessoa com login, e-mail e senha', async () => {
+  test('uma lista só, com os acessos de cada um e a marca de bot; cria uma pessoa já com os acessos escolhidos', async () => {
     rota('PUT', '/usuario/novo', { id: 50, nome: 'Bruno', login: 'bruno', bot: false })
     await abrir()
-    expect(tela!.text()).toContain('Compras')
-    expect(tela!.text()).toContain('Bot')
+    const compras = tela!.findAll('button[aria-expanded]').find((b) => b.text().includes('Compras'))!
+    expect(compras.text()).toContain('Bot')
+    expect(compras.text()).toContain('3 de 6')
+    // Espaço dos arquivos que cada um enviou
+    expect(tela!.findAll('button[aria-expanded]').find((b) => b.text().includes('Ana'))!.text()).toContain('1.5 MB')
+    expect(compras.text()).toContain('0 B')
+    // Data do cadastro; conta sem data não mostra nada
+    expect(tela!.findAll('button[aria-expanded]').find((b) => b.text().includes('Ana'))!.text()).toContain('09/03/2026')
+    expect(compras.text()).not.toMatch(/\d{2}\/\d{2}\/\d{4}/)
+
     await botao('Novo usuário').trigger('click')
+    await aguardar(10)
+    // Padrão de pessoa: todas as de uso, nenhuma de administração
+    expect(tela!.find('form').findAll('fieldset legend').map((l) => l.text())).toEqual(['Administração', 'Enviar', 'Mensagens'])
+    expect(['Emojis no texto', 'Figurinhas', 'Responder', 'Reagir'].every(marcado)).toBe(true)
+    expect(marcado('Sistema')).toBe(false)
+    await acesso('Figurinhas').setValue(false)
+    await acesso('Sistema').setValue(true)
+
     await campo('Nome').setValue('Bruno')
     await campo('Login').setValue('bruno')
     await campo('E-mail').setValue('bruno@teste.test')
     expect(botao('Criar').attributes('disabled')).toBeDefined()
     await campo('Senha').setValue('segredo')
+    const listas = pedidosDe('GET', '/permissoes').length
     await tela!.find('form').trigger('submit')
     await aguardar(10)
-    expect(pedidosDe('PUT', '/usuario/novo')[0]!.corpo).toEqual({ nome: 'Bruno', login: 'bruno', email: 'bruno@teste.test', senha: 'segredo' })
+    expect(pedidosDe('PUT', '/usuario/novo')[0]!.corpo).toEqual({
+      nome: 'Bruno', login: 'bruno', email: 'bruno@teste.test', senha: 'segredo', permissoes: ['emoji', 'responder', 'reagir', 'parametros'],
+    })
     expect(tela!.text()).toContain('Conta de Bruno criada (login bruno).')
     expect(tela!.find('form').exists()).toBe(false)
+    // A lista volta a carregar, com a conta nova
+    expect(pedidosDe('GET', '/permissoes').length).toBeGreaterThan(listas)
   })
 
-  test('bot: troca login, e-mail e senha pelas instruções; com a IA desligada não cria', async () => {
+  test('bot: instruções no lugar de login e senha, só as de uso com o básico marcado; com a IA desligada não cria', async () => {
     rota('PUT', '/usuario/novo', { id: 51, nome: 'Suporte', login: 'bot-suporte-x', bot: true })
     await abrir()
     await botao('Novo usuário').trigger('click')
+    await aguardar(10)
     await campo('É um bot').setValue(true)
     expect(tela!.findAll('input[type="password"]')).toHaveLength(0)
+    expect(tela!.find('form').findAll('fieldset legend').map((l) => l.text())).toEqual(['Enviar', 'Mensagens'])
+    expect(marcado('Figurinhas')).toBe(false)
+    expect(['Emojis no texto', 'Responder', 'Reagir'].every(marcado)).toBe(true)
     await campo('Nome').setValue('Suporte')
     await campo('Instruções').setValue('Ajuda com TI.')
     await tela!.find('form').trigger('submit')
     await aguardar(10)
-    expect(pedidosDe('PUT', '/usuario/novo')[0]!.corpo).toEqual({ nome: 'Suporte', bot: true, instrucoes: 'Ajuda com TI.' })
+    expect(pedidosDe('PUT', '/usuario/novo')[0]!.corpo).toEqual({ nome: 'Suporte', bot: true, instrucoes: 'Ajuda com TI.', permissoes: ['emoji', 'responder', 'reagir'] })
     expect(tela!.text()).toContain('Bot Suporte criado.')
 
     tela!.unmount()
     await abrir(false)
     await botao('Novo usuário').trigger('click')
+    await aguardar(10)
     await campo('É um bot').setValue(true)
     await campo('Nome').setValue('Outro')
     await campo('Instruções').setValue('x')
     expect(tela!.text()).toContain('A IA está desligada')
     expect(botao('Criar').attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('armazenamento na conta', () => {
+  test('mostra o espaço dos arquivos que a pessoa enviou', async () => {
+    rota('GET', '/usuario/espaco', { bytes: 2048 })
+    tela = mount(EspacoUsado, { attachTo: document.body })
+    await aguardar(10)
+    expect(tela.text()).toContain('2.0 KB')
+    expect(tela.text()).toContain('usados pelos arquivos que você enviou')
   })
 })
 

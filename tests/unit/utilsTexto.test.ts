@@ -3,6 +3,7 @@ import { dividirMencoes, extrairMencoesCruas, textoParaEnvio } from '@/utils/men
 import { substituirAtalhoAntesDoCursor, substituirAtalhoNoFim } from '@/utils/emojiAtalhos'
 import { emojiNome } from '@/utils/emojiNomes'
 import { criarUsuarioPopup, resolverUsuarioDaConversa } from '@/utils/userProfile'
+import { partesDestacadas } from '@/utils/destacarTermos'
 import { TipoConversa, type Conversa, type Usuario } from '@/types/api'
 
 describe('menções no campo de texto', () => {
@@ -87,5 +88,31 @@ describe('perfil de quem está na conversa', () => {
 
   test('grupo não tem perfil', () => {
     expect(resolverUsuarioDaConversa(conversa({ tipo: TipoConversa.Grupo }), contatos)).toBeNull()
+  })
+})
+
+describe('destaque das palavras pesquisadas', () => {
+  const marcadas = (texto: string, pesquisa: string) => partesDestacadas(texto, pesquisa).filter((p) => p.destaque).map((p) => p.texto)
+
+  test('acha sem diferenciar maiúscula nem acento, nos dois sentidos', () => {
+    expect(marcadas('Beba ÁGUA todo dia; água gelada também.', 'agua')).toEqual(['ÁGUA', 'água'])
+    expect(marcadas('Agua da fonte', 'água')).toEqual(['Agua'])
+  })
+
+  test('várias palavras, cada uma onde aparece; as curtas (de, a, o) ficam de fora', () => {
+    expect(marcadas('O pedido de férias vai ao gestor.', 'pedido de férias')).toEqual(['pedido', 'férias'])
+  })
+
+  test('o texto continua inteiro, só dividido em partes', () => {
+    const texto = 'Prazo de 45 dias para o pedido 😀 de férias.'
+    const partes = partesDestacadas(texto, 'pedido férias')
+    expect(partes.map((p) => p.texto).join('')).toBe(texto)
+    expect(partes.filter((p) => p.destaque).map((p) => p.texto)).toEqual(['pedido', 'férias'])
+  })
+
+  test('sem palavra que conte ou sem achar, o texto vai sem destaque', () => {
+    expect(partesDestacadas('Texto qualquer', 'de a')).toEqual([{ texto: 'Texto qualquer', destaque: false }])
+    expect(partesDestacadas('Texto qualquer', 'reembolso')).toEqual([{ texto: 'Texto qualquer', destaque: false }])
+    expect(partesDestacadas('', 'texto')).toEqual([])
   })
 })

@@ -4,6 +4,8 @@
       class="flex-1 overflow-y-auto px-3 pt-4 pb-6"
       ref="mensagensContainer"
       @scroll="aoScrollChatComAncora"
+      @pointerdown="selecao.aoPressionar"
+      @click.capture="selecao.aoClicar"
     >
       <div v-if="chat.carregando && chat.mensagensAtivas.length === 0" class="absolute inset-0 flex items-center justify-center">
         <div class="flex flex-col items-center gap-4">
@@ -42,9 +44,20 @@
             <span class="h-px flex-1 bg-primary-500/60"></span>
           </div>
 
-          <MessageBubble
+          <!-- Na conversa direta, a mensagem pode ser selecionada (arrastando ao lado ou
+               Ctrl + clique) e arrastada para uma pasta; as pastas dela ficam marcadas junto do status -->
+          <div
             v-else
+            class="relative rounded-lg transition-colors"
+            :class="pastasAtivas && pastas.idsSelecionados.has(item.mensagem.id) ? 'bg-primary-500/25 ring-1 ring-primary-500/60' : ''"
+            :data-selecao-id="pastasAtivas && item.mensagem.id > 0 ? item.mensagem.id : undefined"
+            :draggable="pastasAtivas && pastas.idsSelecionados.has(item.mensagem.id) ? 'true' : undefined"
+            @dragstart="aoArrastarSelecao"
+            @dragend="pastas.arrastando = false"
+          >
+          <MessageBubble
             :mensagem="item.mensagem"
+            :pastas="pastasAtivas ? pastasDaMensagem(item.mensagem) : undefined"
             :is-own="item.mensagem.remetente_id === auth.user?.id"
             :is-group="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
             :mudou-remetente="item.mudouRemetente"
@@ -60,7 +73,9 @@
             @excluir="excluirMensagem"
             @confirmar-leitura="confirmarLeitura"
             @pedir-confirmacao="pedirConfirmacao"
+            @abrir-pasta="(id) => pastas.abrirPasta(id)"
           />
+          </div>
         </template>
       </div>
 
@@ -72,6 +87,59 @@
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
           </svg>
           <span class="text-xs text-surface-500">Carregando mensagens seguintes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Retângulo da seleção arrastando -->
+    <div
+      v-if="selecao.retangulo.value"
+      class="pointer-events-none fixed z-40 rounded-sm border border-primary-500 bg-primary-500/10"
+      :style="{ left: `${selecao.retangulo.value.left}px`, top: `${selecao.retangulo.value.top}px`, width: `${selecao.retangulo.value.width}px`, height: `${selecao.retangulo.value.height}px` }"
+    />
+
+    <!-- Mensagens selecionadas: arrastar a barra (ou uma delas) até uma pasta, ou escolher aqui -->
+    <div v-if="pastasAtivas && pastas.selecionadas.length" class="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-3">
+      <div
+        class="pointer-events-auto relative flex cursor-grab items-center gap-1 rounded-full border border-surface-300 bg-surface-base py-1 pl-3 pr-1 text-xs text-surface-700 shadow-lg active:cursor-grabbing"
+        draggable="true"
+        title="Arraste até uma pasta"
+        @dragstart="aoArrastarSelecao"
+        @dragend="pastas.arrastando = false"
+      >
+        <span class="font-semibold text-surface-800">{{ pastas.selecionadas.length === 1 ? '1 selecionada' : `${pastas.selecionadas.length} selecionadas` }}</span>
+        <span class="hidden text-surface-500 sm:inline">· arraste até uma pasta</span>
+        <button
+          type="button"
+          class="ml-1 rounded-full px-2 py-1 font-medium text-primary-600 hover:bg-surface-200 dark:text-primary-400"
+          @click.stop="menuPastasAberto = !menuPastasAberto"
+        >
+          Pôr na pasta
+        </button>
+        <button
+          type="button"
+          class="flex h-6 w-6 items-center justify-center rounded-full text-surface-500 hover:bg-surface-200"
+          title="Limpar seleção (Esc)"
+          @click.stop="pastas.limparSelecao()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-3.5 w-3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
+        <div
+          v-if="menuPastasAberto"
+          class="absolute left-1/2 top-full z-40 mt-1 max-h-64 w-52 -translate-x-1/2 overflow-y-auto rounded-md border border-surface-300 bg-surface-base py-1 shadow-lg"
+          @click.stop
+        >
+          <p v-if="!pastas.lista.length" class="px-3 py-2 text-surface-500">Nenhuma pasta ainda. Crie no painel de pastas.</p>
+          <button
+            v-for="pasta in pastas.lista"
+            :key="pasta.id"
+            type="button"
+            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-800 hover:bg-surface-200"
+            @click="porNaPasta(pasta.id)"
+          >
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: corDaPasta(pasta.cor) }" />
+            <span class="min-w-0 flex-1 truncate">{{ pasta.nome }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -129,6 +197,9 @@ import ConfirmacaoLeituraModal from './ConfirmacaoLeituraModal.vue'
 import { useDialogo } from '../composables/useDialogo'
 import { TipoConversa } from '../types/api'
 import type { Mensagem } from '../types/api'
+import { usePastasStore } from '../stores/pastas'
+import { useSelecaoMensagens } from '../composables/useSelecaoMensagens'
+import { corDaPasta, iniciarArrasteMensagens } from '../utils/pastas'
 
 const { alturaCampoMensagem = 0 } = defineProps<{
   alturaCampoMensagem?: number
@@ -184,6 +255,61 @@ watch(usuarioNoFimDoChat, (val) => {
 
 // Confirmação e avisos com a janela do app, no lugar das do navegador
 const dialogo = useDialogo()
+
+// --- Pastas (só na conversa direta): seleção e arraste das mensagens ---
+
+const pastas = usePastasStore()
+const pastasAtivas = computed(() => pastas.conversaId !== null && pastas.conversaId === chat.conversaAtivaId)
+const menuPastasAberto = ref(false)
+
+// Até 3 marcas por mensagem, das pastas que estão na lista
+function pastasDaMensagem(mensagem: Mensagem) {
+  return (mensagem.pastas ?? []).flatMap((id) => pastas.porId.get(id) ?? []).slice(0, 3)
+    .map((pasta) => ({ id: pasta.id, nome: pasta.nome, cor: corDaPasta(pasta.cor) }))
+}
+
+const selecao = useSelecaoMensagens(mensagensContainer, {
+  ativa: () => pastasAtivas.value,
+  selecionadas: () => pastas.selecionadas,
+  definir: (ids) => pastas.selecionar(ids),
+  alternar: (id) => pastas.alternarSelecao(id),
+})
+
+function aoArrastarSelecao(evento: DragEvent) {
+  if (!pastasAtivas.value || !pastas.selecionadas.length) return
+  menuPastasAberto.value = false
+  iniciarArrasteMensagens(evento, pastas.selecionadas)
+  pastas.arrastando = true
+}
+
+async function porNaPasta(pastaId: number) {
+  menuPastasAberto.value = false
+  try {
+    await pastas.porMensagens(pastaId, pastas.selecionadas)
+    pastas.limparSelecao()
+  } catch (e) {
+    void dialogo.avisar({ titulo: 'Não foi possível pôr na pasta', mensagem: e instanceof Error ? e.message : 'Erro ao pôr na pasta' })
+  }
+}
+
+function aoTeclarSelecao(evento: KeyboardEvent) {
+  if (evento.key === 'Escape' && pastas.selecionadas.length) {
+    pastas.limparSelecao()
+    menuPastasAberto.value = false
+  }
+}
+
+function fecharMenuPastas() {
+  menuPastasAberto.value = false
+}
+
+window.addEventListener('keydown', aoTeclarSelecao)
+window.addEventListener('click', fecharMenuPastas)
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', aoTeclarSelecao)
+  window.removeEventListener('click', fecharMenuPastas)
+})
+watch(() => pastas.selecionadas.length, (quantas) => { if (!quantas) menuPastasAberto.value = false })
 
 async function reagir(mensagemId: number, emoji: string) {
   try {

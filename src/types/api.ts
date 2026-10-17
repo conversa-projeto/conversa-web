@@ -17,6 +17,8 @@ export const TipoConteudo = {
   Figurinha: 7,
   // O conteúdo é o id da enquete (votação em grupo)
   Enquete: 8,
+  // O conteúdo é o JSON de um local ou trajeto (utils/localizacao.ts)
+  Localizacao: 9,
 } as const
 export type TipoConteudo = (typeof TipoConteudo)[keyof typeof TipoConteudo]
 
@@ -47,6 +49,10 @@ export const TipoEventoSocket = {
   Presenca: 63,
   PostagemAtualizada: 64,
   ConfirmacaoPedida: 65,
+  /** Conta criada, renomeada ou excluída: recarrega os contatos (busca e @) */
+  ContatosAtualizados: 66,
+  /** Pasta de mensagens criada, mudada ou excluída, ou mensagens postas/tiradas dela */
+  PastasAtualizadas: 67,
 } as const
 export type TipoEventoSocket = (typeof TipoEventoSocket)[keyof typeof TipoEventoSocket]
 
@@ -107,6 +113,8 @@ export interface LoginResponse extends Omit<Usuario, 'login'> {
 export interface Contato extends Usuario {
   /** Usuário que é um bot de IA */
   bot?: boolean
+  /** Data do cadastro ("Usuário desde") */
+  criado_em?: Date | null
 }
 
 /** Bot de IA: um usuário comum com as instruções de personalidade e do que faz */
@@ -176,6 +184,17 @@ export interface FerramentaExterna {
   cabecalhos: string[]
   parametros: ParametroFerramenta[]
   ativo: boolean
+}
+
+/** Ferramenta embutida do bot (a da base de conhecimento), só para ver como é uma configuração de verdade */
+export interface FerramentaEmbutida {
+  nome: string
+  descricao: string
+  /** De onde vem a resposta (interna, sem endereço externo) */
+  origem: string
+  parametros: ParametroFerramenta[]
+  /** A definição exata que o modelo recebe (function calling) */
+  definicao: unknown
 }
 
 /** Para salvar: cabeçalho sem valor mantém o que está salvo */
@@ -332,7 +351,20 @@ export interface Mensagem {
   reacoes?: Reacao[]
   confirmacao?: ConfirmacaoLeitura
   postagem?: Postagem
+  /** Pastas (da conversa direta) em que a mensagem está e que o usuário enxerga */
+  pastas?: number[]
   enviando?: boolean
+}
+
+/** Pasta de mensagens numa conversa direta: do usuário ou compartilhada pela outra pessoa */
+export interface PastaMensagens {
+  id: number
+  conversa_id: number
+  dono_id: number
+  nome: string
+  cor: string
+  compartilhada: boolean
+  mensagens: number
 }
 
 export interface AnexoResponse {
@@ -469,7 +501,6 @@ export const CodigoPermissao = {
   Parametros: 'parametros',
   Permissoes: 'permissoes',
   Bots: 'bots',
-  Usuarios: 'usuarios',
   Ferramentas: 'ferramentas',
   Conhecimento: 'conhecimento',
   Emoji: 'emoji',
@@ -498,13 +529,15 @@ export const CodigoPermissao = {
   Privacidade: 'privacidade',
   Cores: 'cores',
   ConfigChamadas: 'config_chamadas',
+  Localizacao: 'localizacao',
 } as const
 export type CodigoPermissao = (typeof CodigoPermissao)[keyof typeof CodigoPermissao]
 
 export interface PermissoesSistema {
   /** uso: permissão de uso do app (enviar, chamar...); as outras são de administração */
   permissoes: { codigo: string; descricao: string; uso: boolean }[]
-  usuarios: { id: number; nome: string; login: string; permissoes: string[] }[]
+  /** espaco: bytes dos arquivos que a pessoa enviou (cada arquivo uma vez) */
+  usuarios: { id: number; nome: string; login: string; criado_em: Date | null; bot: boolean; permissoes: string[]; espaco: number }[]
   /** Ninguém tem a permissão de Acessos: todos têm todas, até alguém receber */
   modo_aberto: boolean
 }
@@ -527,6 +560,9 @@ export interface ParametrosSistema {
   cadastro_aberto: boolean
   /** Modelo de embeddings da base de conhecimento (vazio desliga) */
   ia_modelo_embeddings: string
+  /** Servidor de embeddings próprio (vazio: o da IA); do token só se diz se existe */
+  ia_embeddings_url: string
+  ia_embeddings_token_configurado: boolean
 }
 
 export interface AlteracaoParametros {
@@ -542,9 +578,19 @@ export interface AlteracaoParametros {
   ia_modelo?: string
   cadastro_aberto?: boolean
   ia_modelo_embeddings?: string
+  ia_embeddings_url?: string
+  ia_embeddings_token?: string
 }
 
 /** Resposta de POST /parametros/ia/testar */
+/** Resposta de POST /parametros/ia/testar-embeddings */
+export interface TesteEmbeddings {
+  ok: boolean
+  dimensoes: number
+  erro: string
+  milissegundos: number
+}
+
 export interface TesteIa {
   ok: boolean
   resposta: string

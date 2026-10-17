@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
 export type SecaoId = 'chat' | 'config' | 'chamadas' | 'atividades' | 'ramal' | 'anexos'
-export type AbaConfigId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos' | 'bots' | 'usuarios' | 'ferramentas' | 'conhecimento'
+export type AbaConfigId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos' | 'bots' | 'usuarios' | 'ferramentas' | 'conhecimento' | 'ia'
 
 export interface AncoraScroll {
   mensagemId: number
@@ -16,7 +16,7 @@ export interface EstadoNavegacao {
 }
 
 const SECOES_SIMPLES: SecaoId[] = ['chamadas', 'atividades', 'ramal']
-const ABAS_CONFIG: AbaConfigId[] = ['usuario', 'privacidade', 'dispositivos', 'permissoes', 'voip', 'cores', 'chamadas', 'sistema', 'acessos', 'bots', 'usuarios', 'ferramentas', 'conhecimento']
+const ABAS_CONFIG: AbaConfigId[] = ['usuario', 'privacidade', 'dispositivos', 'permissoes', 'voip', 'cores', 'chamadas', 'sistema', 'acessos', 'bots', 'usuarios', 'ferramentas', 'conhecimento', 'ia']
 
 function parseUrl(pathname: string): { secao: SecaoId; conversaId: number | null; abaConfig: AbaConfigId | null } {
   const partes = pathname.replace(/^\/+|\/+$/g, '').split('/')

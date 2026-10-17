@@ -107,8 +107,10 @@
                 <span>{{ formatarTamanho(item.tamanho) }}</span>
                 <span>·</span>
                 <span>{{ formatarDataCurta(item.criado_em) }}</span>
-                <span v-if="!conversaId">·</span>
-                <span v-if="!conversaId" class="truncate">{{ item.conversa_descricao }}</span>
+                <template v-if="!conversaId && nomeConversa(item)">
+                  <span>·</span>
+                  <span class="truncate">{{ nomeConversa(item) }}</span>
+                </template>
               </div>
               <div class="mt-0.5 text-xs text-surface-400 truncate">{{ item.autor_nome }}</div>
             </div>
@@ -179,6 +181,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import type { AnexoItem } from '../types/api'
 import { TipoConteudo } from '../types/api'
 import * as api from '../services/conversaApi'
+import { useChatStore } from '../stores/chat'
 import { formatarTamanho, formatoOffice, isVideoConteudo } from '../utils/formatters'
 
 const VisualizadorHtml = defineAsyncComponent(() => import('./VisualizadorHtml.vue'))
@@ -189,6 +192,15 @@ const props = withDefaults(defineProps<{
 }>(), {
   conversaId: 0
 })
+
+const chat = useChatStore()
+
+// Com os anexos de todas as conversas: de qual é cada um. A conversa direta
+// não tem descrição; vale o nome dela na lista (o da outra pessoa)
+function nomeConversa(item: AnexoItem) {
+  const conversa = chat.conversas.find((c) => c.id === item.conversa_id)
+  return item.conversa_descricao || conversa?.descricao || conversa?.nome || ''
+}
 
 const emit = defineEmits<{
   'open-image-gallery': [item: AnexoItem, galeria: AnexoItem[]]

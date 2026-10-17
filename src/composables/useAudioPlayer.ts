@@ -15,6 +15,16 @@ export interface AudioPlayerProps {
 
 export { formatarDuracao }
 
+// Cada clique passa para a próxima; a escolhida vale para todos os áudios e fica no navegador
+const VELOCIDADES = [1, 1.5, 2, 3]
+const CHAVE_VELOCIDADE = 'conversa.velocidadeAudio'
+const salva = Number(localStorage.getItem(CHAVE_VELOCIDADE))
+const velocidade = ref(VELOCIDADES.includes(salva) ? salva : 1)
+
+export function rotuloVelocidade(v: number) {
+  return `${String(v).replace('.', ',')}x`
+}
+
 export function useAudioPlayer(props: AudioPlayerProps) {
   const audioRef = ref<HTMLAudioElement | null>(null)
   const barraRef = ref<HTMLElement | null>(null)
@@ -80,6 +90,7 @@ export function useAudioPlayer(props: AudioPlayerProps) {
       if (!await carregarSrc()) return
       await medirDuracao(el)
       registrarAudio(el)
+      el.playbackRate = velocidade.value
       el.play()
       if (!reproduzidaMarcada.value && props.conversaId && props.mensagemId && props.mensagemId > 0) {
         reproduzidaMarcada.value = true
@@ -166,6 +177,13 @@ export function useAudioPlayer(props: AudioPlayerProps) {
     tocando.value = false
   }
 
+  function trocarVelocidade() {
+    const atual = VELOCIDADES.indexOf(velocidade.value)
+    velocidade.value = VELOCIDADES[(atual + 1) % VELOCIDADES.length] ?? 1
+    localStorage.setItem(CHAVE_VELOCIDADE, String(velocidade.value))
+    if (audioRef.value) audioRef.value.playbackRate = velocidade.value
+  }
+
   function iniciarSeek(e: PointerEvent) {
     const barra = barraRef.value
     const el = audioRef.value
@@ -227,7 +245,9 @@ export function useAudioPlayer(props: AudioPlayerProps) {
     tempoAtual,
     progresso,
     naoReproduzida,
+    velocidade,
     alternarReproducao,
+    trocarVelocidade,
     iniciarSeek,
     onMetadata,
     onTimeUpdate,

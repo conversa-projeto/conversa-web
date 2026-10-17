@@ -34,15 +34,9 @@
       </div>
     </div>
 
-    <!-- Corpo -->
-    <div v-if="!conversaSelecionada" class="flex-1 overflow-y-auto">
-      <!-- Estado inicial sem busca -->
-      <div v-if="!filtro.trim()" class="flex h-full items-center justify-center px-6 text-center">
-        <span class="text-sm text-surface-500">Selecione um contato ou grupo para ver os anexos</span>
-      </div>
-
-      <!-- Resultados -->
-      <div v-else>
+    <!-- Corpo: pesquisando, as conversas para escolher -->
+    <div v-if="!conversaSelecionada && filtro.trim()" class="flex-1 overflow-y-auto">
+      <div>
         <div v-if="conversasFiltradas.length === 0" class="flex items-center justify-center py-10">
           <span class="text-sm text-surface-500">Nenhum resultado</span>
         </div>
@@ -72,10 +66,10 @@
       </div>
     </div>
 
-    <!-- Lista de anexos -->
+    <!-- Lista de anexos: os da conversa escolhida, ou, sem nada, os de todas -->
     <AnexosLista
       v-else
-      :conversa-id="conversaSelecionada.id"
+      :conversa-id="conversaSelecionada?.id ?? 0"
       class="flex-1"
       @open-image-gallery="(item, galeria) => emit('open-image-gallery', item, galeria)"
       @open-message="(cId, mId) => emit('open-message', cId, mId)"

@@ -20,17 +20,20 @@
         </div>
 
         <div class="p-3">
-          <button
-            v-for="aba in abas"
-            :key="aba.id"
-            type="button"
-            class="mb-2 w-full rounded-xl px-4 py-3 text-left transition"
-            :class="props.abaAtiva === aba.id ? 'bg-primary-600 text-white shadow-lg' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-900'"
-            @click="selecionarAba(aba.id)"
-          >
-            <span class="block text-sm font-semibold">{{ aba.titulo }}</span>
-            <span class="mt-1 block truncate text-xs opacity-80">{{ aba.descricao }}</span>
-          </button>
+          <template v-for="secao in secoes" :key="secao.titulo">
+            <p v-if="secoes.length > 1" class="mb-2 mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-surface-500 first:mt-0">{{ secao.titulo }}</p>
+            <button
+              v-for="grupo in secao.grupos"
+              :key="grupo.id"
+              type="button"
+              class="mb-2 w-full rounded-xl px-4 py-3 text-left transition"
+              :class="grupoAtual?.id === grupo.id ? 'bg-primary-600 text-white shadow-lg' : 'text-surface-600 hover:bg-surface-200 hover:text-surface-900'"
+              @click="selecionarAba(grupo.abas[0]!.id)"
+            >
+              <span class="block text-sm font-semibold">{{ grupo.titulo }}</span>
+              <span class="mt-1 block truncate text-xs opacity-80">{{ grupo.descricao }}</span>
+            </button>
+          </template>
         </div>
       </aside>
 
@@ -47,9 +50,22 @@
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-surface-600"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
             </button>
             <div>
-              <h3 class="text-base font-semibold text-surface-900">{{ abaAtual?.titulo }}</h3>
+              <h3 class="text-base font-semibold text-surface-900">{{ grupoAtual?.titulo }}</h3>
               <p class="mt-1 text-sm text-surface-500">{{ abaAtual?.descricao }}</p>
             </div>
+          </div>
+          <div v-if="grupoAtual && grupoAtual.abas.length > 1" class="-mb-4 mt-3 flex gap-1 overflow-x-auto">
+            <button
+              v-for="aba in grupoAtual.abas"
+              :key="aba.id"
+              type="button"
+              data-subaba
+              class="shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition"
+              :class="props.abaAtiva === aba.id ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' : 'border-transparent text-surface-500 hover:text-surface-800'"
+              @click="selecionarAba(aba.id)"
+            >
+              {{ aba.titulo }}
+            </button>
           </div>
         </div>
 
@@ -113,16 +129,6 @@
 
                 <div class="flex shrink-0 items-center gap-2">
                   <button
-                    v-if="auth.pode(CodigoPermissao.Cores)"
-                    type="button"
-                    class="flex h-9 w-9 items-center justify-center rounded-lg text-surface-500 transition hover:bg-surface-200 hover:text-surface-900"
-                    :title="isDark ? 'Tema claro' : 'Tema escuro'"
-                    @click="toggleTheme"
-                  >
-                    <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><circle cx="12" cy="12" r="4.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25v1.5m0 16.5v1.5M4.219 4.219l1.06 1.06m12.442 12.442 1.06 1.06M2.25 12h1.5m16.5 0h1.5M4.219 19.781l1.06-1.06m12.442-12.442 1.06-1.06" /></svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
-                  </button>
-                  <button
                     type="button"
                     class="flex h-9 w-9 items-center justify-center rounded-lg text-danger-500 transition hover:bg-danger-50 hover:text-danger-600"
                     title="Sair"
@@ -134,12 +140,15 @@
               </div>
             </section>
 
+            <EspacoUsado />
+
             <form class="space-y-4" @submit.prevent="salvarPerfil">
               <section class="rounded-2xl border border-surface-200 p-4">
                 <div class="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <h4 class="text-sm font-semibold text-surface-800">Dados do usuario</h4>
                     <p class="mt-1 text-sm text-surface-500">Nome e email visiveis na sua conta.</p>
+                    <p v-if="desdeMim" class="mt-1 text-sm text-surface-500">{{ desdeMim }}</p>
                   </div>
                 </div>
 
@@ -318,7 +327,8 @@
 
           <ConfiguracaoSistema v-else-if="props.abaAtiva === 'sistema'" />
 
-          <ConfiguracaoAcessos v-else-if="props.abaAtiva === 'acessos'" />
+          <ConfiguracaoSistema v-else-if="props.abaAtiva === 'ia'" parte="ia" />
+
 
           <ConfiguracaoBots v-else-if="props.abaAtiva === 'bots'" />
 
@@ -388,25 +398,25 @@
 </template>
 
 <script setup lang="ts">
-import { inicialNome } from '../utils/formatters'
+import { inicialNome, usuarioDesde } from '../utils/formatters'
 import { computed, ref, watch } from 'vue'
+import { useChatStore } from '../stores/chat'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import type { SipConfig } from '../types/api'
 import { CodigoPermissao, TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
-import { useTheme } from '../composables/useTheme'
 import ConfiguracaoCores from './ConfiguracaoCores.vue'
 import ConfiguracaoPrivacidade from './ConfiguracaoPrivacidade.vue'
 import ConfiguracaoChamadas from './ConfiguracaoChamadas.vue'
 import ConfiguracaoSistema from './ConfiguracaoSistema.vue'
-import ConfiguracaoAcessos from './ConfiguracaoAcessos.vue'
 import ConfiguracaoBots from './ConfiguracaoBots.vue'
 import ConfiguracaoUsuarios from './ConfiguracaoUsuarios.vue'
+import EspacoUsado from './EspacoUsado.vue'
 import ConfiguracaoFerramentas from './ConfiguracaoFerramentas.vue'
 import ConfiguracaoConhecimento from './ConfiguracaoConhecimento.vue'
 
-type AbaId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos' | 'bots' | 'usuarios' | 'ferramentas' | 'conhecimento'
+type AbaId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos' | 'bots' | 'usuarios' | 'ferramentas' | 'conhecimento' | 'ia'
 
 type DispositivoMidiaItem = {
   id: string
@@ -441,54 +451,70 @@ const emit = defineEmits<{
   'update:abaAtiva': [aba: AbaId]
 }>()
 
-const { isDark, toggle: toggleTheme } = useTheme()
 
 const auth = useAuthStore()
+const chat = useChatStore()
+// A data do cadastro vem nos contatos, que o chat já carrega
+const desdeMim = computed(() => usuarioDesde(chat.contatos.find((c) => c.id === auth.user?.id)?.criado_em))
 
-const abasDeTodos: Array<{ id: AbaId; titulo: string; descricao: string }> = [
-  { id: 'usuario', titulo: 'Usuario', descricao: 'Nome, email, avatar e senha' },
-  { id: 'privacidade', titulo: 'Privacidade', descricao: 'Status, visto por último e aparecer offline' },
-  { id: 'dispositivos', titulo: 'Dispositivos', descricao: 'Sessao atual e perifericos locais' },
-  { id: 'permissoes', titulo: 'Permissoes', descricao: 'Notificacoes, microfone e camera' },
-  { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario' },
-  { id: 'cores', titulo: 'Cores', descricao: 'Cores do sistema, salvas neste navegador' },
-  { id: 'chamadas', titulo: 'Chamadas', descricao: 'Qualidade do áudio, vídeo e tela' },
+type Aba = { id: AbaId; titulo: string; descricao: string; visivel?: () => boolean }
+type Grupo = { id: string; titulo: string; descricao: string; admin?: boolean; abas: Aba[] }
+
+const usa = (codigo: string) => () => auth.pode(codigo)
+const administra = (codigo: string) => () => auth.temPermissao(codigo)
+
+// Menus com as suas sub-abas; cada aba some sem a permissão (o servidor confere de novo)
+const GRUPOS: Grupo[] = [
+  { id: 'conta', titulo: 'Conta', descricao: 'Perfil, senha e privacidade', abas: [
+    { id: 'usuario', titulo: 'Perfil', descricao: 'Nome, email, avatar e senha' },
+    { id: 'privacidade', titulo: 'Privacidade', descricao: 'Status, visto por último e aparecer offline' },
+  ] },
+  { id: 'aparencia', titulo: 'Aparência', descricao: 'Tema claro ou escuro e cores', abas: [
+    { id: 'cores', titulo: 'Tema', descricao: 'Tema claro ou escuro e cores do sistema, salvos neste navegador', visivel: usa(CodigoPermissao.Cores) },
+  ] },
+  { id: 'dispositivos', titulo: 'Dispositivos', descricao: 'Sessão, periféricos e permissões do navegador', abas: [
+    { id: 'dispositivos', titulo: 'Sessão e periféricos', descricao: 'Sessao atual e perifericos locais' },
+    { id: 'permissoes', titulo: 'Permissões do navegador', descricao: 'Notificacoes, microfone e camera' },
+  ] },
+  { id: 'chamadas', titulo: 'Chamadas', descricao: 'Qualidade das chamadas e telefonia', abas: [
+    { id: 'chamadas', titulo: 'Qualidade', descricao: 'Qualidade do áudio, vídeo e tela', visivel: usa(CodigoPermissao.ConfigChamadas) },
+    { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario', visivel: usa(CodigoPermissao.Telefonia) },
+  ] },
+  { id: 'sistema', titulo: 'Sistema', descricao: 'Configurações que valem para todos', admin: true, abas: [
+    { id: 'sistema', titulo: 'Sistema', descricao: 'Configurações que valem para todos', visivel: administra(CodigoPermissao.Parametros) },
+  ] },
+  { id: 'pessoas', titulo: 'Pessoas', descricao: 'Usuários e o que cada um pode fazer', admin: true, abas: [
+    { id: 'usuarios', titulo: 'Usuários', descricao: 'Cadastrar pessoas e bots e o que cada um pode fazer', visivel: administra(CodigoPermissao.Permissoes) },
+  ] },
+  { id: 'ia', titulo: 'IA', descricao: 'Bots, conhecimento, ferramentas e servidor', admin: true, abas: [
+    // Bots: quem cria e quem cuida dos acessos (que vê todos)
+    { id: 'bots', titulo: 'Bots', descricao: 'Bots de IA: instruções e o que cada um pode fazer', visivel: () => auth.temPermissao(CodigoPermissao.Bots) || auth.temPermissao(CodigoPermissao.Permissoes) },
+    { id: 'conhecimento', titulo: 'Conhecimento', descricao: 'Documentos que os bots consultam', visivel: administra(CodigoPermissao.Conhecimento) },
+    { id: 'ferramentas', titulo: 'Ferramentas', descricao: 'APIs externas que os bots podem chamar', visivel: administra(CodigoPermissao.Ferramentas) },
+    { id: 'ia', titulo: 'Servidor', descricao: 'Servidor de IA e de embeddings', visivel: administra(CodigoPermissao.Parametros) },
+  ] },
 ]
 
-// Abas de todos que pedem uma permissão de uso para aparecer
-const PERMISSAO_ABA: Partial<Record<AbaId, string>> = {
-  voip: CodigoPermissao.Telefonia,
-  cores: CodigoPermissao.Cores,
-  chamadas: CodigoPermissao.ConfigChamadas,
-}
+const grupos = computed(() => GRUPOS
+  .map((grupo) => ({ ...grupo, abas: grupo.abas.filter((aba) => !aba.visivel || aba.visivel()) }))
+  .filter((grupo) => grupo.abas.length > 0))
 
-// Só aparecem para quem tem a permissão (o servidor confere de novo)
-const abas = computed(() => [
-  ...abasDeTodos.filter((aba) => { const codigo = PERMISSAO_ABA[aba.id]; return !codigo || auth.pode(codigo) }),
-  ...(auth.temPermissao(CodigoPermissao.Parametros)
-    ? [{ id: 'sistema' as const, titulo: 'Sistema', descricao: 'Configurações que valem para todos' }]
-    : []),
-  ...(auth.temPermissao(CodigoPermissao.Permissoes)
-    ? [{ id: 'acessos' as const, titulo: 'Acessos', descricao: 'Quem pode mexer no sistema e nas permissões' }]
-    : []),
-  ...(auth.temPermissao(CodigoPermissao.Usuarios)
-    ? [{ id: 'usuarios' as const, titulo: 'Usuários', descricao: 'Cadastrar pessoas e bots' }]
-    : []),
-  ...(auth.temPermissao(CodigoPermissao.Ferramentas)
-    ? [{ id: 'ferramentas' as const, titulo: 'Ferramentas', descricao: 'APIs externas que os bots podem chamar' }]
-    : []),
-  ...(auth.temPermissao(CodigoPermissao.Conhecimento)
-    ? [{ id: 'conhecimento' as const, titulo: 'Conhecimento', descricao: 'Documentos que os bots consultam' }]
-    : []),
-  // Bots: quem cria e quem cuida dos acessos (que vê todos)
-  ...(auth.temPermissao(CodigoPermissao.Bots) || auth.temPermissao(CodigoPermissao.Permissoes)
-    ? [{ id: 'bots' as const, titulo: 'Bots', descricao: 'Bots de IA: instruções e o que cada um pode fazer' }]
-    : []),
-])
+const secoes = computed(() => [
+  { titulo: 'Pessoal', grupos: grupos.value.filter((grupo) => !grupo.admin) },
+  { titulo: 'Administração', grupos: grupos.value.filter((grupo) => grupo.admin) },
+].filter((secao) => secao.grupos.length > 0))
+
+const abas = computed(() => grupos.value.flatMap((grupo) => grupo.abas))
+const grupoAtual = computed(() => grupos.value.find((grupo) => grupo.abas.some((aba) => aba.id === props.abaAtiva)) || grupos.value[0])
 
 // Aba restrita sem a permissão (link direto, ou permissão retirada): volta ao
 // início, depois de saber as permissões
 watch([() => props.abaAtiva, abas, () => auth.permissoesCarregadas], () => {
+  // Acessos virou parte de Usuários: o endereço antigo leva para lá
+  if (props.abaAtiva === 'acessos') {
+    emit('update:abaAtiva', 'usuarios')
+    return
+  }
   if (auth.permissoesCarregadas && !abas.value.some((aba) => aba.id === props.abaAtiva)) emit('update:abaAtiva', 'usuario')
 }, { immediate: true })
 

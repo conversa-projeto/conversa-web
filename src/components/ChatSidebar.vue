@@ -144,7 +144,16 @@
                 <p class="truncate text-xs text-surface-500">{{ resumirTexto(conversa.ultima_mensagem_texto || '') || 'Sem mensagens' }}</p>
               </div>
               <div
-                v-if="conversasComDigitando.has(conversa.id)"
+                v-if="conversasComGravando.has(conversa.id)"
+                class="mr-2 flex shrink-0 items-center gap-0.5 md:group-hover/conv:hidden"
+                title="Gravando áudio..."
+              >
+                <span class="typing-dot" style="animation-delay: 0ms; background: var(--color-danger-500)"></span>
+                <span class="typing-dot" style="animation-delay: 200ms; background: var(--color-danger-500)"></span>
+                <span class="typing-dot" style="animation-delay: 400ms; background: var(--color-danger-500)"></span>
+              </div>
+              <div
+                v-else-if="conversasComDigitando.has(conversa.id)"
                 class="mr-2 flex shrink-0 items-center gap-0.5 md:group-hover/conv:hidden"
                 title="Digitando..."
               >
@@ -507,16 +516,19 @@ async function abrirConversa(conversaId: number) {
   }
 }
 
-const conversasComDigitando = computed(() => {
+function conversasComAtividade(porConversa: Map<number, Map<number, number>>) {
   const resultado = new Set<number>()
   const userId = auth.user?.id
-  for (const [conversaId, mapa] of chat.digitandoPorConversa) {
+  for (const [conversaId, mapa] of porConversa) {
     if (!mapa || mapa.size === 0) continue
     if (mapa.size === 1 && userId && mapa.has(userId)) continue
     resultado.add(conversaId)
   }
   return resultado
-})
+}
+
+const conversasComDigitando = computed(() => conversasComAtividade(chat.digitandoPorConversa))
+const conversasComGravando = computed(() => conversasComAtividade(chat.gravandoPorConversa))
 
 function abrirMensagemPesquisa(conversaId: number, mensagemId: number) {
   emit('update:sidebarAberta', false)

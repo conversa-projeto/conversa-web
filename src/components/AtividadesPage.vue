@@ -150,6 +150,7 @@ const NOMES_CONTEUDO: Partial<Record<number, string>> = {
   [TipoConteudo.GravacaoAudio]: 'Áudio',
   [TipoConteudo.Figurinha]: 'Figurinha',
   [TipoConteudo.Enquete]: 'Votação',
+  [TipoConteudo.Localizacao]: 'Localização',
 }
 
 function previa(atividade: Atividade) {

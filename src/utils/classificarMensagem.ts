@@ -9,6 +9,7 @@ export const TipoExibicaoMensagem = {
   Postagem: 'postagem',
   Imagem: 'imagem',
   Figurinha: 'figurinha',
+  Localizacao: 'localizacao',
   Enquete: 'enquete',
   Codigo: 'codigo',
   ComReferencia: 'com-referencia',
@@ -47,6 +48,10 @@ export function classificarMensagem(mensagem: Mensagem): TipoExibicaoMensagem {
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Figurinha && !temReferencia) {
     return TipoExibicaoMensagem.Figurinha
+  }
+
+  if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Localizacao && !temReferencia) {
+    return TipoExibicaoMensagem.Localizacao
   }
 
   if (conteudoUnico && Number(conteudoUnico.tipo) === TipoConteudo.Texto && !temReferencia) {

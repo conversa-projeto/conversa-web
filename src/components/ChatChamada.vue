@@ -195,6 +195,7 @@ const NOMES_ANEXO: Partial<Record<TipoConteudo, string>> = {
   [TipoConteudo.GravacaoAudio]: '[Áudio]',
   [TipoConteudo.Figurinha]: '[Figurinha]',
   [TipoConteudo.Enquete]: '[Votação]',
+  [TipoConteudo.Localizacao]: '[Localização]',
 }
 
 // O painel é só texto: anexos e outros conteúdos aparecem pelo nome, e a

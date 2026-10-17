@@ -256,6 +256,12 @@
       v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Enquete)"
       :id="Number(conteudo.conteudo)"
     />
+    <ConteudoLocalizacao
+      v-else-if="ehTipo(conteudo.tipo, TipoConteudo.Localizacao)"
+      :conteudo="conteudo.conteudo"
+      :is-own="isOwn"
+      @vue:mounted="emit('image-loaded')"
+    />
     <TranscricaoAudio
       v-if="(ehTipo(conteudo.tipo, TipoConteudo.Audio) || ehTipo(conteudo.tipo, TipoConteudo.GravacaoAudio)) && !conteudo.localUrl && conteudo.conteudo"
       :identificador="conteudo.conteudo"
@@ -283,6 +289,8 @@ import AudioPlayerGravacao from './AudioPlayerGravacao.vue'
 import TranscricaoAudio from './TranscricaoAudio.vue'
 import FigurinhaLottie from './FigurinhaLottie.vue'
 import EnqueteResumo from './EnqueteResumo.vue'
+// O Leaflet (chunk próprio) só carrega quando aparece uma localização
+const ConteudoLocalizacao = defineAsyncComponent(() => import('./ConteudoLocalizacao.vue'))
 
 // Carregado só ao abrir um PDF: é ele que traz o pdf.js
 const VisualizadorPdf = defineAsyncComponent(() => import('./VisualizadorPdf.vue'))

@@ -21,6 +21,7 @@ function resumoConteudos(conteudos: ConteudoMensagem[]): string {
   if (conteudos.some((c) => Number(c.tipo) === TipoConteudo.Audio)) return 'Audio'
   if (conteudos.some((c) => Number(c.tipo) === TipoConteudo.Figurinha)) return 'Figurinha'
   if (conteudos.some((c) => Number(c.tipo) === TipoConteudo.Enquete)) return 'Votação'
+  if (conteudos.some((c) => Number(c.tipo) === TipoConteudo.Localizacao)) return 'Localização'
   return 'Arquivo'
 }
 

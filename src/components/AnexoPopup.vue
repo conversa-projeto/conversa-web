@@ -19,7 +19,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { CodigoPermissao } from '../types/api'
 
-type TipoAnexo = 'arquivo' | 'codigo' | 'votacao' | 'postagem' | 'confirmacao' | 'close'
+type TipoAnexo = 'arquivo' | 'codigo' | 'localizacao' | 'votacao' | 'postagem' | 'confirmacao' | 'close'
 
 // Votação e postagem só aparecem em grupo
 const props = withDefaults(defineProps<{ comVotacao?: boolean }>(), { comVotacao: false })
@@ -27,6 +27,7 @@ const props = withDefaults(defineProps<{ comVotacao?: boolean }>(), { comVotacao
 const emit = defineEmits<{
   arquivo: []
   codigo: []
+  localizacao: []
   votacao: []
   postagem: []
   confirmacao: []
@@ -53,6 +54,13 @@ const todosItens = [
     bgClass: 'bg-success-100 dark:bg-success-900',
     iconClass: 'text-success-600 dark:text-success-300',
     path: '<path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />'
+  },
+  {
+    tipo: 'localizacao' as TipoAnexo,
+    label: 'Localização',
+    bgClass: 'bg-danger-100 dark:bg-danger-900',
+    iconClass: 'text-danger-600 dark:text-danger-300',
+    path: '<path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />'
   },
   {
     tipo: 'votacao' as TipoAnexo,
@@ -82,6 +90,7 @@ const auth = useAuthStore()
 // Cada item some sem a permissão; Arquivo fica com qualquer uma dos anexos
 const permitido: Partial<Record<TipoAnexo, () => boolean>> = {
   arquivo: () => [CodigoPermissao.Imagem, CodigoPermissao.Video, CodigoPermissao.Audio, CodigoPermissao.Arquivo].some((codigo) => auth.pode(codigo)),
+  localizacao: () => auth.pode(CodigoPermissao.Localizacao),
   votacao: () => auth.pode(CodigoPermissao.Votacao),
   postagem: () => auth.pode(CodigoPermissao.Postagem),
   confirmacao: () => auth.pode(CodigoPermissao.Confirmacao),

@@ -328,6 +328,14 @@ describe('informações do usuário', () => {
     expect(tela.text()).toContain('b@t')
     expect(tela.text()).toContain('Nao informado')
     expect(tela.text()).not.toContain('Ver anexos')
+    expect(tela.text()).not.toContain('Usuário desde')
+  })
+
+  test('a data do cadastro vem dos contatos', () => {
+    useChatStore().contatos = [contato(2, 'bruno', { criado_em: new Date(2026, 9, 15) })]
+    const tela = montar(UserInfoModal, { props: { aberta: true, usuario } })
+    expect(tela.text()).toContain('Usuário desde')
+    expect(tela.text()).toContain('15/10/2026')
   })
 
   test('foto que falha vira a inicial, e volta quando muda o endereço', async () => {

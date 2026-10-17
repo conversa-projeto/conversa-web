@@ -1,8 +1,34 @@
 <template>
   <div class="space-y-4">
     <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
-      <h4 class="text-sm font-semibold text-surface-800">Tema</h4>
-      <p class="mt-0.5 text-xs text-surface-500">Cores prontas para os temas claro e escuro. Escolher um tema apaga as cores ajustadas abaixo.</p>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <h4 class="text-sm font-semibold text-surface-800">Tema</h4>
+          <p class="mt-0.5 text-xs text-surface-500">Cores prontas para os temas claro e escuro. Escolher um tema apaga as cores ajustadas abaixo.</p>
+        </div>
+        <div class="flex shrink-0 rounded-xl border border-surface-300 p-0.5">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+            :class="!isDark ? 'bg-primary-600 text-white' : 'text-surface-600 hover:bg-surface-200'"
+            :aria-pressed="!isDark"
+            @click="isDark && toggleTheme()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><circle cx="12" cy="12" r="4.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25v1.5m0 16.5v1.5M4.219 4.219l1.06 1.06m12.442 12.442 1.06 1.06M2.25 12h1.5m16.5 0h1.5M4.219 19.781l1.06-1.06m12.442-12.442 1.06-1.06" /></svg>
+            Claro
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+            :class="isDark ? 'bg-primary-600 text-white' : 'text-surface-600 hover:bg-surface-200'"
+            :aria-pressed="isDark"
+            @click="!isDark && toggleTheme()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
+            Escuro
+          </button>
+        </div>
+      </div>
       <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <button
           v-for="opcao in TEMAS_PREDEFINIDOS"
@@ -29,7 +55,7 @@
       <p class="min-w-0 flex-1 text-sm text-surface-600">
         Editando as cores do <strong class="text-surface-800">tema {{ tema }}</strong>.
         As alterações valem na hora e ficam salvas neste navegador.
-        Para editar o outro tema, troque o tema na aba Usuário.
+        Para editar o outro tema, troque entre claro e escuro acima.
         No F12, o nome da variável aparece nos estilos do elemento (ex.: <code class="font-mono text-xs">--color-primary-600</code>).
       </p>
       <button
@@ -111,7 +137,7 @@ import { useTheme } from '../composables/useTheme'
 import { GRUPOS_CORES, nomeVariavelCor, useCoresPersonalizadas, type GrupoCores, type TemaCores } from '../composables/useCoresPersonalizadas'
 import { TEMAS_PREDEFINIDOS, type TemaPredefinido } from '../utils/temasPredefinidos'
 
-const { isDark } = useTheme()
+const { isDark, toggle: toggleTheme } = useTheme()
 const { personalizacao, temaPredefinido, coresDoTema, lerPadroes, definirCor, restaurarCores, escolherTema } = useCoresPersonalizadas()
 
 const padroes = lerPadroes()

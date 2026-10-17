@@ -680,6 +680,24 @@ describe('tempo real (WebSocket)', () => {
     expect(atividades.novas).toBe(3)
   })
 
+  test('conta nova (aviso 66) entra nos contatos na hora, para a busca e o @; ao reconectar também', async () => {
+    const { chat, socket } = await conectado()
+    const lidas = pedidosDe('GET', '/usuario/contatos').length
+    rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Bruno', login: 'bruno', email: 'b@t.test' }, { id: 9, nome: 'Nova Pessoa', login: 'nova', email: 'n@t.test' }])
+    socket.receber({ tipo: 66 })
+    await aguardar()
+    expect(chat.contatos.map((c) => c.nome)).toContain('Nova Pessoa')
+
+    // Aviso perdido com o socket fora: a reconexão lê de novo
+    rota('GET', '/usuario/contatos', [{ id: 2, nome: 'Bruno', login: 'bruno', email: 'b@t.test' }, { id: 10, nome: 'Outra Pessoa', login: 'outra', email: 'o@t.test' }])
+    socket.cair()
+    relogio.avancar(1000)
+    SocketFalso.ultimo().abrir()
+    await aguardar()
+    expect(chat.contatos.map((c) => c.nome)).toContain('Outra Pessoa')
+    expect(pedidosDe('GET', '/usuario/contatos').length).toBe(lidas + 2)
+  })
+
   test('online e offline pelos eventos', async () => {
     const { chat, socket } = await conectado()
     socket.receber({ tipo: 60, usuario_id: 5, online: true })

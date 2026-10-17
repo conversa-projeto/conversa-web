@@ -4,6 +4,7 @@ import {
   extensaoPorMime,
   formatarDuracao,
   formatarTamanho,
+  usuarioDesde,
   formatarUrl,
   inicialNome,
   iniciaisUsuario,
@@ -108,6 +109,12 @@ describe('arquivos', () => {
     expect(formatarTamanho(1536)).toBe('1.5 KB')
     expect(formatarTamanho(5 * 1024 * 1024)).toBe('5.0 MB')
     expect(formatarTamanho(2 * 1024 ** 3)).toBe('2.0 GB')
+  })
+
+  test('usuarioDesde: a data completa; sem data, nada', () => {
+    expect(usuarioDesde(new Date(2026, 9, 5, 14, 30))).toBe('Usuário desde 05/10/2026')
+    expect(usuarioDesde(null)).toBe('')
+    expect(usuarioDesde(undefined)).toBe('')
   })
 })
 

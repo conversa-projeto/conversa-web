@@ -143,8 +143,9 @@
 
         <UploadIndicador v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal" />
 
+        <!-- A pasta aberta fica por cima do chat, que continua como estava por baixo -->
+        <div v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal" class="relative flex min-h-0 flex-1 flex-col">
         <MessageList
-          v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
           ref="messageListRef"
           @open-image="handleOpenImage"
           @forward="abrirModalEncaminhamento"
@@ -153,6 +154,12 @@
           :altura-campo-mensagem="alturaInput"
           @at-bottom-changed="(val) => chatNoFim = val"
         />
+        <ChatDaPasta
+          @open-image="handleOpenImage"
+          @forward="abrirModalEncaminhamento"
+          @ver-na-conversa="(id) => abrirResultadoBusca(id)"
+        />
+        </div>
 
         <div v-else-if="!mostrarChamadaNoPrincipal" class="chat-pattern flex flex-1 flex-col items-center justify-center gap-3 bg-surface-100 text-surface-500">
           <span class="select-none">Selecione uma conversa.</span>
@@ -164,10 +171,11 @@
         <MessageInput
           ref="messageInputRef"
           v-if="chat.conversaAtiva && !mostrarChamadaNoPrincipal"
+          v-show="!pastas.abertaId"
           :chat-no-fim="chatNoFim"
           class="absolute inset-x-0 bottom-0 z-10"
           @message-sent="messageListRef?.rolarParaFinalAoEnviar()"
-          @altura-mudou="(val) => alturaInput = val"
+          @altura-mudou="(val) => { if (!pastas.abertaId) alturaInput = val }"
           @open-image-preview="abrirPreviewImagem"
           @open-fila-image="handleOpenFilaImage"
         />
@@ -180,6 +188,13 @@
         @close="painelGrupoAberto = false"
         @open-image-gallery="handleOpenAnexoImagem"
         @open-message="abrirMensagemDoAnexo"
+      />
+
+      <!-- Pastas de mensagens da conversa direta, estreito à direita (por cima em tela pequena) -->
+      <PainelPastas
+        v-if="pastas.painelAberto && secaoAtiva === 'chat' && pastas.conversaId !== null && pastas.conversaId === chat.conversaAtivaId && !mostrarChamadaNoPrincipal"
+        class="fixed inset-y-0 right-0 z-30 shadow-xl lg:static lg:z-auto lg:shadow-none"
+        @close="pastas.painelAberto = false"
       />
 
       <div v-if="mostrarChamadaNoPrincipal" class="fixed inset-0 z-40">
@@ -308,6 +323,9 @@ import ImageViewerModal from './components/ImageViewerModal.vue'
 import ImagePreviewModal from './components/ImagePreviewModal.vue'
 import CreateGroupModal from './components/CreateGroupModal.vue'
 import PainelGrupo from './components/PainelGrupo.vue'
+import PainelPastas from './components/PainelPastas.vue'
+import ChatDaPasta from './components/ChatDaPasta.vue'
+import { usePastasStore } from './stores/pastas'
 import ForwardMessageModal from './components/ForwardMessageModal.vue'
 import CallParticipantsModal from './components/CallParticipantsModal.vue'
 import IncomingCallModal from './components/IncomingCallModal.vue'
@@ -379,6 +397,14 @@ const sidebarAberta = ref(
 )
 const abrirModalGrupo = ref(false)
 const painelGrupoAberto = ref(false)
+
+// Pastas: lidas a cada troca de conversa (só na direta); selecionar mensagens
+// abre o painel, para arrastá-las até uma pasta
+const pastas = usePastasStore()
+watch(() => `${chat.conversaAtivaId ?? ''}:${chat.conversaAtiva?.tipo ?? ''}`, () => {
+  void pastas.usarConversa(chat.conversaAtivaId, chat.conversaAtiva?.tipo === TipoConversa.Direta).catch((e) => console.error('Erro ao carregar as pastas', e))
+}, { immediate: true })
+watch(() => pastas.selecionadas.length > 0, (algo) => { if (algo) pastas.painelAberto = true })
 const modalParticipantesChamada = ref(false)
 const tipoChamadaPendente = ref<TipoChamada>(1)
 const comTelaPendente = ref(false)

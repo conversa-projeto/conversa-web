@@ -4,13 +4,12 @@
 
     <template v-else-if="dados">
       <section v-if="dados.modo_aberto" class="rounded-2xl border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:bg-warning-900/30 dark:text-warning-300">
-        <strong>Ninguém tem a permissão Acessos ainda:</strong> todos os usuários podem mexer nas configurações e nas permissões.
-        Marque Sistema e Acessos para quem deve cuidar disso; ao marcar Acessos para alguém, só passa a valer o que estiver marcado.
+        <strong>Ninguém tem a permissão Pessoas ainda:</strong> todos os usuários podem mexer nas configurações e nas permissões.
+        Marque Sistema e Pessoas para quem deve cuidar disso; ao marcar Pessoas para alguém, só passa a valer o que estiver marcado.
       </section>
 
       <p class="text-xs text-surface-500">
-        Abra uma pessoa para ver e mudar o que ela pode fazer: a administração do sistema e o uso do chat. Conta nova começa com todas as de uso.
-        Ninguém retira as próprias permissões: outra pessoa com Acessos precisa fazer isso.
+        Ninguém retira as próprias permissões: outra pessoa com a permissão Pessoas precisa fazer isso.
       </p>
 
       <input
@@ -22,7 +21,7 @@
 
       <p v-if="erro" class="rounded-xl bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-900 dark:text-danger-400">{{ erro }}</p>
 
-      <section class="overflow-hidden rounded-2xl border border-surface-200">
+      <section class="overflow-hidden rounded-2xl border border-surface-200 bg-surface-50">
         <div v-for="usuario in usuariosFiltrados" :key="usuario.id" class="border-t border-surface-200 first:border-t-0">
           <button
             type="button"
@@ -31,7 +30,10 @@
             @click="aberto = aberto === usuario.id ? null : usuario.id"
           >
             <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm text-surface-800">{{ usuario.nome }}<span v-if="usuario.id === auth.user?.id" class="text-surface-500"> (você)</span></span>
+              <span class="flex items-center gap-2">
+                <span class="truncate text-sm text-surface-800">{{ usuario.nome }}<span v-if="usuario.id === auth.user?.id" class="text-surface-500"> (você)</span></span>
+                <span v-if="usuario.bot" class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300">Bot</span>
+              </span>
               <span class="block truncate text-xs text-surface-500">{{ usuario.login }}</span>
             </span>
             <span
@@ -39,7 +41,10 @@
               class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300"
               :title="nomesAdministracao(usuario)"
             >Administração</span>
-            <span class="shrink-0 text-xs text-surface-500">{{ totalPermissoes(usuario) }} de {{ dados.permissoes.length }}</span>
+            <!-- Colunas de largura fixa, alinhadas à direita: uma não empurra a outra -->
+            <span class="w-16 shrink-0 text-right text-xs tabular-nums text-surface-500" title="Espaço dos arquivos que enviou">{{ formatarTamanho(usuario.espaco) }}</span>
+            <span class="w-[4.5rem] shrink-0 text-right text-xs tabular-nums text-surface-500" title="Usuário desde">{{ usuario.criado_em?.toLocaleDateString('pt-BR') }}</span>
+            <span class="w-14 shrink-0 text-right text-xs tabular-nums text-surface-500">{{ totalPermissoes(usuario) }} de {{ dados.permissoes.length }}</span>
             <svg class="h-4 w-4 shrink-0 text-surface-500 transition-transform" :class="aberto === usuario.id ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
             </svg>
@@ -81,6 +86,7 @@ import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
 import { CodigoPermissao, type PermissoesSistema } from '../types/api'
 import { GRUPOS_USO, NOMES_PERMISSAO } from '../utils/permissoesUso'
+import { formatarTamanho } from '../utils/formatters'
 
 const auth = useAuthStore()
 

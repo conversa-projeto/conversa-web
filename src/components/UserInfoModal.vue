@@ -34,6 +34,10 @@
             <p class="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Telefone</p>
             <p class="mt-0.5 text-sm text-surface-800">{{ usuario.telefone || 'Nao informado' }}</p>
           </div>
+          <div v-if="cadastro" class="px-4 py-2.5">
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Usuário desde</p>
+            <p class="mt-0.5 text-sm text-surface-800">{{ cadastro }}</p>
+          </div>
         </div>
 
         <button
@@ -52,6 +56,7 @@
 
 <script setup lang="ts">
 import { inicialNome } from '../utils/formatters'
+import { useChatStore } from '../stores/chat'
 import { computed, ref, watch } from 'vue'
 import type { UsuarioPopup } from '../utils/userProfile'
 
@@ -68,6 +73,13 @@ const emit = defineEmits<{
 }>()
 
 const ocultarAvatar = ref(false)
+
+// A data do cadastro vem nos contatos, que o chat já carrega
+const chat = useChatStore()
+const cadastro = computed(() => {
+  const data = chat.contatos.find((c) => c.id === props.usuario?.id)?.criado_em
+  return data ? data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
+})
 
 const avatarUrl = computed(() => {
   if (ocultarAvatar.value) return ''

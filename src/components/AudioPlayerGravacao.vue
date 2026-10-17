@@ -40,6 +40,17 @@
           :style="{ width: progresso + '%' }"
         />
       </div>
+
+      <!-- Velocidade -->
+      <button
+        type="button"
+        class="-my-1 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-semibold tabular-nums transition"
+        :class="isOwn ? 'bg-enviada-suave/20 text-enviada-suave hover:bg-enviada-suave/30' : 'bg-surface-200 text-surface-600 hover:bg-surface-300'"
+        title="Velocidade"
+        @click="trocarVelocidade"
+      >
+        {{ rotuloVelocidade(velocidade) }}
+      </button>
     </div>
 
     <!-- Duration + status (same line) -->
@@ -63,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { useAudioPlayer, formatarDuracao } from '../composables/useAudioPlayer'
+import { useAudioPlayer, formatarDuracao, rotuloVelocidade } from '../composables/useAudioPlayer'
 import OndaAudio from './OndaAudio.vue'
 
 const props = defineProps<{
@@ -87,7 +98,9 @@ const {
   tempoAtual,
   progresso,
   naoReproduzida,
+  velocidade,
   alternarReproducao,
+  trocarVelocidade,
   iniciarSeek,
   onMetadata,
   onTimeUpdate,

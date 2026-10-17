@@ -10,10 +10,11 @@ import { substituirAtalhoAntesDoCursor } from '../utils/emojiAtalhos'
 import PecaAnexo from './PecaAnexo.vue'
 import PecaFigurinha from './PecaFigurinha.vue'
 import PecaCodigo from './PecaCodigo.vue'
+import PecaLocalizacao from './PecaLocalizacao.vue'
 import { cercaCodigo } from '../utils/codeBlocks'
 
 // Peças do campo de mensagem no editor (Tiptap): imagem, vídeo, áudio,
-// arquivo e figurinha são blocos que não se editam por dentro; a menção fica
+// arquivo, figurinha, código e localização são blocos que não se editam por dentro; a menção fica
 // no meio do texto. O editor cuida de apagar como um caractere, selecionar,
 // desfazer, arrastar para mudar a ordem e pôr o cursor entre elas.
 
@@ -102,6 +103,25 @@ export function blocoDeCodigo({ linguagem, codigo }: CodigoEditor) {
   const cerca = cercaCodigo(codigo)
   return `${cerca}${linguagem}\n${codigo}\n${cerca}`
 }
+
+export interface OpcoesLocalizacao {
+  /** Abre a janela de localização com a atual (JSON); salvar troca a da peça */
+  aoEditar: (atual: string, salvar: (nova: string) => void) => void
+}
+
+// Local ou trajeto (JSON do conteúdo tipo 9): o resumo no campo; edita-se na janela
+export const LocalizacaoPeca = Node.create<OpcoesLocalizacao>({
+  name: 'localizacao',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addOptions: () => ({ aoEditar: () => {} }),
+  addAttributes: () => ({ localizacao: { default: '' } }),
+  parseHTML: () => [{ tag: 'div[data-localizacao]', getAttrs: (el: HTMLElement) => ({ localizacao: el.textContent ?? '' }) }],
+  renderHTML: ({ HTMLAttributes }) => ['div', { 'data-localizacao': '' }, HTMLAttributes.localizacao],
+  addNodeView: () => VueNodeViewRenderer(PecaLocalizacao),
+})
 
 // Menção: "@Nome" no texto, que vai na mensagem como @[Nome](id). A lista de
 // sugestões é a do campo (suggestion.render).
@@ -201,7 +221,7 @@ const Teclas = Extension.create<OpcoesTeclas>({
 export const ExtensoesDoCampo = { PecasSelecionadas, AtalhosEmoji, Teclas }
 
 // O documento do campo, na ordem, nos blocos da mensagem: texto (linhas
-// juntas), arquivo, figurinha e código (um texto só dele). Texto vazio entre
+// juntas), arquivo, figurinha, código (um texto só dele) e localização. Texto vazio entre
 // peças é descartado.
 export function blocosDoDocumento(doc: NoDocumento, anexos: Map<string, AnexoEditor>): BlocoMensagem[] {
   const blocos: BlocoMensagem[] = []
@@ -230,6 +250,11 @@ export function blocosDoDocumento(doc: NoDocumento, anexos: Map<string, AnexoEdi
     if (no.type.name === 'codigo') {
       fecharTexto()
       if (String(no.attrs.codigo).trim()) blocos.push({ texto: blocoDeCodigo({ linguagem: no.attrs.linguagem, codigo: no.attrs.codigo }) })
+      return
+    }
+    if (no.type.name === 'localizacao') {
+      fecharTexto()
+      if (no.attrs.localizacao) blocos.push({ localizacao: no.attrs.localizacao })
       return
     }
     let linha = ''

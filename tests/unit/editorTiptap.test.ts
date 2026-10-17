@@ -7,7 +7,7 @@ import Paragraph from '@tiptap/extension-paragraph'
 import Text from '@tiptap/extension-text'
 import HardBreak from '@tiptap/extension-hard-break'
 import { Gapcursor, UndoRedo } from '@tiptap/extensions'
-import { Anexo, ExtensoesDoCampo, Figurinha, blocosDoDocumento, criarMencao, novoIdAnexo } from '@/editor/pecas'
+import { Anexo, ExtensoesDoCampo, Figurinha, LocalizacaoPeca, blocosDoDocumento, criarMencao, novoIdAnexo } from '@/editor/pecas'
 import { TextSelection } from '@tiptap/pm/state'
 import type { AnexoEditor } from '@/editor/pecas'
 
@@ -26,7 +26,7 @@ async function montar(conteudo = '') {
   const Campo = defineComponent({
     setup() {
       const instancia = useEditor({
-        extensions: [Document, Paragraph, Text, HardBreak, Anexo.configure({ anexos }), Figurinha, criarMencao({}), Gapcursor, UndoRedo, ExtensoesDoCampo.PecasSelecionadas, ExtensoesDoCampo.AtalhosEmoji],
+        extensions: [Document, Paragraph, Text, HardBreak, Anexo.configure({ anexos }), Figurinha, LocalizacaoPeca, criarMencao({}), Gapcursor, UndoRedo, ExtensoesDoCampo.PecasSelecionadas, ExtensoesDoCampo.AtalhosEmoji],
         content: conteudo,
       })
       return () => {
@@ -123,6 +123,19 @@ describe('campo de mensagem no Tiptap', () => {
     // Duas imagens seguidas: nada entre elas
     expect(editor.state.doc.child(1).type.name).toBe('anexo')
     expect(editor.state.doc.child(2).type.name).toBe('anexo')
+  })
+
+  test('localização vira peça com o resumo e sai como um bloco próprio, entre os textos', async () => {
+    const { editor, anexos } = await montar()
+    const local = JSON.stringify({ pontos: [{ lat: 0, lng: 0, nome: 'Casa' }, { lat: 0, lng: 1, nome: 'Trabalho' }], distancia: 12_345 })
+    editor.commands.setContent({ type: 'doc', content: [
+      { type: 'paragraph', content: [{ type: 'text', text: 'vou por aqui' }] },
+      { type: 'localizacao', attrs: { localizacao: local } },
+      { type: 'paragraph', content: [{ type: 'text', text: 'até já' }] },
+    ] })
+    await nextTick()
+    expect(document.querySelector('[data-localizacao]')?.textContent).toContain('Casa → Trabalho · 12,3 km')
+    expect(blocosDoDocumento(editor.state.doc, anexos)).toEqual([{ texto: 'vou por aqui' }, { localizacao: local }, { texto: 'até já' }])
   })
 
   test('Backspace no começo da linha de baixo apaga a imagem como um caractere', async () => {

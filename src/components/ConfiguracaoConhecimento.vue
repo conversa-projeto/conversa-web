@@ -44,7 +44,7 @@
           <span class="text-xs text-surface-500">Ajuda a IA a saber quando consultar esta base.</span>
         </label>
         <div class="flex justify-end gap-2">
-          <button type="button" class="rounded-xl px-4 py-2 text-sm text-surface-700 hover:bg-surface-200" @click="nova = null">Cancelar</button>
+          <button type="button" class="rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10" @click="nova = null">Cancelar</button>
           <button type="submit" :disabled="salvando || !nova.nome.trim()" class="rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">Criar base</button>
         </div>
       </form>
@@ -105,14 +105,17 @@
           <p class="text-xs text-surface-500">Os trechos que o bot receberia para esta pergunta.</p>
           <div class="flex gap-2">
             <input v-model="pergunta" type="text" :class="[CAMPO, 'mt-0 min-w-0 flex-1']" placeholder="Ex.: Com quanta antecedência peço férias?" aria-label="Pergunta de teste" />
-            <button type="submit" :disabled="buscando || !pergunta.trim() || !recursos.conhecimento" class="shrink-0 rounded-xl border border-surface-300 px-4 py-2 text-sm text-surface-700 hover:bg-surface-200 disabled:opacity-50">
+            <button type="submit" :disabled="buscando || !pergunta.trim() || !recursos.conhecimento" class="shrink-0 rounded-xl border border-primary-600 px-4 py-2 text-sm font-medium text-primary-600 hover:bg-primary-600/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-primary-400/10">
               {{ buscando ? 'Buscando...' : 'Buscar' }}
             </button>
           </div>
           <p v-if="achados && achados.length === 0" class="text-sm text-surface-500">Nada encontrado.</p>
-          <div v-for="(trecho, indice) in achados ?? []" :key="indice" class="rounded-xl border border-surface-200 bg-surface-base p-3">
+          <div v-for="(trecho, indice) in achadosDestacados" :key="indice" class="rounded-xl border border-surface-200 bg-surface-base p-3">
             <p class="text-xs text-surface-500">{{ trecho.documento }} · semelhança {{ trecho.nota.toFixed(2) }}</p>
-            <p class="mt-1 whitespace-pre-line text-sm text-surface-700">{{ trecho.texto }}</p>
+            <p class="mt-1 whitespace-pre-line text-sm text-surface-700"><template v-for="(parte, i) in trecho.partes" :key="i"><mark
+              v-if="parte.destaque"
+              class="rounded-sm bg-primary-100 px-0.5 text-primary-700 dark:bg-primary-900 dark:text-primary-300"
+            >{{ parte.texto }}</mark><template v-else>{{ parte.texto }}</template></template></p>
           </div>
         </form>
       </section>
@@ -140,6 +143,7 @@ import { useDialogo } from '../composables/useDialogo'
 import { useRecursos } from '../composables/useRecursos'
 import { StatusDocumento, type BaseConhecimento, type DocumentoConhecimento, type TrechoConhecimento } from '../types/api'
 import { EXTENSOES_DOCUMENTO, textoDoDocumento } from '../utils/textoDocumento'
+import { partesDestacadas } from '../utils/destacarTermos'
 import DialogoConfirmacao from './DialogoConfirmacao.vue'
 
 const CAMPO = 'mt-1 block rounded-xl border border-surface-300 bg-surface-100 px-3 py-2 text-sm text-surface-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
@@ -170,6 +174,9 @@ const inputArquivos = ref<HTMLInputElement | null>(null)
 const pergunta = ref('')
 const buscando = ref(false)
 const achados = ref<TrechoConhecimento[] | null>(null)
+// A pergunta da busca feita: o destaque não muda enquanto se digita outra
+const perguntaBuscada = ref('')
+const achadosDestacados = computed(() => (achados.value ?? []).map((trecho) => ({ ...trecho, partes: partesDestacadas(trecho.texto, perguntaBuscada.value) })))
 let relogio: number | undefined
 
 const selecionada = computed(() => bases.value.find((b) => b.id === selecionadaId.value) ?? null)
@@ -319,7 +326,9 @@ async function testarBusca() {
   buscando.value = true
   erro.value = ''
   try {
-    achados.value = await api.buscarConhecimento([base], pergunta.value.trim())
+    const buscada = pergunta.value.trim()
+    achados.value = await api.buscarConhecimento([base], buscada)
+    perguntaBuscada.value = buscada
   } catch (e) {
     erro.value = e instanceof Error ? e.message : 'Erro ao buscar'
   } finally {

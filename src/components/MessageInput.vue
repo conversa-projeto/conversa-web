@@ -122,6 +122,7 @@
               :com-votacao="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
               @arquivo="abrirFilePicker()"
               @codigo="mostrarAnexo = false; mostrarCodigo = true"
+              @localizacao="mostrarAnexo = false; mostrarLocalizacao = true"
               @votacao="mostrarAnexo = false; mostrarEnquete = true"
               @confirmacao="mostrarAnexo = false; pedirConfirmacao()"
               @postagem="mostrarAnexo = false; chat.postagemPendente = { titulo: '' }"
@@ -253,6 +254,15 @@
       @close="fecharCodigo"
     />
 
+    <LocalizacaoModal
+      v-if="mostrarLocalizacao"
+      :inicial="localizacaoEditando?.atual"
+      :editando="!!localizacaoEditando"
+      @inserir="onInserirLocalizacao"
+      @enviar="onEnviarLocalizacao"
+      @close="mostrarLocalizacao = false; localizacaoEditando = null"
+    />
+
     <!-- Agendar Modal -->
     <AgendarMensagemModal
       :aberta="mostrarAgendarModal"
@@ -299,11 +309,12 @@ import { cercaCodigo, ehDesenhoAscii, pareceCodigo, textoLongo } from '../utils/
 import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { gifDoHtml } from '../utils/copiarImagem'
-import { Anexo, Codigo, ExtensoesDoCampo, Figurinha, blocoDeCodigo, blocosDoDocumento, criarMencao, liberarPrevias, novoIdAnexo, type AnexoEditor, type CodigoEditor } from '../editor/pecas'
+import { Anexo, Codigo, ExtensoesDoCampo, Figurinha, LocalizacaoPeca, blocoDeCodigo, blocosDoDocumento, criarMencao, liberarPrevias, novoIdAnexo, type AnexoEditor, type CodigoEditor } from '../editor/pecas'
 import { SugestaoIa, chaveSugestao, sugestaoAtual } from '../editor/sugestao'
 import { useSugestaoIa } from '../composables/useSugestaoIa'
 import AnexoPopup from './AnexoPopup.vue'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
+const LocalizacaoModal = defineAsyncComponent(() => import('./LocalizacaoModal.vue'))
 const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
 const MensagensAgendadasModal = defineAsyncComponent(() => import('./MensagensAgendadasModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
@@ -311,6 +322,7 @@ import MencaoDropdown from './MencaoDropdown.vue'
 import BarraGravacao from './BarraGravacao.vue'
 import EnqueteModal from './EnqueteModal.vue'
 import ConfirmacaoLeituraModal from './ConfirmacaoLeituraModal.vue'
+import { lerLocalizacao, type Localizacao } from '../utils/localizacao'
 
 const props = withDefaults(defineProps<{
   /** Usuario esta no fim do chat — controla visibilidade do indicador digitando/gravando. */
@@ -363,6 +375,7 @@ const campoVazio = ref(true)
 const mostrarEmoji = ref(false)
 const mostrarAnexo = ref(false)
 const mostrarCodigo = ref(false)
+const mostrarLocalizacao = ref(false)
 const mostrarEnquete = ref(false)
 const escolhendoConfirmacao = ref(false)
 const ehGrupo = computed(() => chat.conversaAtiva?.tipo === TipoConversa.Grupo)
@@ -430,6 +443,7 @@ const editor = useEditor({
     Anexo.configure({ anexos, aoAbrirImagem: abrirImagemDoCampo }),
     Figurinha,
     Codigo.configure({ aoEditar: editarCodigoDoCampo }),
+    LocalizacaoPeca.configure({ aoEditar: editarLocalizacaoDoCampo }),
     criarMencao({
       render: () => ({
         onStart: abrirMencao,
@@ -514,7 +528,7 @@ function inserirNoCampo(conteudo: JSONContent[], posicao?: number) {
   const cadeia = ed.chain().focus(null, { scrollIntoView: false })
   const comConteudo = posicao === undefined ? cadeia.insertContent(conteudo) : cadeia.insertContentAt(posicao, conteudo)
   comConteudo.command(({ tr }) => {
-    if (conteudo.some((no) => no.type === 'anexo' || no.type === 'figurinha' || no.type === 'codigo')) {
+    if (conteudo.some((no) => no.type === 'anexo' || no.type === 'figurinha' || no.type === 'codigo' || no.type === 'localizacao')) {
       // Sem linha depois da peça (ela ficou no fim), uma nova para o cursor
       let proxima = Selection.findFrom(tr.doc.resolve(tr.selection.to), 1, true)
       if (!proxima) {
@@ -819,6 +833,33 @@ function editarCodigoDoCampo(atual: CodigoEditor, salvar: (novo: CodigoEditor) =
   codigoColado.value = null
   codigoEditando.value = { atual, salvar }
   mostrarCodigo.value = true
+}
+
+// --- Localização ---
+
+// "Enviar": vai sozinha, na hora; o que já estava no campo fica lá
+function onEnviarLocalizacao(localizacao: Localizacao) {
+  mostrarLocalizacao.value = false
+  void enviarBlocos([{ localizacao: JSON.stringify(localizacao) }])
+}
+
+// "Inserir na mensagem": vira um bloco no campo (editando, troca o bloco)
+function onInserirLocalizacao(localizacao: Localizacao) {
+  mostrarLocalizacao.value = false
+  const edicao = localizacaoEditando.value
+  localizacaoEditando.value = null
+  if (edicao) {
+    edicao.salvar(JSON.stringify(localizacao))
+    return
+  }
+  inserirNoCampo([{ type: 'localizacao', attrs: { localizacao: JSON.stringify(localizacao) } }])
+}
+
+const localizacaoEditando = ref<{ atual: Localizacao | undefined; salvar: (nova: string) => void } | null>(null)
+
+function editarLocalizacaoDoCampo(atual: string, salvar: (nova: string) => void) {
+  localizacaoEditando.value = { atual: lerLocalizacao(atual) ?? undefined, salvar }
+  mostrarLocalizacao.value = true
 }
 
 // --- Emoji ---
@@ -1188,7 +1229,11 @@ function aoTeclarForaDoCampo(event: KeyboardEvent) {
   // Com um modal aberto por cima, o campo fica coberto e nao recebe a tecla.
   const r = el.getBoundingClientRect()
   if (!el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))) return
-  focarCampo()
+  // O foco muda aqui mesmo, no keydown: o commands.focus do Tiptap espera o
+  // próximo quadro, e a letra que disparou ia para onde o foco estava
+  const ed = editor.value!
+  ed.view.dispatch(ed.state.tr.setSelection(Selection.atEnd(ed.state.doc)))
+  ed.view.focus()
 }
 
 document.addEventListener('keydown', aoTeclarForaDoCampo)

@@ -202,6 +202,11 @@ export function formatarDuracao(segundos?: number | null): string {
   return `${String(min).padStart(2, '0')}:${String(seg).padStart(2, '0')}`
 }
 
+// "Usuário desde 15/10/2026"; sem a data (conta antiga), nada
+export function usuarioDesde(data: Date | null | undefined): string {
+  return data ? `Usuário desde ${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : ''
+}
+
 export function formatarTamanho(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   const kb = bytes / 1024

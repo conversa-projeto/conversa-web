@@ -18,6 +18,7 @@
 
       <div
         ref="wrapperRef"
+        data-area-mensagem
         class="group/bubble relative flex max-w-full items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
         :class="[ehPostagem ? 'w-full' : 'w-fit', isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '', '[@media(pointer:coarse)]:select-none [-webkit-touch-callout:none]']"
         @mouseleave="onMouseLeave"
@@ -34,6 +35,7 @@
           :is-own="isOwn"
           :is-group="isGroup"
           :dentro="ehPostagem"
+          :na-pasta="naPasta"
           :menu-aberto="menuAcoesAberto"
           @reply="(msg) => emit('reply', msg)"
           @responder-privado="(msg) => emit('responder-privado', msg)"
@@ -42,6 +44,8 @@
           @reagir="(emoji) => emit('reagir', mensagem.id, emoji)"
           @excluir="(msg) => emit('excluir', msg)"
           @pedir-confirmacao="(msg) => emit('pedir-confirmacao', msg)"
+          @ver-na-conversa="(msg) => emit('ver-na-conversa', msg)"
+          @tirar-da-pasta="(msg) => emit('tirar-da-pasta', msg)"
           @menu-toggle="(aberto) => menuAcoesAberto = aberto"
         />
 
@@ -57,61 +61,85 @@
           @go-to-message="(id: number, conversaId?: number) => emit('go-to-message', id, conversaId)"
         />
 
+        <!-- Pastas em que a mensagem está (conversa direta): bolinhas atrás do status, na
+             mesma altura dele; na recebida, que não tem status, no mesmo lugar, lado a lado -->
+        <div v-if="pastas?.length && (!isOwn || ehChamada)" class="mb-1.5 flex shrink-0 items-center gap-0.5">
+          <button
+            v-for="pasta in pastas"
+            :key="pasta.id"
+            type="button"
+            class="h-2.5 w-2.5 rounded-full opacity-80 transition hover:scale-125 hover:opacity-100"
+            :style="{ background: pasta.cor }"
+            :title="`Pasta ${pasta.nome}`"
+            @click.stop="emit('abrir-pasta', pasta.id)"
+          />
+        </div>
+
         <!-- Indicador de status de entrega (fora da bolha) -->
-        <div
-          v-if="isOwn && mensagem.id > 0 && !ehChamada"
-          class="relative mb-1 shrink-0 cursor-default"
-          @mouseenter="abrirStatus"
-          @mouseleave="fecharStatus"
-          @click.stop="mostrarStatus = !mostrarStatus"
-        >
-          <DetalheStatusMensagem v-if="mostrarStatus" :mensagem="mensagem" :is-group="isGroup" />
-          <svg
-            v-if="mensagem.enviando"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="h-3.5 w-3.5 text-surface-600"
+        <div v-if="isOwn && mensagem.id > 0 && !ehChamada" class="relative mb-1 shrink-0">
+          <div v-if="pastas?.length" class="pointer-events-none absolute inset-0 flex items-center justify-center -space-x-1">
+            <span
+              v-for="pasta in pastas"
+              :key="pasta.id"
+              class="h-3 w-3 shrink-0 rounded-full opacity-70"
+              :style="{ background: pasta.cor }"
+            />
+          </div>
+          <div
+            class="relative cursor-default"
+            :title="pastas?.length ? `Na pasta ${pastas.map((p) => p.nome).join(', ')}` : undefined"
+            @mouseenter="abrirStatus"
+            @mouseleave="fecharStatus"
+            @click.stop="mostrarStatus = !mostrarStatus"
           >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          <svg
-            v-else-if="mensagem.visualizada"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2.5"
-            stroke="currentColor"
-            class="h-3.5 w-3.5 text-primary-500"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
-          </svg>
-          <svg
-            v-else-if="mensagem.recebida"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2.5"
-            stroke="currentColor"
-            class="h-3.5 w-3.5 text-surface-600"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
-          </svg>
-          <svg
-            v-else
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2"
-            stroke="currentColor"
-            class="h-3.5 w-3.5 text-surface-600"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
+            <DetalheStatusMensagem v-if="mostrarStatus" :mensagem="mensagem" :is-group="isGroup" />
+            <svg
+              v-if="mensagem.enviando"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="h-3.5 w-3.5 text-surface-600"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <svg
+              v-else-if="mensagem.visualizada"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2.5"
+              stroke="currentColor"
+              class="h-3.5 w-3.5 text-primary-500"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
+            </svg>
+            <svg
+              v-else-if="mensagem.recebida"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2.5"
+              stroke="currentColor"
+              class="h-3.5 w-3.5 text-surface-600"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12.5l4 4L13 9" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 12.5l4 4L19 9" />
+            </svg>
+            <svg
+              v-else
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+              class="h-3.5 w-3.5 text-surface-600"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
         </div>
         <!-- Chamada nao tem status de entrega, mas ocupa o mesmo espaco para alinhar com as demais -->
         <div v-else-if="isOwn && mensagem.id > 0 && ehChamada" class="w-3.5 shrink-0" />
@@ -267,6 +295,7 @@ import BolhaReferencia from './BolhaReferencia.vue'
 import BolhaTextoCurto from './BolhaTextoCurto.vue'
 import BolhaEmoji from './BolhaEmoji.vue'
 import BolhaFigurinha from './BolhaFigurinha.vue'
+import BolhaLocalizacao from './BolhaLocalizacao.vue'
 import BolhaEnquete from './BolhaEnquete.vue'
 import BolhaPadrao from './BolhaPadrao.vue'
 import BolhaChamada from './BolhaChamada.vue'
@@ -281,6 +310,10 @@ const props = defineProps<{
   isGroup: boolean
   mudouRemetente: boolean
   getAnexoUrl: (identificador: string) => string
+  // Pastas (da conversa direta) em que a mensagem está, com a cor já resolvida
+  pastas?: { id: number; nome: string; cor: string }[]
+  // Vista dentro de uma pasta (ChatDaPasta): o menu tem as ações da pasta
+  naPasta?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -295,6 +328,9 @@ const emit = defineEmits<{
   'excluir': [mensagem: Mensagem]
   'confirmar-leitura': [mensagem: Mensagem]
   'pedir-confirmacao': [mensagem: Mensagem]
+  'abrir-pasta': [pastaId: number]
+  'ver-na-conversa': [mensagem: Mensagem]
+  'tirar-da-pasta': [mensagem: Mensagem]
 }>()
 
 const wrapperRef = ref<HTMLElement>()
@@ -434,6 +470,7 @@ const componenteMap = {
   [TipoExibicaoMensagem.Postagem]: BolhaPostagem,
   [TipoExibicaoMensagem.Imagem]: BolhaImagem,
   [TipoExibicaoMensagem.Figurinha]: BolhaFigurinha,
+  [TipoExibicaoMensagem.Localizacao]: BolhaLocalizacao,
   [TipoExibicaoMensagem.Enquete]: BolhaEnquete,
   [TipoExibicaoMensagem.Codigo]: BolhaCodigo,
   [TipoExibicaoMensagem.ComReferencia]: BolhaReferencia,

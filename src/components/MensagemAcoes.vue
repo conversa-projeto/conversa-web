@@ -61,6 +61,15 @@
         </button>
       </div>
 
+      <!-- Mensagem vista dentro de uma pasta: levar ao chat ou tirar dela -->
+      <button
+        v-if="naPasta"
+        class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
+        @click="acaoVerNaConversa"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
+        Ver na conversa
+      </button>
       <button
         v-if="auth.pode(CodigoPermissao.Responder)"
         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
@@ -102,7 +111,7 @@
         Copiar
       </button>
       <button
-        v-if="podePedirConfirmacao"
+        v-if="podePedirConfirmacao && !naPasta"
         class="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
         @click="acaoPedirConfirmacao"
       >
@@ -110,7 +119,15 @@
         Pedir confirmação de leitura
       </button>
       <button
-        v-if="isOwn && podeExcluir && auth.pode(CodigoPermissao.Ocultar)"
+        v-if="naPasta"
+        class="flex w-full items-center gap-2 whitespace-nowrap border-t border-surface-200 px-3 py-1.5 text-left text-sm text-surface-700 transition hover:bg-surface-100"
+        @click="acaoTirarDaPasta"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15 13.5H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+        Tirar da pasta
+      </button>
+      <button
+        v-if="isOwn && podeExcluir && auth.pode(CodigoPermissao.Ocultar) && !naPasta"
         class="flex w-full items-center gap-2 border-t border-surface-200 px-3 py-1.5 text-left text-sm text-danger-600 transition hover:bg-danger-500/10 dark:text-danger-400 dark:hover:bg-danger-500/15"
         @click="acaoExcluir"
       >
@@ -188,6 +205,8 @@ const props = defineProps<{
   menuAberto?: boolean
   // Bolha da largura do chat (postagem): os botões ficam no canto dela
   dentro?: boolean
+  // Aberta dentro de uma pasta: o menu ganha "Ver na conversa" e "Tirar da pasta"
+  naPasta?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -199,6 +218,8 @@ const emit = defineEmits<{
   excluir: [mensagem: Mensagem]
   'pedir-confirmacao': [mensagem: Mensagem]
   'menu-toggle': [aberto: boolean]
+  'ver-na-conversa': [mensagem: Mensagem]
+  'tirar-da-pasta': [mensagem: Mensagem]
 }>()
 
 const MENU_LARGURA = 200
@@ -374,6 +395,16 @@ function acaoEncaminhar() {
 function acaoCopiar() {
   fecharMenu()
   emit('copiar', props.mensagem, alvoCopia)
+}
+
+function acaoVerNaConversa() {
+  fecharMenu()
+  emit('ver-na-conversa', props.mensagem)
+}
+
+function acaoTirarDaPasta() {
+  fecharMenu()
+  emit('tirar-da-pasta', props.mensagem)
 }
 
 function acaoExcluir() {

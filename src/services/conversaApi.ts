@@ -1,4 +1,4 @@
-import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteIa } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaEmbutida, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, PastaMensagens, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteEmbeddings, TesteIa } from '../types/api'
 import { api, dados } from './eden'
 import type { DadosAudio } from '../utils/dadosAudio'
 
@@ -43,6 +43,11 @@ export function getPresentesConversa(conversaId: number): Promise<number[]> {
   return dados(api().conversa.presentes.get({ query: { conversa: conversaId } }))
 }
 
+// Sem endereço próprio (url vazio), testa no servidor da IA (url_ia)
+export function testarEmbeddings(servidor: { url: string; url_ia: string; modelo: string; token?: string }): Promise<TesteEmbeddings> {
+  return dados(api().parametros.ia['testar-embeddings'].post(servidor))
+}
+
 export function testarIa(servidor: { url: string; modelo: string; token?: string }): Promise<TesteIa> {
   return dados(api().parametros.ia.testar.post(servidor))
 }
@@ -58,6 +63,11 @@ export function pedirResumo(conversaId: number, periodo: PeriodoResumo): Promise
 
 export function consultarResumo(id: string): Promise<ResumoConversa> {
   return dados(api().conversa.resumo.get({ query: { id } }))
+}
+
+// Bytes dos arquivos que a própria pessoa enviou (cada arquivo uma vez)
+export function getEspacoUsado(): Promise<{ bytes: number }> {
+  return dados(api().usuario.espaco.get())
 }
 
 export function getPrivacidade(): Promise<Privacidade> {
@@ -317,6 +327,8 @@ export function cadastrarUsuario(campos: {
   avatar_anexo_id?: number | null
   bot?: boolean
   instrucoes?: string
+  /** Sem a lista, o padrão do servidor (pessoa com todas as de uso, bot com o básico) */
+  permissoes?: string[]
 }): Promise<{ id: number; nome: string; login: string; bot: boolean }> {
   return dados(api().usuario.novo.put(campos))
 }
@@ -401,6 +413,11 @@ export function getFerramentas(): Promise<FerramentaExterna[]> {
 // Para a tela do bot: só nome e descrição
 export function getFerramentasDisponiveis(): Promise<Pick<FerramentaExterna, 'id' | 'nome' | 'descricao'>[]> {
   return dados(api().ferramentas.disponiveis.get())
+}
+
+// As embutidas (base de conhecimento), só para ver
+export function getFerramentasEmbutidas(): Promise<FerramentaEmbutida[]> {
+  return dados(api().ferramentas.embutidas.get())
 }
 
 export function incluirFerramenta(campos: DadosFerramenta): Promise<FerramentaExterna> {
@@ -551,4 +568,36 @@ export function atualizarSip(sip: Partial<Omit<SipConfig, 'usuario_id' | 'criado
 
 export function getIceServers(): Promise<IceConfig> {
   return dados(api().ice.get())
+}
+
+// --- Pastas de mensagens (conversa direta) ---
+
+export function getPastas(conversaId: number): Promise<PastaMensagens[]> {
+  return dados(api().pastas.get({ query: { conversa: conversaId } }))
+}
+
+export function criarPasta(conversaId: number, nome: string, cor: string, compartilhada: boolean): Promise<PastaMensagens> {
+  return dados(api().pasta.put({ conversa_id: conversaId, nome, cor, compartilhada }))
+}
+
+// Só quem criou a pasta muda o nome, a cor e se é compartilhada
+export function alterarPasta(id: number, alteracoes: { nome?: string; cor?: string; compartilhada?: boolean }): Promise<PastaMensagens> {
+  return dados(api().pasta.patch({ id, ...alteracoes }))
+}
+
+export function excluirPasta(id: number) {
+  return dados(api().pasta.delete(undefined, { query: { id } }))
+}
+
+// Da mais antiga à mais nova, de 50 em 50; antes = id da mais antiga já carregada
+export function getMensagensDaPasta(id: number, antes = 0): Promise<Mensagem[]> {
+  return dados(api().pasta.mensagens.get({ query: { id, antes } }))
+}
+
+export function porMensagensNaPasta(pastaId: number, mensagens: number[]) {
+  return dados(api().pasta.mensagens.put({ pasta_id: pastaId, mensagens }))
+}
+
+export function tirarMensagensDaPasta(pastaId: number, mensagens: number[]) {
+  return dados(api().pasta.mensagens.delete({ pasta_id: pastaId, mensagens }))
 }

@@ -7,6 +7,7 @@ import { useAuthStore } from './auth'
 import { useCallStore } from './call'
 import { useAtividadesStore } from './atividades'
 import { useEnquetesStore } from './enquetes'
+import { usePastasStore, type AvisoPasta } from './pastas'
 import { useAgora } from '../composables/useAgora'
 import { playNotificationSound, showNotification, fecharNotificacao, requestNotificationPermission } from '../utils/sound'
 import { resumirTexto } from '../utils/formatters'
@@ -19,6 +20,7 @@ import { medirAudio, type DadosAudio } from '../utils/dadosAudio'
 export type BlocoMensagem =
   | { texto: string }
   | { figurinha: string }
+  | { localizacao: string }
   | { arquivo: { blob: Blob; nomeArquivo: string; mimeType?: string; isAudio?: boolean; isGravacaoAudio?: boolean } }
 
 export const LIMITE_REACOES_POR_PESSOA = 5
@@ -177,6 +179,9 @@ export const useChatStore = defineStore('chat', () => {
     // Solicita permissão para notificações na inicialização
     void requestNotificationPermission()
   }
+
+  // Já houve uma conexão do WebSocket: a próxima é reconexão
+  let jaConectou = false
 
   async function carregarContatos() {
     contatos.value = await api.getContatos()
@@ -491,6 +496,12 @@ export const useChatStore = defineStore('chat', () => {
       if ('figurinha' in item) {
         conteudosOptimistas.push({ ordem, tipo: TipoConteudo.Figurinha, conteudo: item.figurinha })
         conteudosApi.push({ ordem, tipo: TipoConteudo.Figurinha, conteudo: item.figurinha })
+        ordem += 1
+        continue
+      }
+      if ('localizacao' in item) {
+        conteudosOptimistas.push({ ordem, tipo: TipoConteudo.Localizacao, conteudo: item.localizacao })
+        conteudosApi.push({ ordem, tipo: TipoConteudo.Localizacao, conteudo: item.localizacao })
         ordem += 1
         continue
       }
@@ -811,6 +822,10 @@ export const useChatStore = defineStore('chat', () => {
       )
       // Quem entrou ou saiu enquanto o socket estava fora não gerou aviso
       void carregarContatosOnline()
+      // Nem a conta criada ou renomeada nesse tempo (na primeira conexão, o
+      // inicializar acabou de carregar os contatos)
+      if (jaConectou) void carregarContatos().catch(() => {})
+      jaConectou = true
       ultimaPresenca = ''
       acompanharPresenca()
       enviarPresenca()
@@ -951,6 +966,12 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    // Conta nova, renomeada ou excluída: a busca e o @ procuram nos contatos
+    if (evento.tipo === TipoEventoSocket.ContatosAtualizados) {
+      await carregarContatos()
+      return
+    }
+
     if (evento.tipo === TipoEventoSocket.ConversaAtualizada) {
       await carregarConversas()
       return
@@ -958,6 +979,12 @@ export const useChatStore = defineStore('chat', () => {
 
     if (evento.tipo === TipoEventoSocket.EnqueteAtualizada && (evento as Record<string, unknown>).enquete_id) {
       useEnquetesStore().aoAtualizar(Number((evento as Record<string, unknown>).enquete_id))
+      return
+    }
+
+    if (evento.tipo === TipoEventoSocket.PastasAtualizadas) {
+      // mensagens aqui vem como lista de ids, não como o texto dos outros avisos
+      void usePastasStore().aoAviso(evento as unknown as AvisoPasta).catch(() => { /* a lista fica como estava */ })
       return
     }
 
@@ -1057,6 +1084,7 @@ export const useChatStore = defineStore('chat', () => {
           else if (c.tipo === TipoConteudo.Audio) texto = 'Audio'
           else if (c.tipo === TipoConteudo.Figurinha) texto = 'Figurinha'
           else if (c.tipo === TipoConteudo.Enquete) texto = 'Votação'
+          else if (c.tipo === TipoConteudo.Localizacao) texto = 'Localização'
           else texto = 'Arquivo'
         }
 
@@ -1610,6 +1638,7 @@ export const useChatStore = defineStore('chat', () => {
     digitandoNaConversaAtiva,
     enviarDigitando,
     limparDigitandoConversaAtiva,
+    gravandoPorConversa,
     gravandoNaConversaAtiva,
     enviarGravando,
     limparGravandoConversaAtiva,

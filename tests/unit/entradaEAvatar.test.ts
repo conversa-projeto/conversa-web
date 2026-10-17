@@ -286,6 +286,24 @@ describe('campo com imagens, áudio, arquivos e figurinhas no meio do texto', ()
     expect(campo.find('button[title="Enviar"]').exists()).toBe(true)
   })
 
+  test('letra digitada fora do campo (no botão da conversa) já põe o foco nele no mesmo keydown', async () => {
+    const campo = await montarCampo()
+    const botao = document.createElement('button')
+    document.body.appendChild(botao)
+    botao.focus()
+    // happy-dom não calcula o layout: o ponto do meio do campo é o próprio campo
+    const original = document.elementFromPoint
+    document.elementFromPoint = () => editavel(campo)
+    try {
+      botao.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', bubbles: true, cancelable: true }))
+      // Sem esperar quadro nenhum: é aqui que o navegador entrega a letra
+      expect(document.activeElement).toBe(editavel(campo))
+    } finally {
+      document.elementFromPoint = original
+      botao.remove()
+    }
+  })
+
   test('sem a permissão, o arquivo não entra no campo e avisa; o microfone e o emoji somem', async () => {
     const auth = useAuthStore()
     auth.permissoesCarregadas = true
@@ -574,5 +592,15 @@ describe('avatar com endereço vencido', () => {
     await flushPromises()
     expect(imagem().attributes('src')).toBe('https://localhost/storage/avatar-2')
     expect(pedidosDe('GET', '/anexo')).toHaveLength(2)
+  })
+
+  test('no perfil, o "Usuário desde" com a data que vem nos contatos', async () => {
+    rota('GET', '/sip', {})
+    const auth = useAuthStore()
+    useChatStore().contatos = [{ id: auth.user!.id, nome: 'Eu', login: 'eu', criado_em: new Date(2026, 0, 20) } as never]
+    const tela = mount(ProfileSettingsModal, { props: { aberta: true, inline: true, abaAtiva: 'usuario' }, attachTo: document.body })
+    montados.push(tela)
+    await flushPromises()
+    expect(tela.text()).toContain('Usuário desde 20/01/2026')
   })
 })
