@@ -3,9 +3,11 @@ import { useCallStore } from '../stores/call'
 import { obterRegistroNotificacoes } from '../utils/sound'
 
 // Sons da chamada, em public/: quem recebe ouve o toque; quem liga ouve o
-// som de chamando ate alguem atender. Os dois tocam em loop.
+// som de chamando ate alguem atender. Atendida antes de chegar o primeiro
+// audio do outro lado, toca o de aguardar conexao. Todos tocam em loop.
 const SOM_RECEBENDO = '/toque.mp3'
 const SOM_CHAMANDO = '/chamando.mp3'
+const SOM_AGUARDANDO = '/aguardando.mp3'
 const TAG_CHAMADA = 'conversa-chamada'
 
 export function useCallPopup(erro: Ref<string>) {
@@ -108,11 +110,13 @@ export function useCallPopup(erro: Ref<string>) {
   }
 
   // Watchers
-  watch(() => call.estado, (estado) => {
+  watch(() => [call.estado, call.aguardandoConexao] as const, ([estado, aguardando]) => {
     if (estado === 'recebendo') {
       tocarTom(SOM_RECEBENDO)
     } else if (estado === 'chamando') {
       tocarTom(SOM_CHAMANDO)
+    } else if (estado === 'ativa' && aguardando) {
+      tocarTom(SOM_AGUARDANDO)
     } else {
       pararToque()
     }

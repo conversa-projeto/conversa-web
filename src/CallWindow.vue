@@ -156,7 +156,7 @@
               >
                 <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
-              <video v-else ref="videoLocalSidebar" autoplay playsinline muted class="h-full w-full object-cover"></video>
+              <video v-else ref="videoLocalSidebar" autoplay playsinline muted class="h-full w-full object-contain"></video>
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
                 <span class="text-[9px] text-white">{{ auth.user?.nome }}</span>
               </div>
@@ -176,7 +176,7 @@
               >
                 <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
               </div>
-              <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-cover"></video>
+              <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
                 <span class="text-[9px] text-white">{{ peer.usuarioNome }}</span>
               </div>
@@ -224,7 +224,7 @@
                 <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
               <template v-else>
-                <video ref="videoLocal" autoplay playsinline muted class="h-full w-full object-cover"></video>
+                <video ref="videoLocal" autoplay playsinline muted class="h-full w-full object-contain"></video>
                 <PonteiroTela v-if="call.compartilhandoTela && auth.user" :alvo="auth.user.id" :capturar="false" />
               </template>
             </template>
@@ -248,7 +248,7 @@
               <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
             <template v-else>
-              <video v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-cover"></video>
+              <video v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
               <PonteiroTela v-if="call.telasRemotas.has(userId)" :alvo="userId" :capturar="call.ponteiroAtivo" />
             </template>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">

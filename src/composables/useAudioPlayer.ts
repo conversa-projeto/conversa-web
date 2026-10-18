@@ -25,6 +25,23 @@ export function rotuloVelocidade(v: number) {
   return `${String(v).replace('.', ',')}x`
 }
 
+// Ao terminar, toca o próximo áudio: o seguinte na mesma mensagem ou, na mensagem
+// logo abaixo (de quem for, inclusive as próprias), o primeiro dela
+const EVENTO_SEQUENCIA = 'conversa:tocar-audio'
+
+function tocarProximo(el: HTMLAudioElement) {
+  const item = el.closest('[data-mensagem-item]')
+  if (!item) return
+  const daMensagem = [...item.querySelectorAll('[data-media-player] audio')]
+  let proximo = daMensagem[daMensagem.indexOf(el) + 1]
+  if (!proximo) {
+    let irmao = item.nextElementSibling
+    while (irmao && !irmao.hasAttribute('data-mensagem-item')) irmao = irmao.nextElementSibling
+    proximo = irmao?.querySelector('[data-media-player] audio') ?? undefined
+  }
+  proximo?.parentElement?.dispatchEvent(new CustomEvent(EVENTO_SEQUENCIA))
+}
+
 export function useAudioPlayer(props: AudioPlayerProps) {
   const audioRef = ref<HTMLAudioElement | null>(null)
   const barraRef = ref<HTMLElement | null>(null)
@@ -167,6 +184,7 @@ export function useAudioPlayer(props: AudioPlayerProps) {
     if (medindo) return
     tocando.value = false
     tempoAtual.value = 0
+    if (audioRef.value) tocarProximo(audioRef.value)
   }
 
   function onPlay() {
@@ -212,8 +230,13 @@ export function useAudioPlayer(props: AudioPlayerProps) {
   // duração quando o player aparece na tela, sem tocar nem mostrar carregando
   let observador: IntersectionObserver | null = null
 
+  function aoTocarEmSequencia() {
+    if (!tocando.value) void alternarReproducao()
+  }
+
   onMounted(() => {
     const raiz = audioRef.value?.parentElement
+    raiz?.addEventListener(EVENTO_SEQUENCIA, aoTocarEmSequencia)
     if (duracaoTotal.value || !raiz || (!props.src && !props.identificador) || typeof IntersectionObserver === 'undefined') return
     observador = new IntersectionObserver((entradas) => {
       if (!entradas.some((entrada) => entrada.isIntersecting)) return

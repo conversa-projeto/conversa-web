@@ -37,3 +37,22 @@ export function mensagensDoArraste(evento: DragEvent): number[] {
     return []
   }
 }
+
+// Clique direito na linha selecionada: fora da bolha, abre o mesmo menu da
+// mensagem, como se o clique fosse na bolha. Mensagem sem menu (chamada,
+// oculta) abre o da selecionada mais próxima que tenha
+export function repassarCliqueDireito(evento: MouseEvent, selecionadas: ReadonlySet<number>) {
+  const linha = evento.currentTarget as HTMLElement
+  const alvo = evento.target as Element | null
+  if (!alvo) return
+  if (alvo.closest('[data-area-mensagem][data-tem-menu]')) return
+  const linhas = Array.from(linha.parentElement?.querySelectorAll<HTMLElement>('[data-selecao-id]') ?? [])
+  const posicao = linhas.indexOf(linha)
+  const comMenu = linhas
+    .map((outra, indice) => ({ outra, distancia: Math.abs(indice - posicao) }))
+    .filter(({ outra }) => selecionadas.has(Number(outra.dataset.selecaoId)) && outra.querySelector('[data-area-mensagem][data-tem-menu]'))
+    .sort((a, b) => a.distancia - b.distancia)[0]
+  if (!comMenu) return
+  evento.preventDefault()
+  comMenu.outra.querySelector('[data-area-mensagem]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: false, cancelable: true, clientX: evento.clientX, clientY: evento.clientY, ctrlKey: evento.ctrlKey, metaKey: evento.metaKey }))
+}

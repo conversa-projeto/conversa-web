@@ -19,6 +19,7 @@
       <div
         ref="wrapperRef"
         data-area-mensagem
+        :data-tem-menu="mensagem.id > 0 && !ehChamada && !ehExcluida ? '' : undefined"
         class="group/bubble relative flex max-w-full items-end gap-1 before:pointer-events-auto before:absolute before:top-0 before:bottom-0 before:w-8"
         :class="[ehPostagem ? 'w-full' : 'w-fit', isOwn ? 'before:-left-8' : 'before:-right-8', ehAgendadaFutura ? 'opacity-70' : '', '[@media(pointer:coarse)]:select-none [-webkit-touch-callout:none]']"
         @mouseleave="onMouseLeave"

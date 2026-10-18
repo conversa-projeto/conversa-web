@@ -515,6 +515,7 @@ export const useCallStore = defineStore('call', () => {
       }
       e.track.onunmute = () => {
         console.debug('[CALL][WHEP] track unmuted', { fromUserId, kind: e.track.kind })
+        if (e.track.kind === 'audio') encerrarEsperaConexao()
         notificarPeers()
       }
 
@@ -577,6 +578,182 @@ export const useCallStore = defineStore('call', () => {
     return { pc, stream: remoteStream }
   }
 
+  // --- Pré-conexões ---
+  //
+  // Enquanto toca, cada lado já assina a transmissão do outro: quem recebe, a
+  // de quem está na chamada; quem está na chamada, a de quem ainda não atendeu
+  // (tentando até ela aparecer). Ficam fora de peers, sem tocar nem aparecer;
+  // ao atender, conectarPeer só passa a usar a conexão que já está de pé.
+
+  interface PreConexao {
+    pc: RTCPeerConnection | null
+    stream: MediaStream | null
+  }
+  const preConexoes = new Map<number, PreConexao>()
+
+  function preConectar(usuarioId: number) {
+    if (preConexoes.has(usuarioId) || peers.value.has(usuarioId)) return
+    const chamadaId = chamada.value?.id
+    const entrada: PreConexao = { pc: null, stream: null }
+    preConexoes.set(usuarioId, entrada)
+    void (async () => {
+      while (preConexoes.get(usuarioId) === entrada && chamada.value?.id === chamadaId) {
+        try {
+          const { pc, stream } = await assinarDePeer(usuarioId)
+          if (preConexoes.get(usuarioId) !== entrada) {
+            pc.close()
+            return
+          }
+          entrada.pc = pc
+          entrada.stream = stream
+          // Outra aba da pessoa passou a transmitir no lugar desta: assina de novo
+          pc.onconnectionstatechange = () => {
+            const estadoPc = pc.connectionState
+            if ((estadoPc === 'failed' || estadoPc === 'disconnected' || estadoPc === 'closed') && preConexoes.get(usuarioId) === entrada) {
+              fecharPreConexao(usuarioId)
+              preConectar(usuarioId)
+            }
+          }
+          return
+        } catch {
+          await atraso(1000)
+        }
+      }
+    })()
+  }
+
+  function fecharPreConexao(usuarioId: number) {
+    const entrada = preConexoes.get(usuarioId)
+    if (!entrada) return
+    preConexoes.delete(usuarioId)
+    if (entrada.pc) {
+      entrada.pc.onconnectionstatechange = null
+      try { entrada.pc.close() } catch { /* ignore */ }
+    }
+  }
+
+  function fecharPreConexoes() {
+    for (const usuarioId of Array.from(preConexoes.keys())) {
+      fecharPreConexao(usuarioId)
+    }
+  }
+
+  // A pré-conexão de pé passa para o peer; a que ainda não conectou é descartada
+  function tomarPreConexao(usuarioId: number): { pc: RTCPeerConnection; stream: MediaStream } | null {
+    const entrada = preConexoes.get(usuarioId)
+    if (!entrada) return null
+    preConexoes.delete(usuarioId)
+    const { pc, stream } = entrada
+    if (!pc || !stream) return null
+    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      try { pc.close() } catch { /* ignore */ }
+      return null
+    }
+    pc.onconnectionstatechange = null
+    return { pc, stream }
+  }
+
+  async function promoverPreConexoes() {
+    for (const usuarioId of Array.from(preConexoes.keys())) {
+      const nome = chamada.value?.usuarios.find(u => Number(u.usuario_id) === usuarioId)?.usuario_nome || 'Participante'
+      await conectarPeer(usuarioId, nome)
+    }
+  }
+
+  // Quem está na chamada já assina a transmissão de quem ainda não atendeu
+  watch(() => chamada.value?.usuarios, (usuarios) => {
+    if (!usuarios || (estado.value !== 'chamando' && estado.value !== 'ativa')) return
+    const meuUsuarioId = getAuthUserId()
+    for (const u of usuarios) {
+      const id = normalizeUserId(u.usuario_id)
+      if (id === null || id === meuUsuarioId) continue
+      if (u.status === StatusUsuarioChamada.Pendente) preConectar(id)
+      else if (u.status !== StatusUsuarioChamada.Entrou) fecharPreConexao(id)
+    }
+  })
+
+  // --- Aguardando conexão ---
+  //
+  // Atendeu antes de chegar o primeiro pacote de áudio do outro lado: toca o
+  // som de aguardar conexão até ele chegar. Quem não transmite nada (sem
+  // microfone) nunca manda áudio, por isso a espera tem limite.
+
+  const aguardandoConexao = ref(false)
+  let timerEsperaConexao: number | null = null
+  const ESPERA_CONEXAO_MS = 10000
+
+  function audioRemotoChegou(): boolean {
+    const streams = [
+      ...Array.from(peers.value.values(), p => p.stream),
+      ...Array.from(preConexoes.values(), p => p.stream)
+    ]
+    return streams.some(s => s?.getAudioTracks().some(t => t.readyState === 'live' && !t.muted))
+  }
+
+  function iniciarEsperaConexao() {
+    if (audioRemotoChegou()) return
+    aguardandoConexao.value = true
+    if (timerEsperaConexao !== null) window.clearTimeout(timerEsperaConexao)
+    timerEsperaConexao = window.setTimeout(encerrarEsperaConexao, ESPERA_CONEXAO_MS)
+  }
+
+  function encerrarEsperaConexao() {
+    aguardandoConexao.value = false
+    if (timerEsperaConexao !== null) {
+      window.clearTimeout(timerEsperaConexao)
+      timerEsperaConexao = null
+    }
+  }
+
+  // --- Preparo enquanto toca ---
+  //
+  // Quem recebe já abre o microfone e a câmera e publica a transmissão, com as
+  // trilhas desligadas (vai silêncio e imagem preta): ao atender só as liga,
+  // sem renegociar, e quem ligou, que já assinou, passa a ouvir e ver.
+
+  let preparacao: Promise<void> | null = null
+
+  async function prepararRecebimento() {
+    const chamadaId = chamada.value?.id
+    const aindaTocando = () => estado.value === 'recebendo' && chamada.value?.id === chamadaId
+    const meuUsuarioId = getAuthUserId()
+    for (const u of chamada.value?.usuarios ?? []) {
+      const id = normalizeUserId(u.usuario_id)
+      if (id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou) preConectar(id)
+    }
+
+    let stream: MediaStream | null = null
+    try {
+      stream = await adquirirMidiaLocal(tipoChamada.value)
+    } catch {
+      try {
+        stream = await adquirirMidiaLocal(TipoChamada.Audio)
+      } catch {
+        console.warn('[CALL] Sem dispositivos de midia ao tocar, preparo so de recepcao')
+      }
+    }
+    if (!stream) return
+    if (!aindaTocando()) {
+      stream.getTracks().forEach(t => t.stop())
+      return
+    }
+    stream.getTracks().forEach(t => { t.enabled = false })
+    streamLocal.value = stream
+
+    try {
+      const pc = await publicarLocalNaSala()
+      if (!aindaTocando() || streamLocal.value !== stream) {
+        pc.onconnectionstatechange = null
+        pc.close()
+        return
+      }
+      pcPublicacaoLocal = pc
+      console.debug('[CALL] Stream local publicado enquanto toca')
+    } catch (e) {
+      console.warn('[CALL] Falha ao publicar stream local enquanto toca', e)
+    }
+  }
+
   // --- Gerenciamento de peers ---
 
   async function conectarPeer(usuarioId: number, usuarioNome: string) {
@@ -606,7 +783,7 @@ export const useCallStore = defineStore('call', () => {
       entrada.txPc = pcPublicacaoLocal
 
       if (!entrada.rxPc) {
-        const { pc, stream } = await assinarDePeer(alvoId)
+        const { pc, stream } = tomarPreConexao(alvoId) ?? await assinarDePeer(alvoId)
         entrada.rxPc = pc
         entrada.stream = stream
         tocarAudioRemoto(alvoId, stream)
@@ -875,6 +1052,9 @@ export const useCallStore = defineStore('call', () => {
 
   function resetarEstado() {
     console.debug('[CALL] resetarEstado, estado anterior:', estado.value)
+    fecharPreConexoes()
+    preparacao = null
+    encerrarEsperaConexao()
     pararAudiosRemotos()
     pararTimerDuracao()
     duracaoChamadaSegundos.value = 0
@@ -967,6 +1147,10 @@ export const useCallStore = defineStore('call', () => {
     atendendoAqui = true
 
     try {
+      // Atendeu enquanto o preparo ainda abria a câmera ou publicava
+      if (preparacao) await preparacao
+      if (!chamada.value || estado.value !== 'recebendo') return
+
       // Tenta adquirir midia: video+audio → audio → sem midia (somente recepcao).
       // Permite entrar mesmo sem webcam/microfone para assistir a transmissao.
       if (!streamLocal.value) {
@@ -988,13 +1172,16 @@ export const useCallStore = defineStore('call', () => {
           }
         }
       }
+      // Liga as trilhas que o preparo publicou desligadas
+      streamLocal.value?.getAudioTracks().forEach(t => { t.enabled = true })
+      streamLocal.value?.getVideoTracks().forEach(t => { t.enabled = !apenasAssistir })
       if (apenasAssistir && streamLocal.value) {
-        streamLocal.value.getVideoTracks().forEach(t => { t.enabled = false })
         cameraMutada.value = true
       }
       await api.chamadaEntrar(chamada.value.id)
       estado.value = 'ativa'
       iniciarTimerDuracao()
+      iniciarEsperaConexao()
 
       // Chamada de vídeo sem enviar vídeo (escolheu só assistir, ou está sem
       // câmera): abre em tela única em quem ligou. Pedido feito já aqui, antes
@@ -1005,9 +1192,15 @@ export const useCallStore = defineStore('call', () => {
         telaUnicaSolicitada.value = normalizeUserId(chamadaRemetente.value?.usuario_id) ?? 0
       }
 
+      // A publicação do preparo caiu (outra aba passou a transmitir no lugar)
+      const estadoPublicacao = pcPublicacaoLocal?.connectionState
+      if (estadoPublicacao === 'failed' || estadoPublicacao === 'disconnected' || estadoPublicacao === 'closed') {
+        encerrarPublicacaoLocal()
+      }
+
       // Publicar stream local no MediaMTX antes de sincronizar peers
       // para que o caller já consiga assinar via WHEP.
-      if (streamLocal.value) {
+      if (streamLocal.value && !pcPublicacaoLocal) {
         try {
           pcPublicacaoLocal = await publicarLocalNaSala()
           console.debug('[CALL] Stream local publicado após aceitar chamada')
@@ -1016,9 +1209,11 @@ export const useCallStore = defineStore('call', () => {
         }
       }
 
+      await promoverPreConexoes()
       chamada.value = await api.chamadaDados(chamada.value.id)
       await sincronizarPeersComRetentativas()
     } catch (e) {
+      desconectarTodosPeers()
       liberarMidiaLocal()
       resetarEstado()
       throw e
@@ -1036,6 +1231,8 @@ export const useCallStore = defineStore('call', () => {
     try {
       await api.chamadaRecusar(chamada.value.id, naoAtendeu)
     } finally {
+      desconectarTodosPeers()
+      liberarMidiaLocal()
       resetarEstado()
     }
   }
@@ -1636,6 +1833,7 @@ export const useCallStore = defineStore('call', () => {
               void recusarChamada(true)
             }
           }, 30000)
+          preparacao = prepararRecebimento()
         } catch (e) {
           console.error('Erro ao obter dados da chamada recebida', e)
         }
@@ -1656,6 +1854,8 @@ export const useCallStore = defineStore('call', () => {
         // Recusada em outra aba ou aparelho: esta para de tocar
         if (chamada.value?.id === evento.chamada_id && eventoUsuarioId === meuUsuarioId && estado.value === 'recebendo') {
           cancelarTemporizadorToque()
+          desconectarTodosPeers()
+          liberarMidiaLocal()
           resetarEstado()
           break
         }
@@ -1683,6 +1883,8 @@ export const useCallStore = defineStore('call', () => {
           // Atendida em outra aba ou aparelho: esta para de tocar
           if (chamada.value?.id === evento.chamada_id && estado.value === 'recebendo' && !atendendoAqui) {
             cancelarTemporizadorToque()
+            desconectarTodosPeers()
+            liberarMidiaLocal()
             resetarEstado()
           }
           console.debug('[CALL] Ignorando UsuarioEntrou do próprio usuário')
@@ -1692,11 +1894,17 @@ export const useCallStore = defineStore('call', () => {
         if (chamada.value?.id === evento.chamada_id && estado.value === 'chamando') {
           estado.value = 'ativa'
           iniciarTimerDuracao()
+          iniciarEsperaConexao()
         }
 
         if (chamada.value?.id === evento.chamada_id && estado.value === 'ativa') {
           // Quem acabou de entrar precisa saber que esta tela é compartilhada
           if (compartilhandoTela.value) anunciarTela()
+          // A assinatura feita enquanto tocava passa a valer na hora
+          if (eventoUsuarioId !== null && preConexoes.has(eventoUsuarioId)) {
+            const nome = chamada.value.usuarios.find(u => Number(u.usuario_id) === eventoUsuarioId)?.usuario_nome || 'Participante'
+            await conectarPeer(eventoUsuarioId, nome)
+          }
           await sincronizarPeersComRetentativas()
         }
         break
@@ -1802,6 +2010,7 @@ export const useCallStore = defineStore('call', () => {
     chamarNovamente,
     somenteRecepcao,
     duracaoChamadaFormatada,
+    aguardandoConexao,
     iniciarChamada,
     aceitarChamada,
     recusarChamada,

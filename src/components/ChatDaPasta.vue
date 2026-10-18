@@ -70,6 +70,7 @@
             class="rounded-lg transition-colors"
             :class="idsSelecionados.has(item.mensagem.id) ? 'bg-primary-500/25 ring-1 ring-primary-500/60' : ''"
             :data-selecao-id="item.mensagem.id"
+            @contextmenu="(e) => idsSelecionados.has(item.mensagem.id) && repassarCliqueDireito(e, idsSelecionados)"
           >
           <MessageBubble
             :mensagem="item.mensagem"
@@ -105,7 +106,7 @@ import { useAttachments } from '../composables/useAttachments'
 import { useDialogo } from '../composables/useDialogo'
 import { useSelecaoMensagens } from '../composables/useSelecaoMensagens'
 import { formatarDiaSeparador } from '../utils/formatters'
-import { corDaPasta } from '../utils/pastas'
+import { corDaPasta, repassarCliqueDireito } from '../utils/pastas'
 import * as api from '../services/conversaApi'
 import MessageBubble from './MessageBubble.vue'
 import DialogoConfirmacao from './DialogoConfirmacao.vue'

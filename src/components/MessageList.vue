@@ -49,11 +49,13 @@
           <div
             v-else
             class="relative rounded-lg transition-colors"
+            data-mensagem-item
             :class="pastasAtivas && pastas.idsSelecionados.has(item.mensagem.id) ? 'bg-primary-500/25 ring-1 ring-primary-500/60' : ''"
             :data-selecao-id="pastasAtivas && item.mensagem.id > 0 ? item.mensagem.id : undefined"
             :draggable="pastasAtivas && pastas.idsSelecionados.has(item.mensagem.id) ? 'true' : undefined"
             @dragstart="aoArrastarSelecao"
             @dragend="pastas.arrastando = false"
+            @contextmenu="(e) => pastasAtivas && pastas.idsSelecionados.has(item.mensagem.id) && repassarCliqueDireito(e, pastas.idsSelecionados)"
           >
           <MessageBubble
             :mensagem="item.mensagem"
@@ -199,7 +201,7 @@ import { TipoConversa } from '../types/api'
 import type { Mensagem } from '../types/api'
 import { usePastasStore } from '../stores/pastas'
 import { useSelecaoMensagens } from '../composables/useSelecaoMensagens'
-import { corDaPasta, iniciarArrasteMensagens } from '../utils/pastas'
+import { corDaPasta, iniciarArrasteMensagens, repassarCliqueDireito } from '../utils/pastas'
 
 const { alturaCampoMensagem = 0 } = defineProps<{
   alturaCampoMensagem?: number

@@ -116,6 +116,53 @@ describe('store das pastas', () => {
   })
 })
 
+describe('clique direito na área selecionada', () => {
+  test('no vazio da linha selecionada abre o menu da mensagem; fora da seleção, não', async () => {
+    await abrirConversa([msg(1), msg(2)], [pasta()])
+    tela = mount(MessageList, { attachTo: document.body })
+    await flushPromises()
+    const botoes = () => [...document.body.querySelectorAll('button')].map((b) => b.textContent?.trim())
+
+    await tela.find('[data-selecao-id="1"]').trigger('contextmenu', { clientX: 50, clientY: 50 })
+    await flushPromises()
+    expect(botoes()).not.toContain('Copiar')
+
+    await tela.find('#msg-2 [data-area-mensagem]').trigger('click', { ctrlKey: true })
+    const linha = tela.find('[data-selecao-id="2"]')
+    const evento = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 })
+    linha.element.dispatchEvent(evento)
+    await flushPromises()
+    expect(evento.defaultPrevented).toBe(true)
+    expect(botoes()).toContain('Copiar')
+  })
+})
+
+describe('clique direito com mensagem sem menu na seleção', () => {
+  test('na oculta selecionada abre o menu da selecionada mais próxima que tem menu', async () => {
+    await abrirConversa([msg(1), msg(2, { excluida_em: new Date() }), msg(3)], [pasta()])
+    tela = mount(MessageList, { attachTo: document.body })
+    await flushPromises()
+    for (const id of [2, 3]) await tela.find(`#msg-${id} [data-area-mensagem]`).trigger('click', { ctrlKey: true })
+    expect(tela.find('#msg-2 [data-area-mensagem]').attributes('data-tem-menu')).toBeUndefined()
+
+    const evento = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 })
+    tela.find('#msg-2 [data-area-mensagem]').element.dispatchEvent(evento)
+    await flushPromises()
+    expect(evento.defaultPrevented).toBe(true)
+    expect([...document.body.querySelectorAll('button')].map((b) => b.textContent?.trim())).toContain('Copiar')
+  })
+
+  test('sem nenhuma selecionada com menu, não abre nada', async () => {
+    await abrirConversa([msg(1), msg(2, { excluida_em: new Date() })], [pasta()])
+    tela = mount(MessageList, { attachTo: document.body })
+    await flushPromises()
+    await tela.find('#msg-2 [data-area-mensagem]').trigger('click', { ctrlKey: true })
+    await tela.find('[data-selecao-id="2"]').trigger('contextmenu', { clientX: 50, clientY: 50 })
+    await flushPromises()
+    expect([...document.body.querySelectorAll('button')].map((b) => b.textContent?.trim())).not.toContain('Copiar')
+  })
+})
+
 describe('menu fora da pasta', () => {
   test('no chat normal o menu não tem as ações da pasta', async () => {
     await abrirConversa([msg(1, { pastas: [10] })], [pasta()])
