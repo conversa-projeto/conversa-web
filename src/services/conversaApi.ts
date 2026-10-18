@@ -1,4 +1,4 @@
-import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaEmbutida, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SalvarSipUsuario, SipConfig, SipUsuario, Mensagem, MensagemStatusItem, PastaMensagens, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteEmbeddings, TesteIa } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaEmbutida, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SalvarSipUsuario, SipConfig, SipUsuario, Mensagem, MensagemStatusItem, PastaMensagens, StatusDestinatario, SugestoesPastas, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteEmbeddings, TesteIa } from '../types/api'
 import { api, dados } from './eden'
 import type { DadosAudio } from '../utils/dadosAudio'
 
@@ -608,4 +608,13 @@ export function porMensagensNaPasta(pastaId: number, mensagens: number[]) {
 
 export function tirarMensagensDaPasta(pastaId: number, mensagens: number[]) {
   return dados(api().pasta.mensagens.delete({ pasta_id: pastaId, mensagens }))
+}
+
+// A IA analisa as mensagens sem pasta (menos as ignoradas) em segundo plano
+export function pedirSugestoesPastas(conversaId: number, ignorar: number[]): Promise<SugestoesPastas> {
+  return dados(api().pastas.sugerir.post({ conversa_id: conversaId, ignorar }))
+}
+
+export function consultarSugestoesPastas(id: string): Promise<SugestoesPastas> {
+  return dados(api().pastas.sugestao.get({ query: { id } }))
 }

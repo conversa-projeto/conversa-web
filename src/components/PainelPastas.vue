@@ -128,6 +128,68 @@
           <button type="button" class="block w-full px-3 py-1.5 text-left text-danger-600 hover:bg-surface-200" @click="excluir(pasta)">Excluir</button>
         </div>
       </div>
+
+      <!-- Sugestões da IA: só quando a pessoa pede; ela confirma ou ignora cada uma -->
+      <section v-if="recursos.ia && pastas.lista.length" class="mt-2 border-t border-surface-300 px-1 pt-2" aria-label="Sugestões da IA">
+        <h4 class="px-1 text-[11px] font-semibold uppercase tracking-wide text-surface-500">Sugestões da IA</h4>
+        <button
+          type="button"
+          class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-surface-300 px-2 py-1 text-xs font-medium text-surface-700 hover:bg-surface-200 disabled:opacity-60"
+          :disabled="analisando"
+          title="A IA olha as mensagens recentes que ainda não estão em pasta e sugere a pasta de cada uma pelo assunto"
+          @click="pastas.sugerirPastas()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-3.5 w-3.5" :class="analisando ? 'animate-pulse' : ''"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>
+          {{ analisando ? 'Analisando...' : 'Sugerir pastas' }}
+        </button>
+
+        <p v-if="analisando" role="status" class="px-1 pt-1.5 text-[11px] leading-snug text-surface-500">Analisando as mensagens que ainda não estão em pasta...</p>
+        <p v-else-if="pastas.analise?.status === 'erro'" class="px-1 pt-1.5 text-[11px] leading-snug text-danger-600 dark:text-danger-400">{{ pastas.analise.erro }}</p>
+        <p v-else-if="pastas.analise?.status === 'concluido' && !pastas.sugestoesPendentes.length" class="px-1 pt-1.5 text-[11px] leading-snug text-surface-500">
+          {{ pastas.analise.analisadas ? 'Nenhuma sugestão pendente.' : 'As mensagens recentes já estão em pastas.' }}
+        </p>
+
+        <ul v-if="pastas.sugestoesPendentes.length" class="mt-1.5 space-y-1">
+          <li v-for="sugestao in pastas.sugestoesPendentes" :key="sugestao.mensagem_id" class="rounded-md bg-surface-100 p-1.5" data-sugestao>
+            <p class="overflow-hidden break-words text-xs text-surface-700 [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]" :title="sugestao.texto">
+              <span class="font-medium text-surface-800">{{ sugestao.autor }}:</span> {{ sugestao.texto }}
+            </p>
+            <div class="mt-1 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5 shrink-0" :style="{ color: corDaPasta(pastas.porId.get(sugestao.pasta_id)?.cor ?? '') }">
+                <path d="M19.5 21a3 3 0 0 0 3-3v-4.5a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3h15ZM1.5 10.146V6a3 3 0 0 1 3-3h5.379a2.25 2.25 0 0 1 1.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 0 1 3 3v1.146A4.483 4.483 0 0 0 19.5 9h-15a4.483 4.483 0 0 0-3 1.146Z" />
+              </svg>
+              <span class="min-w-0 flex-1 truncate text-xs font-medium text-surface-800">{{ pastas.porId.get(sugestao.pasta_id)?.nome }}</span>
+              <button
+                type="button"
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-success-600 hover:bg-surface-200 disabled:opacity-50 dark:text-success-400"
+                :title="`Pôr em ${pastas.porId.get(sugestao.pasta_id)?.nome}`"
+                :disabled="aceitando"
+                @click="aceitar(sugestao)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+              </button>
+              <button
+                type="button"
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-surface-500 hover:bg-surface-200"
+                title="Ignorar"
+                @click="pastas.ignorarSugestao(sugestao)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </li>
+        </ul>
+
+        <button
+          v-if="pastas.sugestoesPendentes.length > 1"
+          type="button"
+          class="mt-1.5 w-full rounded-md bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+          :disabled="aceitando"
+          @click="aceitarTodas"
+        >
+          Aceitar todas ({{ pastas.sugestoesPendentes.length }})
+        </button>
+      </section>
     </div>
 
     <DialogoConfirmacao :dialogo="dialogo.aberto.value" @responder="dialogo.responderDialogo" />
@@ -140,9 +202,10 @@ import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { usePastasStore } from '../stores/pastas'
 import { useDialogo } from '../composables/useDialogo'
+import { useRecursos } from '../composables/useRecursos'
 import { CORES_PASTA, corDaPasta, ehArrasteDeMensagens, mensagensDoArraste } from '../utils/pastas'
 import DialogoConfirmacao from './DialogoConfirmacao.vue'
-import type { PastaMensagens } from '../types/api'
+import type { PastaMensagens, SugestaoPasta } from '../types/api'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -150,6 +213,7 @@ const auth = useAuthStore()
 const chat = useChatStore()
 const pastas = usePastasStore()
 const dialogo = useDialogo()
+const { recursos } = useRecursos()
 
 const nomeOutraPessoa = computed(() => chat.conversaAtiva?.descricao || 'a outra pessoa')
 
@@ -282,6 +346,33 @@ async function aoSoltar(evento: DragEvent, pastaId: number) {
     pastas.limparSelecao()
   } catch (e) {
     avisarErro('Não foi possível pôr na pasta', e)
+  }
+}
+
+// --- Sugestões da IA ---
+
+const analisando = computed(() => pastas.analise?.status === 'processando')
+const aceitando = ref(false)
+
+async function aceitar(sugestao: SugestaoPasta) {
+  aceitando.value = true
+  try {
+    await pastas.aceitarSugestao(sugestao)
+  } catch (e) {
+    avisarErro('Não foi possível pôr na pasta', e)
+  } finally {
+    aceitando.value = false
+  }
+}
+
+async function aceitarTodas() {
+  aceitando.value = true
+  try {
+    await pastas.aceitarTodasSugestoes()
+  } catch (e) {
+    avisarErro('Não foi possível pôr na pasta', e)
+  } finally {
+    aceitando.value = false
   }
 }
 </script>

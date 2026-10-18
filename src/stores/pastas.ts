@@ -1,8 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as api from '../services/conversaApi'
+import { useAuthStore } from './auth'
 import { useChatStore } from './chat'
-import type { Mensagem, PastaMensagens } from '../types/api'
+import type { Mensagem, PastaMensagens, SugestaoPasta, SugestoesPastas } from '../types/api'
 
 // Aviso do servidor (WebSocket tipo 67)
 export interface AvisoPasta {
@@ -10,6 +11,29 @@ export interface AvisoPasta {
   pasta_id?: number
   mensagens?: number[]
   acao?: 'incluir' | 'tirar'
+}
+
+const INTERVALO_CONSULTA_SUGESTOES_MS = 2000
+// As mensagens dispensadas ficam no navegador, por pessoa e conversa: a próxima análise não as traz de volta
+const LIMITE_IGNORADAS = 2000
+const chaveIgnoradas = (usuario: number, conversa: number) => `conversa.sugestoesIgnoradas.${usuario}.${conversa}`
+
+function lerIgnoradas(usuario: number, conversa: number): number[] {
+  try {
+    const lista = JSON.parse(localStorage.getItem(chaveIgnoradas(usuario, conversa)) ?? '[]')
+    return Array.isArray(lista) ? lista.filter((id) => Number.isInteger(id)) : []
+  } catch {
+    return []
+  }
+}
+
+function guardarIgnoradas(usuario: number, conversa: number, ids: number[]) {
+  const lista = [...new Set([...lerIgnoradas(usuario, conversa), ...ids])].slice(-LIMITE_IGNORADAS)
+  try {
+    localStorage.setItem(chaveIgnoradas(usuario, conversa), JSON.stringify(lista))
+  } catch {
+    // Sem armazenamento, só some da lista desta vez
+  }
 }
 
 // Pastas de mensagens da conversa direta aberta. A pasta só marca: a mensagem
@@ -34,8 +58,16 @@ export const usePastasStore = defineStore('pastas', () => {
 
   const porId = computed(() => new Map(lista.value.map((p) => [p.id, p])))
 
+  // Sugestões da IA (painel): a última análise pedida e o que ainda falta confirmar ou ignorar
+  const analise = ref<Pick<SugestoesPastas, 'status' | 'analisadas' | 'erro'> | null>(null)
+  const sugestoes = ref<SugestaoPasta[]>([])
+  // Só as de pastas que ainda existem
+  const sugestoesPendentes = computed(() => sugestoes.value.filter((s) => porId.value.has(s.pasta_id)))
+  let consultaSugestoes: number | null = null
+
   // Troca de conversa: limpa tudo e, na direta, lê as pastas dela
   async function usarConversa(id: number | null, direta: boolean) {
+    limparSugestoes()
     selecionadas.value = []
     fecharPasta()
     conversaId.value = direta ? id : null
@@ -180,6 +212,75 @@ export const usePastasStore = defineStore('pastas', () => {
     fimDaAberta.value = false
   }
 
+  // --- Sugestões da IA ---
+
+  function pararConsultaSugestoes() {
+    if (consultaSugestoes !== null) window.clearTimeout(consultaSugestoes)
+    consultaSugestoes = null
+  }
+
+  function limparSugestoes() {
+    pararConsultaSugestoes()
+    analise.value = null
+    sugestoes.value = []
+  }
+
+  async function sugerirPastas() {
+    const id = conversaId.value
+    const usuario = useAuthStore().user?.id
+    if (!id || !usuario) return
+    limparSugestoes()
+    analise.value = { status: 'processando', analisadas: 0, erro: '' }
+    try {
+      aplicarSugestoes(id, await api.pedirSugestoesPastas(id, lerIgnoradas(usuario, id)))
+    } catch (e) {
+      if (conversaId.value === id) analise.value = { status: 'erro', analisadas: 0, erro: e instanceof Error ? e.message : 'Erro ao pedir sugestões' }
+    }
+  }
+
+  function aplicarSugestoes(conversa: number, resultado: SugestoesPastas) {
+    if (conversaId.value !== conversa) return
+    const { status, analisadas, erro } = resultado
+    analise.value = { status, analisadas, erro }
+    sugestoes.value = resultado.sugestoes
+    if (status !== 'processando') return
+    consultaSugestoes = window.setTimeout(async () => {
+      consultaSugestoes = null
+      try {
+        aplicarSugestoes(conversa, await api.consultarSugestoesPastas(resultado.id))
+      } catch (e) {
+        // Ex.: o servidor reiniciou e a análise em andamento se perdeu
+        aplicarSugestoes(conversa, { ...resultado, status: 'erro', erro: e instanceof Error ? e.message : 'Erro ao consultar as sugestões' })
+      }
+    }, INTERVALO_CONSULTA_SUGESTOES_MS)
+  }
+
+  function tirarSugestoes(mensagens: number[]) {
+    const ids = new Set(mensagens)
+    sugestoes.value = sugestoes.value.filter((s) => !ids.has(s.mensagem_id))
+  }
+
+  async function aceitarSugestao(sugestao: SugestaoPasta) {
+    await porMensagens(sugestao.pasta_id, [sugestao.mensagem_id])
+    tirarSugestoes([sugestao.mensagem_id])
+  }
+
+  // Uma chamada por pasta; a que falhar fica na lista
+  async function aceitarTodasSugestoes() {
+    const porPasta = new Map<number, number[]>()
+    for (const s of sugestoesPendentes.value) porPasta.set(s.pasta_id, [...(porPasta.get(s.pasta_id) ?? []), s.mensagem_id])
+    for (const [pastaId, mensagens] of porPasta) {
+      await porMensagens(pastaId, mensagens)
+      tirarSugestoes(mensagens)
+    }
+  }
+
+  function ignorarSugestao(sugestao: SugestaoPasta) {
+    const usuario = useAuthStore().user?.id
+    if (usuario && conversaId.value) guardarIgnoradas(usuario, conversaId.value, [sugestao.mensagem_id])
+    tirarSugestoes([sugestao.mensagem_id])
+  }
+
   // Aviso do servidor (WebSocket tipo 67): outra aba ou a outra pessoa mexeu
   async function aoAviso(evento: AvisoPasta) {
     if (!evento.conversa_id || evento.conversa_id !== conversaId.value) return
@@ -215,5 +316,11 @@ export const usePastasStore = defineStore('pastas', () => {
     carregarAnteriores,
     fecharPasta,
     aoAviso,
+    analise,
+    sugestoesPendentes,
+    sugerirPastas,
+    aceitarSugestao,
+    aceitarTodasSugestoes,
+    ignorarSugestao,
   }
 })

@@ -367,6 +367,24 @@ export interface PastaMensagens {
   mensagens: number
 }
 
+/** Pasta sugerida pela IA para uma mensagem que ainda não está em pasta (prévia do texto para o painel) */
+export interface SugestaoPasta {
+  mensagem_id: number
+  pasta_id: number
+  autor: string
+  texto: string
+}
+
+/** Análise das mensagens sem pasta pela IA, feita em segundo plano (consulta até sair de "processando") */
+export interface SugestoesPastas {
+  id: string
+  conversa_id: number
+  status: 'processando' | 'concluido' | 'erro'
+  analisadas: number
+  sugestoes: SugestaoPasta[]
+  erro: string
+}
+
 export interface AnexoResponse {
   id: number
   identificador: string
