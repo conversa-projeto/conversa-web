@@ -1,6 +1,10 @@
 // sip.js falso: não há servidor SIP nos testes. O agente e o registro respondem
 // como o teste mandar, e cada chamada muda de estado quando o teste quiser.
 
+// O MediaStream do happy-dom, guardado antes do webrtcFalso trocar o global: o
+// <audio> só aceita no srcObject o dele
+const MediaStreamDom = globalThis.MediaStream
+
 class Emissor<T> {
   private ouvintes: ((valor: T) => void)[] = []
   addListener(ouvinte: (valor: T) => void) { this.ouvintes.push(ouvinte) }
@@ -26,8 +30,10 @@ export class SessaoFalsa {
   state: string = SessionState.Initial
   stateChange = new Emissor<string>()
   remetente = new RemetenteFalso()
+  // O sip.js junta aqui as trilhas recebidas
   sessionDescriptionHandler = {
     peerConnection: { ontrack: null, getReceivers: () => [], getSenders: () => [this.remetente] },
+    remoteMediaStream: new MediaStreamDom(),
   }
   chamadas: string[] = []
   constructor(public destino?: string) {}

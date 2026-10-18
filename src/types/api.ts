@@ -381,9 +381,31 @@ export interface SipConfig {
   display_name: string | null
   domain: string
   ws_server: string
+  /** TURN do próprio PABX (opcional): turn: ou turns: */
+  turn_server?: string | null
+  turn_user?: string | null
+  turn_password?: string | null
   ativo: boolean
   criado_em?: Date | null
   criado_por?: number | null
+}
+
+/** Ramal de uma pessoa visto pelo administrador (GET /sip/usuario): as senhas não vêm, só se estão salvas */
+export type SipUsuario = Omit<SipConfig, 'sip_password' | 'turn_password'> & { tem_senha: boolean; tem_senha_turn: boolean }
+
+/** O que o administrador manda ao salvar o ramal (PUT /sip/usuario). Senha vazia mantém a salva */
+export interface SalvarSipUsuario {
+  usuario_id: number
+  sip_user: string
+  auth_user: string | null
+  sip_password: string | null
+  display_name: string | null
+  domain: string
+  ws_server: string
+  turn_server: string | null
+  turn_user: string | null
+  turn_password: string | null
+  ativo: boolean
 }
 
 /** Resposta de GET /ice: servidores ICE com credencial TURN temporaria. */
@@ -503,6 +525,7 @@ export const CodigoPermissao = {
   Bots: 'bots',
   Ferramentas: 'ferramentas',
   Conhecimento: 'conhecimento',
+  Sip: 'sip',
   Emoji: 'emoji',
   Figurinha: 'figurinha',
   Imagem: 'imagem',

@@ -141,6 +141,28 @@ describe('chamadas do conversaApi', () => {
     expect(await api.getSip()).toMatchObject({ id: 1 })
   })
 
+  test('SIP de outra pessoa (administrador): consulta, salva e exclui pelo usuario_id', async () => {
+    rota('GET', '/sip/usuario', {})
+    expect(await api.getSipUsuario(5)).toBeNull()
+    expect(pedidosDe('GET', '/sip/usuario')[0]!.consulta).toEqual({ usuario_id: '5' })
+    rota('GET', '/sip/usuario', { id: 2, usuario_id: 5, sip_user: '9996', tem_senha: true })
+    expect(await api.getSipUsuario(5)).toMatchObject({ id: 2, tem_senha: true })
+
+    const ramal = {
+      usuario_id: 5, sip_user: '9996', sip_password: 'senha', domain: 'voip.igerp.com', ws_server: 'wss://voip.igerp.com:8089/ws',
+      auth_user: null, display_name: null, turn_server: null, turn_user: null, turn_password: null, ativo: true,
+    }
+    rota('PUT', '/sip/usuario', { id: 2, usuario_id: 5, sip_user: '9996', tem_senha: true })
+    expect(await api.salvarSipUsuario(ramal)).toMatchObject({ id: 2 })
+    expect(pedidosDe('PUT', '/sip/usuario')[0]!.corpo).toEqual(ramal)
+    rota('PUT', '/sip/usuario', {})
+    await expect(api.salvarSipUsuario(ramal)).rejects.toThrow('O ramal não foi salvo.')
+
+    rota('DELETE', '/sip/usuario', {})
+    await api.excluirSipUsuario(5)
+    expect(pedidosDe('DELETE', '/sip/usuario')[0]!.consulta).toEqual({ usuario_id: '5' })
+  })
+
   test('endereço do anexo', async () => {
     rota('GET', '/anexo', { url: 'https://localhost/storage/x' })
     expect(await api.getAnexoUrl('abc')).toBe('https://localhost/storage/x')

@@ -7,6 +7,7 @@ export const NOMES_PERMISSAO: Record<string, string> = {
   [CodigoPermissao.Bots]: 'Bots',
   [CodigoPermissao.Ferramentas]: 'Ferramentas',
   [CodigoPermissao.Conhecimento]: 'Conhecimento',
+  [CodigoPermissao.Sip]: 'Configurar o SIP',
   [CodigoPermissao.Emoji]: 'Emojis no texto',
   [CodigoPermissao.Figurinha]: 'Figurinhas',
   [CodigoPermissao.Imagem]: 'Imagens',

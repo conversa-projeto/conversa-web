@@ -1,4 +1,4 @@
-import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaEmbutida, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SipConfig, Mensagem, MensagemStatusItem, PastaMensagens, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteEmbeddings, TesteIa } from '../types/api'
+import type { AlteracaoParametros, AnexoItem, ConfirmacaoLeitura, AnexoResponse, Atividade, BaseConhecimento, Bot, DocumentoConhecimento, TrechoConhecimento, DadosFerramenta, FerramentaEmbutida, FerramentaExterna, TesteFerramenta, Enquete, ParametrosSistema, PermissoesSistema, Chamada, ChamadaHistoricoItem, ChamadaPendente, Contato, Conversa, IceConfig, LoginResponse, SalvarSipUsuario, SipConfig, SipUsuario, Mensagem, MensagemStatusItem, PastaMensagens, StatusDestinatario, TipoChamada, TipoConteudo, TipoConversa, TranscricaoAudio, PresencaContato, Privacidade, PeriodoResumo, ResumoConversa, TesteEmbeddings, TesteIa } from '../types/api'
 import { api, dados } from './eden'
 import type { DadosAudio } from '../utils/dadosAudio'
 
@@ -548,7 +548,7 @@ export function gravandoAudio(conversaId: number) {
   return dados(api().conversa.gravando.post({ id: conversaId }))
 }
 
-function temRamal(sip: SipConfig | Record<string, never>): sip is SipConfig {
+function temRamal<T extends { id: number }>(sip: T | Record<string, never>): sip is T {
   return 'id' in sip
 }
 
@@ -558,12 +558,20 @@ export async function getSip(): Promise<SipConfig | null> {
   return temRamal(sip) ? sip : null
 }
 
-export function criarSip(sip: Omit<SipConfig, 'id' | 'usuario_id' | 'criado_em' | 'criado_por'>): Promise<SipConfig> {
-  return dados(api().sip.put(sip))
+// Ramal de outra pessoa, pelo administrador (permissão "sip"). Sem ramal, null
+export async function getSipUsuario(usuarioId: number): Promise<SipUsuario | null> {
+  const sip = await dados(api().sip.usuario.get({ query: { usuario_id: usuarioId } }))
+  return temRamal(sip) ? sip : null
 }
 
-export function atualizarSip(sip: Partial<Omit<SipConfig, 'usuario_id' | 'criado_em' | 'criado_por'>> & { id: number }) {
-  return dados(api().sip.patch(sip))
+export async function salvarSipUsuario(sip: SalvarSipUsuario): Promise<SipUsuario> {
+  const salvo = await dados(api().sip.usuario.put(sip))
+  if (!temRamal(salvo)) throw new Error('O ramal não foi salvo.')
+  return salvo
+}
+
+export async function excluirSipUsuario(usuarioId: number) {
+  await dados(api().sip.usuario.delete(undefined, { query: { usuario_id: usuarioId } }))
 }
 
 export function getIceServers(): Promise<IceConfig> {

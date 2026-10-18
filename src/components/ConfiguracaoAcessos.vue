@@ -50,7 +50,24 @@
             </svg>
           </button>
 
-          <div v-if="aberto === usuario.id" class="grid gap-4 bg-surface-50 px-4 py-3 sm:grid-cols-2">
+          <div v-if="aberto === usuario.id && podeSip(usuario)" class="flex gap-1 bg-surface-50 px-4 pt-3" role="tablist">
+            <button
+              v-for="aba in ABAS_USUARIO"
+              :key="aba.id"
+              type="button"
+              role="tab"
+              :aria-selected="abaUsuario === aba.id"
+              class="rounded-lg px-3 py-1.5 text-xs font-medium"
+              :class="abaUsuario === aba.id ? 'bg-primary-600 text-white' : 'text-surface-600 hover:bg-surface-100'"
+              @click="abaUsuario = aba.id"
+            >{{ aba.titulo }}</button>
+          </div>
+
+          <div v-if="aberto === usuario.id && abaUsuario === 'sip' && podeSip(usuario)" class="bg-surface-50 px-4 py-3">
+            <ConfiguracaoSipUsuario :usuario="usuario" />
+          </div>
+
+          <div v-else-if="aberto === usuario.id" class="grid gap-4 bg-surface-50 px-4 py-3 sm:grid-cols-2">
             <fieldset v-for="grupo in grupos" :key="grupo.titulo">
               <legend class="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">{{ grupo.titulo }}</legend>
               <label
@@ -87,6 +104,7 @@ import { useAuthStore } from '../stores/auth'
 import { CodigoPermissao, type PermissoesSistema } from '../types/api'
 import { GRUPOS_USO, NOMES_PERMISSAO } from '../utils/permissoesUso'
 import { formatarTamanho } from '../utils/formatters'
+import ConfiguracaoSipUsuario from './ConfiguracaoSipUsuario.vue'
 
 const auth = useAuthStore()
 
@@ -102,6 +120,18 @@ const erro = ref('')
 const busca = ref('')
 const alterando = ref('')
 const aberto = ref<number | null>(null)
+
+// No painel de cada pessoa: os acessos e, para quem configura o SIP, o ramal
+const ABAS_USUARIO = [
+  { id: 'acessos', titulo: 'Acessos' },
+  { id: 'sip', titulo: 'Telefonia (SIP)' },
+] as const
+const abaUsuario = ref<(typeof ABAS_USUARIO)[number]['id']>('acessos')
+
+// Bot não liga: o ramal é só de pessoa
+function podeSip(usuario: UsuarioPermissoes) {
+  return !usuario.bot && auth.temPermissao(CodigoPermissao.Sip)
+}
 
 const chave = (usuarioId: number, codigo: string) => `${usuarioId}:${codigo}`
 

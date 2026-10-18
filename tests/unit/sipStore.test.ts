@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
 import { useSipStore } from '@/stores/sip'
-import { erro, rota } from './apiFalsa'
+import { erro, pedidosDe, rota } from './apiFalsa'
 import { relogioFalso } from './relogioFalso'
 import { comportamentoSip, SessionState, sipCriados, TransportState } from './sipFalso'
 import { instalarWebrtcFalso } from './webrtcFalso'
@@ -9,6 +9,9 @@ import { instalarWebrtcFalso } from './webrtcFalso'
 const ramal = { id: 1, usuario_id: 7, sip_user: '1001', auth_user: null, sip_password: 'segredo', display_name: 'Ana', domain: 'pbx.teste', ws_server: 'wss://pbx.teste/ws', ativo: true }
 
 let relogio: ReturnType<typeof relogioFalso>
+
+// Cada store cria o seu <audio> escondido: o desta é o último
+const audioDoRamal = () => [...document.querySelectorAll('audio')].at(-1)!
 
 function novaStore(logado = true) {
   if (logado) localStorage.setItem('conversa.user', JSON.stringify({ id: 7, nome: 'Ana' }))
@@ -149,21 +152,50 @@ describe('ligar', () => {
     expect(sip.chamadaEmAndamento).toBe(false)
   })
 
-  test('ICE vem do backend a cada chamada, sem credencial fixa no código', async () => {
+  test('ICE do ramal: só STUN, como o telefone de teste; nunca o TURN do Conversa (relay só até o MediaMTX)', async () => {
+    rota('GET', '/ice', { iceServers: [{ urls: 'turn:localhost:3478', username: 'x', credential: 'y' }], iceTransportPolicy: 'relay' })
     const sip = await registrado()
-    const opcoes = sipCriados.agentes[0]!.opcoes.sessionDescriptionHandlerFactoryOptions
     await sip.discar('100')
-    // Sem servidores no backend, fica o padrão do sip.js
-    expect(opcoes.peerConnectionConfiguration).toBeUndefined()
+    expect(sipCriados.agentes[0]!.opcoes.sessionDescriptionHandlerFactoryOptions.peerConnectionConfiguration).toEqual({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceTransportPolicy: 'all',
+    })
+    expect(pedidosDe('GET', '/ice')).toHaveLength(0)
+  })
+
+  test('ICE do ramal com o TURN do PABX: STUN e o TURN com usuário e senha', async () => {
+    rota('GET', '/sip', { ...ramal, turn_server: 'turns:pbx.teste:443', turn_user: 'webrtc', turn_password: 'turno' })
+    const sip = novaStore()
+    await relogio.rodar(sip.inicializarSessao())
+    expect(sipCriados.agentes[0]!.opcoes.sessionDescriptionHandlerFactoryOptions.peerConnectionConfiguration).toEqual({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'turns:pbx.teste:443', username: 'webrtc', credential: 'turno' }],
+      iceTransportPolicy: 'all',
+    })
+  })
+
+  test('liga para o endereço completo, como no teste (sip:*43@voip.igerp.com), ou só o número', async () => {
+    const sip = await registrado()
+    await sip.discar('sip:*43@voip.igerp.com')
+    expect(sipCriados.chamadas[0]!.destino).toBe('sip:*43@voip.igerp.com')
+    expect(sip.chamadaDestinoUri).toBe('sip:*43@voip.igerp.com')
     await sip.encerrarChamada()
-    const turn = { urls: 'turns:turn.teste:443', username: 'temporario', credential: 'expira' }
-    rota('GET', '/ice', { iceServers: [turn], iceTransportPolicy: 'relay' })
-    await sip.discar('200')
-    expect(opcoes.peerConnectionConfiguration).toEqual({ iceServers: [turn], iceTransportPolicy: 'relay' })
-    rota('GET', '/ice', { iceServers: [{ ...turn, username: 'renovado' }], iceTransportPolicy: 'all' })
-    sipCriados.agentes[0]!.receberChamada()
-    await sip.aceitarChamada()
-    expect(opcoes.peerConnectionConfiguration!.iceServers![0]!.username).toBe('renovado')
+    await sip.discar(' *43 ')
+    expect(sipCriados.chamadas[1]!.destino).toBe('sip:*43@pbx.teste')
+    await sip.encerrarChamada()
+    await expect(sip.discar('   ')).rejects.toThrow('Numero de destino invalido.')
+  })
+
+  test('o áudio de quem atende toca pelo stream remoto do sip.js, sem trocar o ontrack dele', async () => {
+    const sip = await registrado()
+    await sip.discar('*43')
+    const chamada = sipCriados.chamadas[0]!
+    chamada.mudar(SessionState.Established)
+    const audio = audioDoRamal()
+    expect(audio.srcObject).toBe(chamada.sessionDescriptionHandler.remoteMediaStream)
+    expect(chamada.sessionDescriptionHandler.peerConnection.ontrack).toBeNull()
+    expect(sip.chamadaEmAndamento).toBe(true)
+    await sip.encerrarChamada()
+    expect(audio.srcObject).toBeNull()
   })
 
   test('mudo e teclas (DTMF) durante a chamada', async () => {
@@ -192,6 +224,7 @@ describe('receber', () => {
     expect(convite.chamadas).toContain('accept')
     expect(sip.chamadaEmAndamento).toBe(true)
     expect(sip.chamadaRecebida).toBeNull()
+    expect(audioDoRamal().srcObject).toBe(convite.sessionDescriptionHandler.remoteMediaStream)
   })
 
   test('recusar limpa a chamada', async () => {

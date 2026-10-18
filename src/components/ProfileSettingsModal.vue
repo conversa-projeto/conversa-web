@@ -338,59 +338,7 @@
 
           <ConfiguracaoConhecimento v-else-if="props.abaAtiva === 'conhecimento'" />
 
-          <div v-else class="space-y-4">
-            <section class="rounded-2xl border border-surface-200 p-4">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <h4 class="text-sm font-semibold text-surface-800">Configuracao de ramal</h4>
-                  <p class="mt-1 text-sm text-surface-500">Os dados abaixo agora sao carregados do servidor e usados na preparacao da integracao com VueSIP.</p>
-                </div>
-                <span class="whitespace-nowrap rounded-full bg-primary-100 dark:bg-primary-900 px-3 py-1 text-xs font-semibold text-primary-700 dark:text-primary-300">Asterisk / VueSIP</span>
-              </div>
-
-              <form class="mt-4 grid gap-4 md:grid-cols-2" @submit.prevent="salvarVoip">
-                <div>
-                  <label class="mb-1 block text-sm text-surface-700">Ramal SIP</label>
-                  <input v-model.trim="voip.sip_user" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="1001" />
-                </div>
-                <div>
-                  <label class="mb-1 block text-sm text-surface-700">Usuario de autenticacao</label>
-                  <input v-model.trim="voip.auth_user" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="1001" />
-                </div>
-                <div>
-                  <label class="mb-1 block text-sm text-surface-700">Senha SIP</label>
-                  <input v-model.trim="voip.sip_password" type="password" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="Senha do ramal" />
-                </div>
-                <div>
-                  <label class="mb-1 block text-sm text-surface-700">Nome de exibicao</label>
-                  <input v-model.trim="voip.display_name" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" :placeholder="auth.user?.nome || 'Seu nome'" />
-                </div>
-                <div>
-                  <label class="mb-1 block text-sm text-surface-700">Dominio SIP</label>
-                  <input v-model.trim="voip.domain" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="pbx.exemplo.com" />
-                </div>
-                <div>
-                  <label class="mb-1 block text-sm text-surface-700">Servidor WebSocket</label>
-                  <input v-model.trim="voip.ws_server" type="text" class="w-full rounded-xl border border-surface-300 px-3 py-2.5 text-sm bg-surface-100 outline-none focus:border-primary-500 text-surface-800" placeholder="wss://pbx.exemplo.com:8089/ws" />
-                </div>
-
-                <label class="flex items-center gap-2 rounded-xl border border-surface-200 px-3 py-3 text-sm text-surface-700 md:col-span-2">
-                  <input v-model="voip.ativo" type="checkbox" class="rounded border-surface-300 text-primary-600 dark:text-primary-500 focus:ring-primary-500 text-surface-800" />
-                  Configuracao SIP ativa para este usuario
-                </label>
-
-                <p v-if="carregandoVoip" class="rounded-xl bg-surface-100 px-3 py-2 text-sm text-surface-600 md:col-span-2">Carregando configuracao SIP...</p>
-                <p v-if="erroVoip" class="rounded-xl bg-danger-50 dark:bg-danger-900 px-3 py-2 text-sm text-danger-700 dark:text-danger-400 md:col-span-2">{{ erroVoip }}</p>
-                <p v-if="sucessoVoip" class="rounded-xl bg-success-50 dark:bg-success-900 px-3 py-2 text-sm text-success-700 dark:text-success-400 md:col-span-2">{{ sucessoVoip }}</p>
-
-                <div class="flex justify-end md:col-span-2">
-                  <button type="submit" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60" :disabled="salvandoVoip || carregandoVoip">
-                    {{ salvandoVoip ? 'Salvando...' : (voip.id ? 'Salvar configuracao SIP' : 'Criar configuracao SIP') }}
-                  </button>
-                </div>
-              </form>
-            </section>
-          </div>
+          <ConfiguracaoVoip v-else />
         </div>
       </section>
     </div>
@@ -403,7 +351,6 @@ import { computed, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from '../stores/auth'
-import type { SipConfig } from '../types/api'
 import { CodigoPermissao, TipoConteudo } from '../types/api'
 import { redimensionarImagem } from '../utils/imageResize'
 import ConfiguracaoCores from './ConfiguracaoCores.vue'
@@ -415,6 +362,7 @@ import ConfiguracaoUsuarios from './ConfiguracaoUsuarios.vue'
 import EspacoUsado from './EspacoUsado.vue'
 import ConfiguracaoFerramentas from './ConfiguracaoFerramentas.vue'
 import ConfiguracaoConhecimento from './ConfiguracaoConhecimento.vue'
+import ConfiguracaoVoip from './ConfiguracaoVoip.vue'
 
 type AbaId = 'usuario' | 'privacidade' | 'dispositivos' | 'permissoes' | 'voip' | 'cores' | 'chamadas' | 'sistema' | 'acessos' | 'bots' | 'usuarios' | 'ferramentas' | 'conhecimento' | 'ia'
 
@@ -423,17 +371,6 @@ type DispositivoMidiaItem = {
   label: string
   tipo: string
   variante?: 'padrao' | 'comunicacao'
-}
-
-type VoipForm = {
-  id: number | null
-  sip_user: string
-  auth_user: string
-  sip_password: string
-  display_name: string
-  domain: string
-  ws_server: string
-  ativo: boolean
 }
 
 const props = withDefaults(defineProps<{
@@ -478,7 +415,7 @@ const GRUPOS: Grupo[] = [
   ] },
   { id: 'chamadas', titulo: 'Chamadas', descricao: 'Qualidade das chamadas e telefonia', abas: [
     { id: 'chamadas', titulo: 'Qualidade', descricao: 'Qualidade do áudio, vídeo e tela', visivel: usa(CodigoPermissao.ConfigChamadas) },
-    { id: 'voip', titulo: 'Voip', descricao: 'Configuracao SIP do usuario', visivel: usa(CodigoPermissao.Telefonia) },
+    { id: 'voip', titulo: 'Voip', descricao: 'Seu ramal SIP, configurado pelo administrador', visivel: usa(CodigoPermissao.Telefonia) },
   ] },
   { id: 'sistema', titulo: 'Sistema', descricao: 'Configurações que valem para todos', admin: true, abas: [
     { id: 'sistema', titulo: 'Sistema', descricao: 'Configurações que valem para todos', visivel: administra(CodigoPermissao.Parametros) },
@@ -562,12 +499,7 @@ type PermissaoItem = {
 const permissoes = ref<PermissaoItem[]>([])
 const carregandoPermissoes = ref(false)
 
-const voip = ref<VoipForm>(criarVoipPadrao())
-const voipOriginal = ref<VoipForm>(criarVoipPadrao())
-const carregandoVoip = ref(false)
-const salvandoVoip = ref(false)
-const erroVoip = ref('')
-const sucessoVoip = ref('')
+
 
 const avatarAtual = computed(() => auth.avatarUrl || '')
 const inicialUsuario = computed(() => {
@@ -582,34 +514,6 @@ watch(() => props.aberta, (aberta) => {
   resetarEstado()
   void carregarAoAbrir()
 }, { immediate: true })
-
-function criarVoipPadrao(): VoipForm {
-  return {
-    id: null,
-    sip_user: '',
-    auth_user: '',
-    sip_password: '',
-    display_name: '',
-    domain: '',
-    ws_server: '',
-    ativo: true,
-  }
-}
-
-function mapearSipParaForm(data: SipConfig | null | undefined): VoipForm {
-  if (!data) return criarVoipPadrao()
-
-  return {
-    id: Number(data.id) || null,
-    sip_user: String(data.sip_user || ''),
-    auth_user: String(data.auth_user || ''),
-    sip_password: String(data.sip_password || ''),
-    display_name: String(data.display_name || ''),
-    domain: String(data.domain || ''),
-    ws_server: String(data.ws_server || ''),
-    ativo: data.ativo === true,
-  }
-}
 
 async function consultarPermissoes() {
   carregandoPermissoes.value = true
@@ -704,7 +608,6 @@ async function carregarAoAbrir() {
   await Promise.all([
     carregarDispositivosMidia(),
     consultarPermissoes(),
-    carregarVoip(),
   ])
 }
 
@@ -756,12 +659,8 @@ function resetarEstado() {
   erroPerfil.value = ''
   sucessoPerfil.value = ''
   erroAvatar.value = ''
-  erroVoip.value = ''
-  sucessoVoip.value = ''
   nomeUsuario.value = auth.user?.nome || ''
   emailUsuario.value = auth.user?.email || ''
-  voip.value = criarVoipPadrao()
-  voipOriginal.value = criarVoipPadrao()
   uploadProgresso.value = 0
 
   if (avatarPreview.value) {
@@ -805,29 +704,6 @@ async function carregarDispositivosMidia() {
     erroDispositivos.value = e instanceof Error ? e.message : 'Nao foi possivel listar os dispositivos de midia.'
   } finally {
     carregandoDispositivos.value = false
-  }
-}
-
-async function carregarVoip() {
-  erroVoip.value = ''
-  sucessoVoip.value = ''
-  carregandoVoip.value = true
-
-  try {
-    const data = await api.getSip()
-    const form = mapearSipParaForm(data)
-    voip.value = { ...form }
-    voipOriginal.value = { ...form }
-  } catch (e) {
-    voip.value = criarVoipPadrao()
-    voipOriginal.value = criarVoipPadrao()
-    const mensagem = e instanceof Error ? e.message : 'Nao foi possivel carregar a configuracao SIP.'
-    const semCadastro = /404|nao encontrado|nÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£o encontrado|not found/i.test(mensagem)
-    if (!semCadastro) {
-      erroVoip.value = mensagem
-    }
-  } finally {
-    carregandoVoip.value = false
   }
 }
 
@@ -961,67 +837,6 @@ async function salvarSenha() {
   }
 }
 
-function montarPayloadCriacaoVoip() {
-  return {
-    sip_user: voip.value.sip_user,
-    auth_user: voip.value.auth_user || null,
-    sip_password: voip.value.sip_password,
-    display_name: voip.value.display_name || null,
-    domain: voip.value.domain,
-    ws_server: voip.value.ws_server,
-    ativo: voip.value.ativo,
-  }
-}
-
-function montarAlteracoesVoip() {
-  const alteracoes: Partial<SipConfig> = {}
-
-  if (voip.value.sip_user !== voipOriginal.value.sip_user) alteracoes.sip_user = voip.value.sip_user
-  if (voip.value.auth_user !== voipOriginal.value.auth_user) alteracoes.auth_user = voip.value.auth_user || null
-  if (voip.value.sip_password !== voipOriginal.value.sip_password) alteracoes.sip_password = voip.value.sip_password
-  if (voip.value.display_name !== voipOriginal.value.display_name) alteracoes.display_name = voip.value.display_name || null
-  if (voip.value.domain !== voipOriginal.value.domain) alteracoes.domain = voip.value.domain
-  if (voip.value.ws_server !== voipOriginal.value.ws_server) alteracoes.ws_server = voip.value.ws_server
-  if (voip.value.ativo !== voipOriginal.value.ativo) alteracoes.ativo = voip.value.ativo
-
-  return alteracoes
-}
-
-async function salvarVoip() {
-  erroVoip.value = ''
-  sucessoVoip.value = ''
-
-  if (!voip.value.sip_user || !voip.value.sip_password || !voip.value.domain || !voip.value.ws_server) {
-    erroVoip.value = 'Preencha ao menos ramal, senha SIP, dominio e servidor WebSocket.'
-    return
-  }
-
-  salvandoVoip.value = true
-  try {
-    if (!voip.value.id) {
-      const criado = await api.criarSip(montarPayloadCriacaoVoip())
-      const form = mapearSipParaForm(criado)
-      voip.value = { ...form }
-      voipOriginal.value = { ...form }
-      sucessoVoip.value = 'Configuracao SIP criada com sucesso.'
-      return
-    }
-
-    const alteracoes = montarAlteracoesVoip()
-    if (Object.keys(alteracoes).length === 0) {
-      sucessoVoip.value = 'Nenhuma alteracao para salvar.'
-      return
-    }
-
-    await api.atualizarSip({ id: voip.value.id, ...alteracoes })
-    voipOriginal.value = { ...voip.value }
-    sucessoVoip.value = 'Configuracao SIP atualizada com sucesso.'
-  } catch (e) {
-    erroVoip.value = e instanceof Error ? e.message : 'Nao foi possivel salvar a configuracao SIP.'
-  } finally {
-    salvandoVoip.value = false
-  }
-}
 </script>
 
 <style scoped>

@@ -4,18 +4,8 @@ import { Inviter, Registerer, RegistererState, SessionState, TransportState, Use
 import type { Invitation, Session } from 'sip.js'
 import * as api from '../services/conversaApi'
 import { useAuthStore } from './auth'
-import { obterConfigRTC } from './call'
 import type { SipConfig } from '../types/api'
-
-// ICE das chamadas SIP: o mesmo do backend (GET /ice), com credenciais TURN
-// temporárias, renovado antes de cada chamada. Sem servidores configurados,
-// fica o padrão do sip.js.
-const opcoesSdh: { peerConnectionConfiguration?: RTCConfiguration } = {}
-
-async function renovarConfigRTC() {
-  const config = await obterConfigRTC()
-  opcoesSdh.peerConnectionConfiguration = config.iceServers?.length ? config : undefined
-}
+import { destinoSip, iceDoRamal } from '../utils/sip'
 
 export const useSipStore = defineStore('sip', () => {
   const auth = useAuthStore()
@@ -55,29 +45,17 @@ export const useSipStore = defineStore('sip', () => {
     return audioElement
   }
 
+  // O sip.js junta as trilhas recebidas no remoteMediaStream (o ontrack é dele:
+  // trocar o ontrack perdia o áudio quando o Asterisk manda a trilha sem stream)
   function setupAudio(sess: Session) {
-    const sdh = sess.sessionDescriptionHandler as { peerConnection?: RTCPeerConnection } | undefined
-    const pc = sdh?.peerConnection
-    if (!pc) return
+    const sdh = sess.sessionDescriptionHandler as { remoteMediaStream?: MediaStream } | undefined
+    const stream = sdh?.remoteMediaStream
+    if (!stream) return
 
     const audio = getAudioElement()
-
-    pc.ontrack = (event) => {
-      audio.srcObject = event.streams[0] ?? null
-      audio.play().catch(() => {})
-    }
-
-    // Caso o track já tenha chegado antes do ontrack
-    const receivers = pc.getReceivers()
-    receivers.forEach((receiver) => {
-      if (receiver.track && receiver.track.kind === 'audio') {
-        const stream = new MediaStream([receiver.track])
-        if (!audio.srcObject) {
-          audio.srcObject = stream
-          audio.play().catch(() => {})
-        }
-      }
-    })
+    if (audio.srcObject === stream) return
+    audio.srcObject = stream
+    audio.play().catch(() => {})
   }
 
   function limparSessao() {
@@ -259,7 +237,6 @@ export const useSipStore = defineStore('sip', () => {
     pararToqueRecebido()
     chamadaRecebida.value = null
     conectandoChamadaRecebida.value = true
-    await renovarConfigRTC()
     await invitation.accept({
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -339,7 +316,7 @@ export const useSipStore = defineStore('sip', () => {
           authorizationUsername: config.auth_user || config.sip_user,
           authorizationPassword: config.sip_password,
           displayName: config.display_name || config.sip_user,
-          sessionDescriptionHandlerFactoryOptions: opcoesSdh,
+          sessionDescriptionHandlerFactoryOptions: { peerConnectionConfiguration: iceDoRamal(config) },
           delegate: {
             onInvite(invitation: Invitation) {
               session = invitation
@@ -448,10 +425,10 @@ export const useSipStore = defineStore('sip', () => {
       throw new Error('O ramal SIP ainda nao esta registrado.')
     }
 
-    const target = UserAgent.makeURI(`sip:${numero}@${sipConfig.value.domain}`)
+    const destino = destinoSip(numero, sipConfig.value.domain)
+    const target = destino ? UserAgent.makeURI(destino) : undefined
     if (!target) throw new Error('Numero de destino invalido.')
 
-    await renovarConfigRTC()
     const inviter = new Inviter(userAgent, target, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -459,7 +436,7 @@ export const useSipStore = defineStore('sip', () => {
     })
 
     session = inviter
-    chamadaDestinoUri.value = `sip:${numero}@${sipConfig.value.domain}`
+    chamadaDestinoUri.value = destino
     discando.value = true
     iniciarTomDiscando()
 

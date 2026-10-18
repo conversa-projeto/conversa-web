@@ -154,6 +154,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useSipStore } from '../stores/sip'
+import { destinoSip } from '../utils/sip'
 
 const dtmfFreqs: Record<string, [number, number]> = {
   '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
@@ -279,11 +280,7 @@ const statusBadgeClasse = computed(() => {
   return 'bg-surface-300'
 })
 
-const destinoFormatado = computed(() => {
-  if (!numero.value) return 'sip:numero@dominio'
-  const dominio = sip.sipConfig?.domain || 'dominio'
-  return `sip:${numero.value}@${dominio}`
-})
+const destinoFormatado = computed(() => destinoSip(numero.value, sip.sipConfig?.domain || 'dominio') || 'sip:numero@dominio')
 
 const chamadaDestino = computed(() => sip.chamadaDestinoUri || destinoFormatado.value)
 const podeLigar = computed(() => !!numero.value.trim() && sip.sipDisponivel)
