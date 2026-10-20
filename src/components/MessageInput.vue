@@ -8,6 +8,16 @@
       @change="selecionarArquivo"
       accept="*/*"
     />
+    <!-- Celular: a câmera do sistema -->
+    <input
+      v-if="camera.celular"
+      ref="inputCamera"
+      type="file"
+      class="hidden"
+      :accept="aceitaCamera"
+      capture="environment"
+      @change="capturarNoCelular"
+    />
 
     <div class="relative mx-auto w-full max-w-[850px]">
       <!-- Chip com texto: so aparece quando o usuario esta no fim do chat.
@@ -121,6 +131,7 @@
               v-if="mostrarAnexo"
               :com-votacao="chat.conversaAtiva?.tipo === TipoConversa.Grupo"
               @arquivo="abrirFilePicker()"
+              @camera="abrirCamera()"
               @codigo="mostrarAnexo = false; mostrarCodigo = true"
               @localizacao="mostrarAnexo = false; mostrarLocalizacao = true"
               @votacao="mostrarAnexo = false; mostrarEnquete = true"
@@ -254,6 +265,16 @@
       @close="fecharCodigo"
     />
 
+    <CameraModal
+      v-if="mostrarCamera"
+      :arquivo-inicial="arquivoCamera"
+      :pode-foto="auth.pode(CodigoPermissao.Imagem)"
+      :pode-video="auth.pode(CodigoPermissao.Video)"
+      @enviar="onEnviarCamera"
+      @refazer="mostrarCamera = false; inputCamera?.click()"
+      @close="mostrarCamera = false; arquivoCamera = null"
+    />
+
     <LocalizacaoModal
       v-if="mostrarLocalizacao"
       :inicial="localizacaoEditando?.atual"
@@ -313,9 +334,11 @@ import { Anexo, Codigo, ExtensoesDoCampo, Figurinha, LocalizacaoPeca, blocoDeCod
 import { SugestaoIa, chaveSugestao, sugestaoAtual } from '../editor/sugestao'
 import { useSugestaoIa } from '../composables/useSugestaoIa'
 import AnexoPopup from './AnexoPopup.vue'
+import { useCamera } from '../composables/useCamera'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
 const LocalizacaoModal = defineAsyncComponent(() => import('./LocalizacaoModal.vue'))
 const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
+const CameraModal = defineAsyncComponent(() => import('./CameraModal.vue'))
 const MensagensAgendadasModal = defineAsyncComponent(() => import('./MensagensAgendadasModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
 import MencaoDropdown from './MencaoDropdown.vue'
@@ -805,6 +828,48 @@ function aoSoltarNoCampo(view: EditorView, event: DragEvent) {
 }
 
 // --- Code insertion ---
+// --- Câmera ---
+
+// No celular abre a câmera do sistema; no computador, a tela com a webcam.
+// O que foi capturado vai para a prévia, com legenda, e "Enviar" manda na hora
+const camera = useCamera()
+const inputCamera = ref<HTMLInputElement | null>(null)
+const mostrarCamera = ref(false)
+const arquivoCamera = ref<File | null>(null)
+const aceitaCamera = computed(() => [auth.pode(CodigoPermissao.Imagem) && 'image/*', auth.pode(CodigoPermissao.Video) && 'video/*'].filter(Boolean).join(','))
+
+function abrirCamera() {
+  mostrarAnexo.value = false
+  if (camera.celular) inputCamera.value?.click()
+  else {
+    arquivoCamera.value = null
+    mostrarCamera.value = true
+  }
+}
+
+function capturarNoCelular(event: Event) {
+  const target = event.target as HTMLInputElement
+  const arquivo = target.files?.[0]
+  target.value = ''
+  if (!arquivo) return
+  if (!auth.pode(permissaoDoArquivo(arquivo))) {
+    erro.value = `Você não tem permissão para enviar ${NOMES_ANEXO[permissaoDoArquivo(arquivo)]}.`
+    return
+  }
+  arquivoCamera.value = arquivo
+  mostrarCamera.value = true
+}
+
+// A legenda vai na mesma mensagem, depois da foto ou do vídeo
+function onEnviarCamera(arquivo: File, legenda: string) {
+  mostrarCamera.value = false
+  arquivoCamera.value = null
+  void enviarBlocos([
+    { arquivo: { blob: arquivo, nomeArquivo: arquivo.name, mimeType: arquivo.type } },
+    ...(legenda ? [{ texto: legenda }] : []),
+  ])
+}
+
 
 // "Enviar": o código vai sozinho, na hora; o que já estava no campo fica lá
 function onEnviarCodigo(payload: CodigoEditor) {

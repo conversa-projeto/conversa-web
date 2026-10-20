@@ -156,7 +156,7 @@ export function instalarWebrtcFalso() {
   Object.assign(globalThis, { MediaStream: MidiaFalsa, RTCPeerConnection: ConexaoFalsa, AudioContext: ContextoAudioFalso, Audio: AudioFalso })
   Object.assign(globalThis, { RTCRtpSender: { getCapabilities: (tipo: string) => (tipo === 'video' ? { codecs: codecsVideo } : null) } })
   Object.defineProperty(navigator, 'mediaDevices', {
-    value: { getUserMedia: obterMidia, getDisplayMedia: obterTela },
+    value: { getUserMedia: obterMidia, getDisplayMedia: obterTela, enumerateDevices: async () => [], addEventListener: () => {} },
     configurable: true,
   })
 }
