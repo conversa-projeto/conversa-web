@@ -91,7 +91,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const LINGUAGENS = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal', 'markdown', 'mermaid']
+const LINGUAGENS = ['texto', 'javascript', 'typescript', 'python', 'sql', 'json', 'html', 'css', 'bash', 'csharp', 'pascal', 'markdown', 'mermaid', 'csv', 'tsv']
 // A linguagem detectada no texto colado pode não estar na lista
 const linguagens = props.linguagemInicial && !LINGUAGENS.includes(props.linguagemInicial)
   ? [...LINGUAGENS, props.linguagemInicial]
@@ -122,6 +122,9 @@ function getLangExtension(lang: string) {
     // eles aparecem formatado e como diagrama.
     case 'markdown': return []
     case 'mermaid': return []
+    // CSV e TSV aparecem como tabela na mensagem
+    case 'csv': return []
+    case 'tsv': return []
     default: return []
   }
 }

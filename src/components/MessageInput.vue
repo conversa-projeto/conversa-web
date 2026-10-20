@@ -327,18 +327,19 @@ import { apagarRascunho, chaveRascunho, lerRascunho, salvarRascunho, type Rascun
 import { extensaoPorMime, isVideoConteudo, resumoMensagem } from '../utils/formatters'
 import { substituirAtalhoNoFim } from '../utils/emojiAtalhos'
 import { cercaCodigo, ehDesenhoAscii, pareceCodigo, textoLongo } from '../utils/codeBlocks'
+import { pareceTabela } from '../utils/tabelaCsv'
 import { detectarLinguagem } from '../composables/useCodeHighlight'
 import { useAudioRecording } from '../composables/useAudioRecording'
 import { gifDoHtml } from '../utils/copiarImagem'
 import { Anexo, Codigo, ExtensoesDoCampo, Figurinha, LocalizacaoPeca, blocoDeCodigo, blocosDoDocumento, criarMencao, liberarPrevias, novoIdAnexo, type AnexoEditor, type CodigoEditor } from '../editor/pecas'
 import { SugestaoIa, chaveSugestao, sugestaoAtual } from '../editor/sugestao'
 import { useSugestaoIa } from '../composables/useSugestaoIa'
-import AnexoPopup from './AnexoPopup.vue'
 import { useCamera } from '../composables/useCamera'
+import AnexoPopup from './AnexoPopup.vue'
 const CodigoModal = defineAsyncComponent(() => import('./CodigoModal.vue'))
 const LocalizacaoModal = defineAsyncComponent(() => import('./LocalizacaoModal.vue'))
-const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
 const CameraModal = defineAsyncComponent(() => import('./CameraModal.vue'))
+const AgendarMensagemModal = defineAsyncComponent(() => import('./AgendarMensagemModal.vue'))
 const MensagensAgendadasModal = defineAsyncComponent(() => import('./MensagensAgendadasModal.vue'))
 import EmojiPicker from './EmojiPicker.vue'
 import MencaoDropdown from './MencaoDropdown.vue'
@@ -827,7 +828,6 @@ function aoSoltarNoCampo(view: EditorView, event: DragEvent) {
   return true
 }
 
-// --- Code insertion ---
 // --- Câmera ---
 
 // No celular abre a câmera do sistema; no computador, a tela com a webcam.
@@ -870,6 +870,7 @@ function onEnviarCamera(arquivo: File, legenda: string) {
   ])
 }
 
+// --- Code insertion ---
 
 // "Enviar": o código vai sozinho, na hora; o que já estava no campo fica lá
 function onEnviarCodigo(payload: CodigoEditor) {
@@ -1234,6 +1235,13 @@ function aoColarNoChat(event: ClipboardEvent) {
   }
 
   const texto = event.clipboardData?.getData('text/plain') || ''
+  // Tabela (do Excel, do Sheets, CSV): entra como bloco ```tsv / ```csv,
+  // mostrado como tabela na mensagem
+  const tabela = pareceTabela(texto)
+  if (tabela) {
+    inserirNoCampo([{ type: 'codigo', attrs: { linguagem: tabela.linguagem, codigo: tabela.tabela } }])
+    return true
+  }
   if (textoLongo(texto)) {
     void sugerirCodigo(texto)
     return true

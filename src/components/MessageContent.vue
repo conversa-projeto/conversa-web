@@ -65,7 +65,7 @@
                   codigoSemBorda ? '' : (codigosLongos.has(chaveBloco(seg, segIdx)) ? 'border border-b-0 border-surface-200' : 'rounded-b border border-surface-200'),
                   codigosExpandidos.has(chaveBloco(seg, segIdx)) ? '' : 'max-h-60 overflow-hidden'
                 ]"
-              ><code v-html="highlightCodigo(seg.conteudo, seg.linguagem)"></code></pre>
+              ><code v-html="highlightCodigo(seg.conteudo, ehLinguagemTabela(seg.linguagem) ? 'plaintext' : seg.linguagem)"></code></pre>
               <div
                 v-if="codigosLongos.has(chaveBloco(seg, segIdx)) && !codigosExpandidos.has(chaveBloco(seg, segIdx))"
                 class="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface-50 to-transparent"
@@ -279,6 +279,7 @@ import { classeTextoMensagem, formatoOffice, isVideoConteudo, normalizarExtensao
 import MencaoLink from './MencaoLink.vue'
 import { useCodeHighlight, temCodigoFormatado, parseCodeBlocks } from '../composables/useCodeHighlight'
 import { carregarMarkdown, ehLinguagemMarkdown } from '../composables/useMarkdown'
+import { ehLinguagemTabela, tabelaParaMarkdown } from '../utils/tabelaCsv'
 import { ehLinguagemMermaid, renderizarMermaid, substituirMermaidNoHtml } from '../composables/useMermaid'
 import { useTheme } from '../composables/useTheme'
 import type { SegmentoTexto } from '../utils/codeBlocks'
@@ -392,14 +393,15 @@ function alternarCodigo(chave: string) {
   else codigosExpandidos.add(chave)
 }
 
-// Blocos ```md aparecem formatados e ```mermaid como diagrama (também os
-// diagramas dentro do Markdown); "Código" mostra o texto cru.
+// Blocos ```md aparecem formatados, ```csv e ```tsv como tabela e ```mermaid
+// como diagrama (também os diagramas dentro do Markdown); "Código" mostra o
+// texto cru, e "Copiar" copia o original.
 const visualHtml = reactive(new Map<number, string>())
 const verCodigo = reactive(new Set<number>())
 const { isDark } = useTheme()
 
 function ehVisualizavel(linguagem?: string) {
-  return ehLinguagemMarkdown(linguagem) || ehLinguagemMermaid(linguagem)
+  return ehLinguagemMarkdown(linguagem) || ehLinguagemTabela(linguagem) || ehLinguagemMermaid(linguagem)
 }
 
 function mostrarVisual(seg: SegmentoTexto, indice: number) {
@@ -418,7 +420,9 @@ watch([() => props.conteudo.conteudo, isDark], async ([texto, escuro]) => {
     if (seg.tipo !== 'codigo' || !ehVisualizavel(seg.linguagem)) continue
     const html = ehLinguagemMarkdown(seg.linguagem)
       ? await substituirMermaidNoHtml((await carregarMarkdown())(seg.conteudo), escuro)
-      : await renderizarMermaid(seg.conteudo, escuro)
+      : ehLinguagemTabela(seg.linguagem)
+        ? (await carregarMarkdown())(tabelaParaMarkdown(seg.conteudo, seg.linguagem!))
+        : await renderizarMermaid(seg.conteudo, escuro)
     if (html) visualHtml.set(indice, html)
     else visualHtml.delete(indice)
   }
