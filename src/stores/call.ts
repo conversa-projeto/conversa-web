@@ -104,7 +104,7 @@ export const useCallStore = defineStore('call', () => {
   // agora exibem apenas video, sempre mudas.
   const audiosRemotos = new Map<number, HTMLAudioElement>()
 
-  function tocarAudioRemoto(usuarioId: number, stream: MediaStream) {
+  function tocarAudioRemoto(usuarioId: number, stream: MediaStream, mudo = false) {
     let elemento = audiosRemotos.get(usuarioId)
     if (!elemento) {
       elemento = new Audio()
@@ -115,7 +115,7 @@ export const useCallStore = defineStore('call', () => {
     if (elemento.srcObject !== stream) {
       elemento.srcObject = stream
     }
-    elemento.muted = saidaAudioMutada.value
+    elemento.muted = mudo || saidaAudioMutada.value
     void elemento.play().catch((e) => console.warn('[CALL] audio remoto nao iniciou', { usuarioId, e }))
   }
 
@@ -606,6 +606,10 @@ export const useCallStore = defineStore('call', () => {
           }
           entrada.pc = pc
           entrada.stream = stream
+          // Toca mudo desde já: sem ninguém tocando, o áudio que chega enquanto
+          // toca se acumula no buffer e, ao atender, sai com um atraso que só
+          // some depois de alguns segundos
+          tocarAudioRemoto(usuarioId, stream, true)
           // Outra aba da pessoa passou a transmitir no lugar desta: assina de novo
           pc.onconnectionstatechange = () => {
             const estadoPc = pc.connectionState
@@ -626,6 +630,7 @@ export const useCallStore = defineStore('call', () => {
     const entrada = preConexoes.get(usuarioId)
     if (!entrada) return
     preConexoes.delete(usuarioId)
+    if (entrada.stream) pararAudioRemoto(usuarioId)
     if (entrada.pc) {
       entrada.pc.onconnectionstatechange = null
       try { entrada.pc.close() } catch { /* ignore */ }
