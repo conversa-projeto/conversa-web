@@ -632,8 +632,8 @@ describe('tempo real (WebSocket)', () => {
     expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: true, conversa_id: 1 })
 
     const quantos = socket.enviados.length
-    relogio.avancar(5 * 60 * 1000)
-    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: false, conversa_id: null })
+    relogio.avancar(30 * 1000)
+    expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: false, conversa_id: 1 })
     window.dispatchEvent(new Event('keydown'))
     expect(socket.enviados.at(-1)).toEqual({ tipo: 63, ativo: true, conversa_id: 1 })
     expect(socket.enviados).toHaveLength(quantos + 2)

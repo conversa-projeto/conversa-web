@@ -6,7 +6,7 @@
       <section class="rounded-2xl border border-surface-200 bg-surface-50 p-4">
         <h4 class="text-sm font-semibold text-surface-800">Status</h4>
         <p class="mt-1 text-xs text-surface-500">
-          Os contatos veem você ativo com o Conversa aberto e em uso, ausente quando ele está escondido ou parado há 5 minutos.
+          Os contatos veem você ativo com o Conversa aberto e em uso, ausente quando ele está escondido ou parado há 30 segundos.
           Valem para todos os seus aparelhos e mudam na hora.
         </p>
         <div class="mt-3 space-y-3">

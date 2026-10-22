@@ -1499,22 +1499,23 @@ export const useChatStore = defineStore('chat', () => {
 
   // --- Presença desta aba: visível e em uso, e a conversa aberta ---
 
-  const TEMPO_OCIOSO_MS = 5 * 60 * 1000
+  const TEMPO_OCIOSO_MS = 30 * 1000
   let ocioso = false
   let timerOcioso: number | null = null
   let ultimaPresenca = ''
 
   function enviarPresenca() {
     if (socket?.readyState !== WebSocket.OPEN) return
-    const ativo = document.visibilityState === 'visible' && !ocioso
-    const dados = { tipo: TipoEventoSocket.Presenca, ativo, conversa_id: ativo ? conversaAtivaId.value : null }
+    const visivel = document.visibilityState === 'visible'
+    const ativo = visivel && !ocioso
+    const dados = { tipo: TipoEventoSocket.Presenca, ativo, conversa_id: visivel ? conversaAtivaId.value : null }
     const texto = JSON.stringify(dados)
     if (texto === ultimaPresenca) return
     ultimaPresenca = texto
     socket.send(texto)
   }
 
-  // Sem mexer na página por 5 minutos, a aba deixa de contar como ativa
+  // Sem mexer na página por 30 segundos, a aba deixa de contar como ativa
   function marcarUso() {
     if (timerOcioso !== null) window.clearTimeout(timerOcioso)
     timerOcioso = window.setTimeout(() => {

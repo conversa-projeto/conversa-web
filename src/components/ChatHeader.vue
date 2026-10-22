@@ -307,11 +307,12 @@ const naConversa = computed(() => destinatarioId.value !== null && chat.estaNaCo
 // Conversa direta: se a pessoa está com ela aberta, ativa, ausente ou quando foi vista
 const textoPresenca = computed(() => {
   if (destinatarioId.value === null) return ''
-  if (naConversa.value) return 'nesta conversa'
   const { estado, visto_em } = chat.presencaDe(destinatarioId.value)
+  const visto = visto_em ? `visto por último ${formatarVistoEm(visto_em)}` : ''
+  if (naConversa.value) return estado === 'ausente' && visto ? `nesta conversa · ${visto}` : 'nesta conversa'
   if (estado === 'ativo') return 'ativo agora'
-  if (estado === 'ausente') return 'ausente'
-  return visto_em ? `visto por último ${formatarVistoEm(visto_em)}` : ''
+  if (estado === 'ausente') return visto ? `ausente · ${visto}` : 'ausente'
+  return visto
 })
 
 function formatarVistoEm(data: Date) {
