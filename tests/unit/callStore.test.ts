@@ -243,6 +243,110 @@ describe('atender', () => {
   })
 })
 
+describe('sem atraso ao atender', () => {
+  // Rota que só responde quando o teste libera
+  function presa(resposta: () => unknown) {
+    let liberar = () => {}
+    const solta = new Promise<void>((r) => { liberar = r })
+    return { responder: async () => { await solta; return resposta() }, liberar: () => liberar() }
+  }
+
+  test('quem recebe já toca, mudo, o áudio de quem liga; recusar para', async () => {
+    mediamtx()
+    const call = await receber(TipoChamada.Video)
+    await aguardar(20)
+    const audio = audiosTocando.at(-1)!
+    expect(audio.srcObject).not.toBeNull()
+    expect(audio.pausado).toBe(false)
+    expect(audio.muted).toBe(true)
+    expect(call.streamLocal!.getTracks().every((t) => !t.enabled)).toBe(true)
+    rota('POST', '/chamada/recusar', { id: 1 })
+    await call.recusarChamada()
+    expect(audio.pausado).toBe(true)
+    expect(audio.srcObject).toBeNull()
+  })
+
+  test('no clique, antes de a API responder, ouve quem liga e o microfone liga', async () => {
+    mediamtx()
+    const call = await receber(TipoChamada.Video)
+    await aguardar(20)
+    const audio = audiosTocando.at(-1)!
+    const entrar = presa(() => ({ id: 1 }))
+    rota('POST', '/chamada/entrar', entrar.responder)
+    rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou))
+    const atendimento = call.aceitarChamada()
+    await aguardar(10)
+    expect(call.estado).toBe('recebendo')
+    expect(audio.muted).toBe(false)
+    expect(call.streamLocal!.getAudioTracks()[0]!.enabled).toBe(true)
+    entrar.liberar()
+    await relogio.rodar(atendimento)
+    // O peer usa a mesma assinatura que já tocava
+    expect(call.peers.get(ANA)!.stream).toBe(audio.srcObject as never)
+    expect(pedidosDe('POST', `/webrtc/call-1-u-${ANA}/whep`)).toHaveLength(1)
+  })
+
+  test('atendeu antes de o microfone abrir: ele já abre ligado, a câmera só depois', async () => {
+    mediamtx()
+    const whip = presa(() => new Response('v=0\r\nm=audio\r\nm=video'))
+    rota('POST', `/webrtc/call-1-u-${EU}/whip`, whip.responder)
+    const pedirMidia = navigator.mediaDevices.getUserMedia
+    let soltarMidia = () => {}
+    const midiaLiberada = new Promise<void>((r) => { soltarMidia = r })
+    Object.assign(navigator.mediaDevices, { getUserMedia: async (p: MediaStreamConstraints) => { await midiaLiberada; return pedirMidia(p) } })
+    const call = await receber(TipoChamada.Video)
+    rota('POST', '/chamada/entrar', { id: 1 })
+    rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou))
+    const atendimento = call.aceitarChamada()
+    soltarMidia()
+    await aguardar(20)
+    expect(call.streamLocal!.getAudioTracks()[0]!.enabled).toBe(true)
+    expect(call.streamLocal!.getVideoTracks()[0]!.enabled).toBe(false)
+    whip.liberar()
+    await relogio.rodar(atendimento)
+    expect(call.streamLocal!.getTracks().every((t) => t.enabled)).toBe(true)
+  })
+
+  test('atender com a assinatura de quem liga ainda conectando: espera ela, sem assinar de novo', async () => {
+    mediamtx()
+    const whep = presa(() => new Response('v=0\r\nm=audio\r\nm=video'))
+    rota('POST', `/webrtc/call-1-u-${ANA}/whep`, whep.responder)
+    const call = await receber(TipoChamada.Video)
+    await aguardar(20)
+    rota('POST', '/chamada/entrar', { id: 1 })
+    rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou))
+    const atendimento = call.aceitarChamada()
+    await aguardar(20)
+    whep.liberar()
+    await relogio.rodar(atendimento)
+    expect(pedidosDe('POST', `/webrtc/call-1-u-${ANA}/whep`)).toHaveLength(1)
+    const stream = call.peers.get(ANA)!.stream
+    expect(stream).not.toBeNull()
+    const audio = audiosTocando.filter((a) => a.srcObject === stream).at(-1)!
+    expect(audio.muted).toBe(false)
+  })
+
+  test('quem liga já toca, sem mudo, quem ainda não atendeu; ao atender usa a mesma assinatura', async () => {
+    mediamtx()
+    const chamando = { ...chamadaApi(TipoChamada.Video), usuarios: [
+      { usuario_id: EU, usuario_nome: 'Eu', status: StatusUsuarioChamada.Entrou },
+      { usuario_id: ANA, usuario_nome: 'Ana', status: StatusUsuarioChamada.Pendente },
+    ] }
+    rota('PUT', '/chamada/iniciar', chamando)
+    const call = novaStore()
+    await call.iniciarChamada(TipoChamada.Video, [{ id: ANA }])
+    await aguardar(20)
+    const audio = audiosTocando.at(-1)!
+    expect(audio.srcObject).not.toBeNull()
+    expect(audio.pausado).toBe(false)
+    expect(audio.muted).toBe(false)
+    rota('GET', '/chamada/dados', { ...chamando, usuarios: chamando.usuarios.map((u) => ({ ...u, status: StatusUsuarioChamada.Entrou })) })
+    await relogio.rodar(call.tratarEventoChamada({ tipo: 54, chamada_id: 1, usuario_id: ANA }))
+    expect(call.peers.get(ANA)!.stream).toBe(audio.srcObject as never)
+    expect(pedidosDe('POST', `/webrtc/call-1-u-${ANA}/whep`)).toHaveLength(1)
+  })
+})
+
 describe('durante a chamada', () => {
   async function emChamada(tipo: TipoChamada = TipoChamada.Video) {
     mediamtx()

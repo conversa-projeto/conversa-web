@@ -582,19 +582,29 @@ export const useCallStore = defineStore('call', () => {
   //
   // Enquanto toca, cada lado já assina a transmissão do outro: quem recebe, a
   // de quem está na chamada; quem está na chamada, a de quem ainda não atendeu
-  // (tentando até ela aparecer). Ficam fora de peers, sem tocar nem aparecer;
-  // ao atender, conectarPeer só passa a usar a conexão que já está de pé.
+  // (tentando até ela aparecer). Ficam fora de peers, sem aparecer; ao atender,
+  // conectarPeer só passa a usar a conexão que já está de pé.
 
   interface PreConexao {
     pc: RTCPeerConnection | null
     stream: MediaStream | null
+    // Quem recebe não ouve quem ligou antes de atender; quem ligou já ouve quem
+    // recebe, que manda silêncio até atender e então a voz sai na hora
+    mudo: boolean
+    conectou: Promise<void>
+    avisarConectou: () => void
   }
   const preConexoes = new Map<number, PreConexao>()
 
-  function preConectar(usuarioId: number) {
+  // Quanto o atender espera a pré-conexão que ainda está assinando
+  const ESPERA_PRE_CONEXAO_MS = 15000
+
+  function preConectar(usuarioId: number, mudo: boolean) {
     if (preConexoes.has(usuarioId) || peers.value.has(usuarioId)) return
     const chamadaId = chamada.value?.id
-    const entrada: PreConexao = { pc: null, stream: null }
+    let avisarConectou = () => {}
+    const conectou = new Promise<void>(r => { avisarConectou = r })
+    const entrada: PreConexao = { pc: null, stream: null, mudo, conectou, avisarConectou }
     preConexoes.set(usuarioId, entrada)
     void (async () => {
       while (preConexoes.get(usuarioId) === entrada && chamada.value?.id === chamadaId) {
@@ -606,16 +616,17 @@ export const useCallStore = defineStore('call', () => {
           }
           entrada.pc = pc
           entrada.stream = stream
-          // Toca mudo desde já: sem ninguém tocando, o áudio que chega enquanto
-          // toca se acumula no buffer e, ao atender, sai com um atraso que só
-          // some depois de alguns segundos
-          tocarAudioRemoto(usuarioId, stream, true)
+          // Toca desde já, mesmo mudo: sem ninguém tocando, o áudio que chega
+          // enquanto toca se acumula no buffer e, ao atender, sai com um atraso
+          // que só some depois de alguns segundos
+          tocarAudioRemoto(usuarioId, stream, entrada.mudo)
+          entrada.avisarConectou()
           // Outra aba da pessoa passou a transmitir no lugar desta: assina de novo
           pc.onconnectionstatechange = () => {
             const estadoPc = pc.connectionState
             if ((estadoPc === 'failed' || estadoPc === 'disconnected' || estadoPc === 'closed') && preConexoes.get(usuarioId) === entrada) {
               fecharPreConexao(usuarioId)
-              preConectar(usuarioId)
+              preConectar(usuarioId, entrada.mudo)
             }
           }
           return
@@ -630,6 +641,7 @@ export const useCallStore = defineStore('call', () => {
     const entrada = preConexoes.get(usuarioId)
     if (!entrada) return
     preConexoes.delete(usuarioId)
+    entrada.avisarConectou()
     if (entrada.stream) pararAudioRemoto(usuarioId)
     if (entrada.pc) {
       entrada.pc.onconnectionstatechange = null
@@ -643,10 +655,20 @@ export const useCallStore = defineStore('call', () => {
     }
   }
 
-  // A pré-conexão de pé passa para o peer; a que ainda não conectou é descartada
-  function tomarPreConexao(usuarioId: number): { pc: RTCPeerConnection; stream: MediaStream } | null {
+  // A pré-conexão de pé passa para o peer. A que ainda está assinando é
+  // esperada, em vez de começar outra assinatura do zero; a que não conecta a
+  // tempo é descartada
+  async function tomarPreConexao(usuarioId: number): Promise<{ pc: RTCPeerConnection; stream: MediaStream } | null> {
     const entrada = preConexoes.get(usuarioId)
     if (!entrada) return null
+    if (!entrada.pc) {
+      await Promise.race([entrada.conectou, atraso(ESPERA_PRE_CONEXAO_MS)])
+      if (preConexoes.get(usuarioId) !== entrada) return null
+      if (!entrada.pc) {
+        fecharPreConexao(usuarioId)
+        return null
+      }
+    }
     preConexoes.delete(usuarioId)
     const { pc, stream } = entrada
     if (!pc || !stream) return null
@@ -672,7 +694,7 @@ export const useCallStore = defineStore('call', () => {
     for (const u of usuarios) {
       const id = normalizeUserId(u.usuario_id)
       if (id === null || id === meuUsuarioId) continue
-      if (u.status === StatusUsuarioChamada.Pendente) preConectar(id)
+      if (u.status === StatusUsuarioChamada.Pendente) preConectar(id, false)
       else if (u.status !== StatusUsuarioChamada.Entrou) fecharPreConexao(id)
     }
   })
@@ -724,7 +746,7 @@ export const useCallStore = defineStore('call', () => {
     const meuUsuarioId = getAuthUserId()
     for (const u of chamada.value?.usuarios ?? []) {
       const id = normalizeUserId(u.usuario_id)
-      if (id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou) preConectar(id)
+      if (id !== null && id !== meuUsuarioId && u.status === StatusUsuarioChamada.Entrou) preConectar(id, true)
     }
 
     let stream: MediaStream | null = null
@@ -742,7 +764,8 @@ export const useCallStore = defineStore('call', () => {
       stream.getTracks().forEach(t => t.stop())
       return
     }
-    stream.getTracks().forEach(t => { t.enabled = false })
+    // Atendeu enquanto a câmera abria: o microfone já vem ligado
+    stream.getTracks().forEach(t => { t.enabled = atendendoAqui && t.kind === 'audio' })
     streamLocal.value = stream
 
     try {
@@ -788,7 +811,7 @@ export const useCallStore = defineStore('call', () => {
       entrada.txPc = pcPublicacaoLocal
 
       if (!entrada.rxPc) {
-        const { pc, stream } = tomarPreConexao(alvoId) ?? await assinarDePeer(alvoId)
+        const { pc, stream } = await tomarPreConexao(alvoId) ?? await assinarDePeer(alvoId)
         entrada.rxPc = pc
         entrada.stream = stream
         tocarAudioRemoto(alvoId, stream)
@@ -1150,6 +1173,14 @@ export const useCallStore = defineStore('call', () => {
     erroMsg.value = ''
     cancelarTemporizadorToque()
     atendendoAqui = true
+
+    // Já no clique: passa a ouvir quem está na chamada e liga o microfone, sem
+    // esperar o preparo nem a API
+    for (const [usuarioId, entrada] of preConexoes) {
+      entrada.mudo = false
+      if (entrada.stream) tocarAudioRemoto(usuarioId, entrada.stream)
+    }
+    streamLocal.value?.getAudioTracks().forEach(t => { t.enabled = true })
 
     try {
       // Atendeu enquanto o preparo ainda abria a câmera ou publicava
