@@ -307,6 +307,27 @@ describe('sem atraso ao atender', () => {
     expect(call.streamLocal!.getTracks().every((t) => t.enabled)).toBe(true)
   })
 
+  test('atendeu logo, com o preparo ainda publicando: entra e troca a tela já, sem publicar duas vezes', async () => {
+    mediamtx()
+    const whip = presa(() => new Response('v=0\r\nm=audio\r\nm=video'))
+    rota('POST', `/webrtc/call-1-u-${EU}/whip`, whip.responder)
+    const call = await receber(TipoChamada.Video)
+    rota('POST', '/chamada/entrar', { id: 1 })
+    rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou))
+    const atendimento = call.aceitarChamada()
+    await aguardar(20)
+    expect(pedidosDe('POST', '/chamada/entrar')).toHaveLength(1)
+    expect(call.estado).toBe('ativa')
+    // A sincronização periódica roda enquanto o preparo publica
+    relogio.avancar(10_000)
+    await aguardar(20)
+    whip.liberar()
+    await relogio.rodar(atendimento)
+    expect(pedidosDe('POST', `/webrtc/call-1-u-${EU}/whip`)).toHaveLength(1)
+    expect(call.streamLocal!.getTracks().every((t) => t.enabled)).toBe(true)
+    expect(call.peers.get(ANA)!.txPc).not.toBeNull()
+  })
+
   test('atender com a assinatura de quem liga ainda conectando: espera ela, sem assinar de novo', async () => {
     mediamtx()
     const whep = presa(() => new Response('v=0\r\nm=audio\r\nm=video'))

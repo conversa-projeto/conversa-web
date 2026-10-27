@@ -742,7 +742,8 @@ export const useCallStore = defineStore('call', () => {
 
   async function prepararRecebimento() {
     const chamadaId = chamada.value?.id
-    const aindaTocando = () => estado.value === 'recebendo' && chamada.value?.id === chamadaId
+    // Atender não espera o preparo: ele continua com a chamada já ativa
+    const aindaTocando = () => (estado.value === 'recebendo' || estado.value === 'ativa') && chamada.value?.id === chamadaId
     const meuUsuarioId = getAuthUserId()
     for (const u of chamada.value?.usuarios ?? []) {
       const id = normalizeUserId(u.usuario_id)
@@ -805,6 +806,8 @@ export const useCallStore = defineStore('call', () => {
     notificarPeers()
 
     try {
+      // O preparo ainda está publicando: não publica outra por cima
+      if (preparacao) await preparacao
       if (streamLocal.value && !pcPublicacaoLocal) {
         pcPublicacaoLocal = await publicarLocalNaSala()
       }
@@ -1183,9 +1186,17 @@ export const useCallStore = defineStore('call', () => {
     streamLocal.value?.getAudioTracks().forEach(t => { t.enabled = true })
 
     try {
+      // Entra e troca a tela já: o preparo (câmera, ICE, publicação) pode levar
+      // alguns segundos quando atende logo, e quem ligou espera a transmissão
+      await api.chamadaEntrar(chamada.value.id)
+      if (!chamada.value || estado.value !== 'recebendo') return
+      estado.value = 'ativa'
+      iniciarTimerDuracao()
+      iniciarEsperaConexao()
+
       // Atendeu enquanto o preparo ainda abria a câmera ou publicava
       if (preparacao) await preparacao
-      if (!chamada.value || estado.value !== 'recebendo') return
+      if (!chamada.value || estado.value !== 'ativa') return
 
       // Tenta adquirir midia: video+audio → audio → sem midia (somente recepcao).
       // Permite entrar mesmo sem webcam/microfone para assistir a transmissao.
@@ -1214,10 +1225,6 @@ export const useCallStore = defineStore('call', () => {
       if (apenasAssistir && streamLocal.value) {
         cameraMutada.value = true
       }
-      await api.chamadaEntrar(chamada.value.id)
-      estado.value = 'ativa'
-      iniciarTimerDuracao()
-      iniciarEsperaConexao()
 
       // Chamada de vídeo sem enviar vídeo (escolheu só assistir, ou está sem
       // câmera): abre em tela única em quem ligou. Pedido feito já aqui, antes
