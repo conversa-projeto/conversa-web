@@ -1415,9 +1415,17 @@ export const useCallStore = defineStore('call', () => {
   async function compartilharTela(janela: Window = window) {
     if (compartilhandoTela.value || tipoChamada.value !== TipoChamada.Video || !chamada.value) return
 
-    const telaStream = await escolherTela(janela)
+    // Os outros veem que a tela está sendo escolhida; escolhida, o aviso de
+    // tela compartilhada substitui este
+    enviarSinal({ acao: 'escolhendo', ativa: true })
+    let telaStream: MediaStream | null = null
+    try {
+      telaStream = await escolherTela(janela)
+    } finally {
+      if (!telaStream?.getVideoTracks()[0]) enviarSinal({ acao: 'escolhendo', ativa: false })
+    }
     const screenTrack = telaStream?.getVideoTracks()[0]
-    if (!screenTrack) return
+    if (!telaStream || !screenTrack) return
 
     // Salva track da câmera para restaurar depois
     trackCamera = streamLocal.value?.getVideoTracks()[0] || null
@@ -1694,6 +1702,12 @@ export const useCallStore = defineStore('call', () => {
 
   // Participantes que estão compartilhando a tela agora
   const telasRemotas = ref<Set<number>>(new Set())
+  // Participantes com a escolha da tela aberta
+  const telasEscolhendo = ref<Set<number>>(new Set())
+  // Quem já está vendo a tela que eu compartilho
+  const vendoMinhaTela = ref<Set<number>>(new Set())
+  // Telas de outros que eu já avisei que estou vendo
+  const telasVistas = new Set<number>()
   const ponteiros = ref<Map<number, PonteiroRemoto>>(new Map())
   // Ligado por quem assiste, no botão da chamada
   const ponteiroAtivo = ref(false)
@@ -1718,6 +1732,30 @@ export const useCallStore = defineStore('call', () => {
   watch(() => telasRemotas.value.size, (total) => {
     if (total === 0) ponteiroAtivo.value = false
   })
+
+  // Cada compartilhamento começa sem ninguém vendo
+  watch(compartilhandoTela, () => { vendoMinhaTela.value = new Set() })
+
+  // Quem está na chamada e se já vê a tela que eu compartilho
+  const espectadoresTela = computed(() => {
+    if (!compartilhandoTela.value) return []
+    return Array.from(peers.value.values(), p => ({ usuarioId: p.usuarioId, nome: p.usuarioNome, vendo: vendoMinhaTela.value.has(p.usuarioId) }))
+  })
+
+  // A tela de alvo apareceu aqui: avisa quem compartilha, uma vez por compartilhamento
+  function avisarTelaVista(alvo: number) {
+    if (!telasRemotas.value.has(alvo) || telasVistas.has(alvo)) return
+    telasVistas.add(alvo)
+    enviarSinal({ acao: 'vendo', alvo })
+  }
+
+  function alterarConjunto(conjunto: typeof telasEscolhendo, usuarioId: number, incluir: boolean) {
+    if (conjunto.value.has(usuarioId) === incluir) return
+    const novo = new Set(conjunto.value)
+    if (incluir) novo.add(usuarioId)
+    else novo.delete(usuarioId)
+    conjunto.value = novo
+  }
 
   function alternarPonteiro() {
     ponteiroAtivo.value = !ponteiroAtivo.value && telasRemotas.value.size > 0
@@ -1751,16 +1789,28 @@ export const useCallStore = defineStore('call', () => {
 
   function tratarSinal(usuarioId: number, dados: SinalChamada) {
     if (dados.acao === 'tela') {
+      alterarConjunto(telasEscolhendo, usuarioId, false)
       const novo = new Set(telasRemotas.value)
       if (dados.ativa) {
         novo.add(usuarioId)
       } else {
         novo.delete(usuarioId)
+        telasVistas.delete(usuarioId)
         for (const ponteiro of ponteiros.value.values()) {
           if (ponteiro.alvo === usuarioId) removerPonteiro(ponteiro.usuarioId)
         }
       }
       telasRemotas.value = novo
+      return
+    }
+
+    if (dados.acao === 'escolhendo') {
+      alterarConjunto(telasEscolhendo, usuarioId, dados.ativa)
+      return
+    }
+
+    if (dados.acao === 'vendo') {
+      if (compartilhandoTela.value && dados.alvo === getAuthUserId()) alterarConjunto(vendoMinhaTela, usuarioId, true)
       return
     }
 
@@ -1793,6 +1843,8 @@ export const useCallStore = defineStore('call', () => {
   function esquecerTelaDe(usuarioId: number) {
     removerPonteiro(usuarioId)
     if (telasRemotas.value.has(usuarioId)) tratarSinal(usuarioId, { acao: 'tela', ativa: false })
+    alterarConjunto(telasEscolhendo, usuarioId, false)
+    alterarConjunto(vendoMinhaTela, usuarioId, false)
   }
 
   function limparTelasCompartilhadas() {
@@ -1802,6 +1854,9 @@ export const useCallStore = defineStore('call', () => {
     timerEnvioPonteiro = null
     ponteiroPendente = null
     telasRemotas.value = new Set()
+    telasEscolhendo.value = new Set()
+    vendoMinhaTela.value = new Set()
+    telasVistas.clear()
     ponteiros.value = new Map()
     ponteiroAtivo.value = false
   }
@@ -2076,6 +2131,9 @@ export const useCallStore = defineStore('call', () => {
     verificarChamadasPendentes,
     encerrarChamada,
     telasRemotas,
+    telasEscolhendo,
+    espectadoresTela,
+    avisarTelaVista,
     ponteiros,
     ponteiroAtivo,
     alternarPonteiro,

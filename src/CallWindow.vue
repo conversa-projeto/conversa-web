@@ -69,14 +69,40 @@
 
     <!-- Video area -->
     <div class="relative flex flex-1 min-h-0">
-      <!-- Ligando o vídeo numa chamada de áudio: o que está acontecendo -->
-      <div
-        v-if="call.etapaVideo"
-        role="status"
-        class="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white"
-      >
-        <svg class="h-3.5 w-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-        {{ TEXTO_ETAPA_VIDEO[call.etapaVideo] }}
+      <div class="pointer-events-none absolute left-1/2 top-3 z-10 flex max-w-[90%] -translate-x-1/2 flex-col items-center gap-1.5">
+        <!-- Ligando o vídeo numa chamada de áudio: o que está acontecendo -->
+        <div
+          v-if="call.etapaVideo"
+          role="status"
+          class="flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white"
+        >
+          <svg class="h-3.5 w-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          {{ TEXTO_ETAPA_VIDEO[call.etapaVideo] }}
+        </div>
+        <!-- Outro participante com a escolha da tela aberta -->
+        <div
+          v-if="textoEscolhendo"
+          role="status"
+          data-aviso="escolhendo"
+          class="flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white"
+        >
+          <svg class="h-3.5 w-3.5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          {{ textoEscolhendo }}
+        </div>
+        <!-- Compartilhando: quem já vê a tela e quem ainda está conectando -->
+        <div
+          v-if="call.espectadoresTela.length"
+          role="status"
+          data-aviso="vendo"
+          class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white"
+        >
+          <span class="text-white/70">Vendo sua tela:</span>
+          <span v-for="espectador in call.espectadoresTela" :key="espectador.usuarioId" class="flex items-center gap-1">
+            <svg v-if="espectador.vendo" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="h-3.5 w-3.5 text-success-400"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+            <svg v-else class="h-3 w-3 shrink-0 animate-spin text-white/70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span :class="espectador.vendo ? '' : 'text-white/70'">{{ espectador.nome }}{{ espectador.vendo ? '' : ' (conectando...)' }}</span>
+          </span>
+        </div>
       </div>
     <div class="flex-1 min-w-0 min-h-0 overflow-hidden p-2">
       <!-- Conference layout: 1 big + sidebar -->
@@ -110,7 +136,7 @@
                       <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
                     </div>
                     <template v-else>
-                      <video v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
+                      <VideoRemoto :stream="peer.stream" :tela="call.telasRemotas.has(userId)" @tela-vista="call.avisarTelaVista(userId)" />
                       <PonteiroTela v-if="call.telasRemotas.has(userId)" :alvo="userId" :capturar="call.ponteiroAtivo" />
                     </template>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-1.5">
@@ -176,7 +202,7 @@
               >
                 <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
               </div>
-              <video v-else v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
+              <VideoRemoto v-else :stream="peer.stream" :tela="call.telasRemotas.has(userId)" @tela-vista="call.avisarTelaVista(userId)" />
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
                 <span class="text-[9px] text-white">{{ peer.usuarioNome }}</span>
               </div>
@@ -248,7 +274,7 @@
               <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
             <template v-else>
-              <video v-src-object="peer.stream" autoplay playsinline muted class="h-full w-full object-contain"></video>
+              <VideoRemoto :stream="peer.stream" :tela="call.telasRemotas.has(userId)" @tela-vista="call.avisarTelaVista(userId)" />
               <PonteiroTela v-if="call.telasRemotas.has(userId)" :alvo="userId" :capturar="call.ponteiroAtivo" />
             </template>
             <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1">
@@ -466,11 +492,11 @@ import { computed, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { TEXTO_ETAPA_VIDEO, useCallStore } from './stores/call'
 import { useChatStore } from './stores/chat'
-import { vSrcObject } from './directives/vSrcObject'
 import { iniciaisUsuario } from './utils/formatters'
 import { useDraggable } from './composables/useDraggable'
 import CallControlButton from './components/CallControlButton.vue'
 import PonteiroTela from './components/PonteiroTela.vue'
+import VideoRemoto from './components/VideoRemoto.vue'
 import ChatChamada from './components/ChatChamada.vue'
 import { CodigoPermissao, StatusUsuarioChamada, type Mensagem } from './types/api'
 
@@ -504,6 +530,14 @@ const podeCompartilharTela = !telaDeCelular && typeof navigator.mediaDevices?.ge
 
 const auth = useAuthStore()
 const call = useCallStore()
+
+const textoEscolhendo = computed(() => {
+  const nomes = Array.from(call.telasEscolhendo, (id) => call.peers.get(id)?.usuarioNome
+    || call.chamada?.usuarios.find((u) => Number(u.usuario_id) === id)?.usuario_nome
+    || 'Participante')
+  if (!nomes.length) return ''
+  return `${nomes.join(', ')} ${nomes.length > 1 ? 'estão' : 'está'} escolhendo a tela...`
+})
 const chat = useChatStore()
 
 const containerRef = ref<HTMLElement | null>(null)

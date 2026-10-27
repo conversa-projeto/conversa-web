@@ -676,12 +676,12 @@ describe('ponteiro na tela compartilhada', () => {
   test('avisa os outros ao compartilhar e ao parar; repete para quem entra depois', async () => {
     const { call, sinais } = await emChamada()
     await call.compartilharTela()
-    expect(sinais).toEqual([{ chamadaId: 1, acao: 'tela', ativa: true }])
+    expect(sinais).toEqual([{ chamadaId: 1, acao: 'escolhendo', ativa: true }, { chamadaId: 1, acao: 'tela', ativa: true }])
     rota('POST', `/webrtc/call-1-u-${CARLA}/whep`, new Response('v=0\r\nm=audio\r\nm=video'))
     rota('GET', '/chamada/dados', chamadaApi(TipoChamada.Video, StatusUsuarioChamada.Entrou, [[CARLA, 'Carla', StatusUsuarioChamada.Entrou]]))
     await relogio.rodar(call.tratarEventoChamada({ tipo: 54, chamada_id: 1, usuario_id: CARLA }))
-    expect(sinais).toHaveLength(2)
-    expect(sinais[1]).toEqual({ chamadaId: 1, acao: 'tela', ativa: true })
+    expect(sinais).toHaveLength(3)
+    expect(sinais[2]).toEqual({ chamadaId: 1, acao: 'tela', ativa: true })
     await call.pararCompartilhamento()
     expect(sinais.at(-1)).toEqual({ chamadaId: 1, acao: 'tela', ativa: false })
   })
@@ -708,6 +708,64 @@ describe('ponteiro na tela compartilhada', () => {
     await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'participantes' } })
     await aguardar(5)
     expect(call.participantesAguardando.map((u) => u.usuario_nome)).toEqual(['Carla'])
+  })
+
+  test('escolher a tela avisa os outros; cancelar tira o aviso, e a tela escolhida o substitui', async () => {
+    const { call, sinais } = await emChamada()
+    aparelhos.tela = false
+    await call.compartilharTela()
+    expect(sinais).toEqual([{ chamadaId: 1, acao: 'escolhendo', ativa: true }, { chamadaId: 1, acao: 'escolhendo', ativa: false }])
+    aparelhos.tela = true
+    sinais.length = 0
+    await call.compartilharTela()
+    await aguardar()
+    expect(sinais).toEqual([{ chamadaId: 1, acao: 'escolhendo', ativa: true }, { chamadaId: 1, acao: 'tela', ativa: true }])
+  })
+
+  test('quem está escolhendo aparece até a tela chegar ou a escolha fechar', async () => {
+    const { call } = await emChamada()
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'escolhendo', ativa: true } })
+    expect([...call.telasEscolhendo]).toEqual([ANA])
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    expect(call.telasEscolhendo.size).toBe(0)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'escolhendo', ativa: true } })
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'escolhendo', ativa: false } })
+    expect(call.telasEscolhendo.size).toBe(0)
+  })
+
+  test('avisa quem compartilha que já vê a tela, uma vez por compartilhamento', async () => {
+    const { call, sinais } = await emChamada()
+    call.avisarTelaVista(ANA)
+    expect(sinais).toEqual([])
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    call.avisarTelaVista(ANA)
+    call.avisarTelaVista(ANA)
+    expect(sinais).toEqual([{ chamadaId: 1, acao: 'vendo', alvo: ANA }])
+    // O mesmo aviso de tela repetido (alguém entrou) não pede outro
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    call.avisarTelaVista(ANA)
+    expect(sinais).toHaveLength(1)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: false } })
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'tela', ativa: true } })
+    call.avisarTelaVista(ANA)
+    expect(sinais).toHaveLength(2)
+  })
+
+  test('quem compartilha vê quem já está vendo e quem ainda está conectando; cada compartilhamento recomeça', async () => {
+    const { call } = await emChamada()
+    expect(call.espectadoresTela).toEqual([])
+    await call.compartilharTela()
+    expect(call.espectadoresTela).toEqual([{ usuarioId: ANA, nome: 'Ana', vendo: false }])
+    // Aviso de que vê a tela de outra pessoa não conta
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'vendo', alvo: CARLA } })
+    expect(call.espectadoresTela[0]!.vendo).toBe(false)
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'vendo', alvo: EU } })
+    expect(call.espectadoresTela).toEqual([{ usuarioId: ANA, nome: 'Ana', vendo: true }])
+    await call.pararCompartilhamento()
+    expect(call.espectadoresTela).toEqual([])
+    await call.compartilharTela()
+    await aguardar()
+    expect(call.espectadoresTela).toEqual([{ usuarioId: ANA, nome: 'Ana', vendo: false }])
   })
 
   test('ponteiro parado some sozinho; sinal de outra chamada é ignorado', async () => {

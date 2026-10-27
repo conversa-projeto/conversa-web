@@ -695,11 +695,14 @@ export interface Atividade {
 /**
  * Sinal entre os participantes de uma chamada, repassado pelo servidor sem
  * gravar: quem está compartilhando a tela e o ponteiro sobre ela (x e y de 0 a
- * 1 sobre a imagem; null quando o ponteiro sai). O servidor avisa quando o
- * chat da chamada é criado e quando alguém que não atendeu é chamado de novo.
+ * 1 sobre a imagem; null quando o ponteiro sai), quem está escolhendo a tela e
+ * quem já está vendo a tela de alvo. O servidor avisa quando o chat da chamada
+ * é criado e quando alguém que não atendeu é chamado de novo.
  */
 export type SinalChamada =
   | { acao: 'tela'; ativa: boolean }
+  | { acao: 'escolhendo'; ativa: boolean }
+  | { acao: 'vendo'; alvo: number }
   | { acao: 'ponteiro'; alvo: number; x: number | null; y: number | null }
   | { acao: 'chat'; conversa_id: number }
   | { acao: 'participantes' }

@@ -2,7 +2,8 @@
 // O teste escolhe quais aparelhos existem; a conexão entrega as trilhas remotas
 // quando recebe a resposta (SDP) do MediaMTX, que vem da API falsa.
 
-export class TrilhaFalsa {
+// EventTarget: o teste dispara mute e unmute como o navegador
+export class TrilhaFalsa extends EventTarget {
   enabled = true
   muted = false
   readyState: 'live' | 'ended' = 'live'
@@ -10,7 +11,7 @@ export class TrilhaFalsa {
   onended: (() => void) | null = null
   onmute: (() => void) | null = null
   onunmute: (() => void) | null = null
-  constructor(public kind: 'audio' | 'video', public label: string = kind) {}
+  constructor(public kind: 'audio' | 'video', public label: string = kind) { super() }
   stop() { this.readyState = 'ended' }
   applyConstraints() { return Promise.resolve() }
 }

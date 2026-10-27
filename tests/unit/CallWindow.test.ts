@@ -150,6 +150,30 @@ describe('ligando o vídeo', () => {
   })
 })
 
+describe('avisos da tela compartilhada', () => {
+  test('outro escolhendo a tela aparece no topo e some quando a tela chega', async () => {
+    await montar([participante(ANA, 'Ana')])
+    call.telasEscolhendo = new Set([ANA])
+    await flushPromises()
+    expect(janela.find('[data-aviso="escolhendo"]').text()).toBe('Ana está escolhendo a tela...')
+    call.telasEscolhendo = new Set()
+    await flushPromises()
+    expect(janela.find('[data-aviso="escolhendo"]').exists()).toBe(false)
+  })
+
+  test('compartilhando: quem ainda está conectando e quem já vê a tela', async () => {
+    call.compartilhandoTela = true
+    await montar([participante(ANA, 'Ana'), participante(BRUNO, 'Bruno')])
+    expect(janela.find('[data-aviso="vendo"]').text()).toBe('Vendo sua tela:Ana (conectando...)Bruno (conectando...)')
+    await call.tratarEventoChamada({ tipo: 57, chamada_id: 1, usuario_id: ANA, dados: { acao: 'vendo', alvo: 7 } })
+    await flushPromises()
+    expect(janela.find('[data-aviso="vendo"]').text()).toBe('Vendo sua tela:AnaBruno (conectando...)')
+    call.compartilhandoTela = false
+    await flushPromises()
+    expect(janela.find('[data-aviso="vendo"]').exists()).toBe(false)
+  })
+})
+
 describe('convidados fora da chamada', () => {
   const usuario = (usuario_id: number, usuario_nome: string, status: number, entrou_em: Date | null = null) =>
     ({ usuario_id, usuario_nome, status, entrou_em })
