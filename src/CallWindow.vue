@@ -116,7 +116,7 @@
                   v-if="call.cameraMutada && !call.compartilhandoTela"
                   class="flex h-full w-full items-center justify-center bg-chamada-700"
                 >
-                  <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                  <span class="text-5xl font-bold text-chamada-300">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
                 </div>
                 <template v-else>
                   <video ref="videoLocal" autoplay playsinline muted class="h-full w-full object-contain"></video>
@@ -133,7 +133,7 @@
                       v-if="!peer.stream?.getVideoTracks().length"
                       class="flex h-full w-full items-center justify-center bg-chamada-700"
                     >
-                      <span class="text-5xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
+                      <span class="text-5xl font-bold text-chamada-300">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
                     </div>
                     <template v-else>
                       <VideoRemoto :stream="peer.stream" :tela="call.telasRemotas.has(userId)" @tela-vista="call.avisarTelaVista(userId)" />
@@ -180,7 +180,7 @@
                 v-if="call.somenteRecepcao || (call.cameraMutada && !call.compartilhandoTela)"
                 class="flex h-full w-full items-center justify-center bg-chamada-700"
               >
-                <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                <span class="text-lg font-bold text-chamada-300">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
               <video v-else ref="videoLocalSidebar" autoplay playsinline muted class="h-full w-full object-contain"></video>
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
@@ -200,7 +200,7 @@
                 v-if="!peer.stream?.getVideoTracks().length"
                 class="flex h-full w-full items-center justify-center bg-chamada-700"
               >
-                <span class="text-lg font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
+                <span class="text-lg font-bold text-chamada-300">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
               </div>
               <VideoRemoto v-else :stream="peer.stream" :tela="call.telasRemotas.has(userId)" @tela-vista="call.avisarTelaVista(userId)" />
               <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-0.5">
@@ -222,8 +222,8 @@
           >
             <template v-if="call.somenteRecepcao">
               <div class="flex h-full w-full flex-col items-center justify-center gap-3 bg-chamada-700">
-                <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
-                <p class="text-xs text-surface-400">Somente recep&ccedil;&atilde;o</p>
+                <span class="text-3xl font-bold text-chamada-300">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                <p class="text-xs text-chamada-300">Somente recep&ccedil;&atilde;o</p>
                 <div class="flex gap-2">
                   <button
                     class="flex items-center gap-1 rounded-full bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700"
@@ -247,7 +247,7 @@
                 v-if="call.cameraMutada && !call.compartilhandoTela"
                 class="flex h-full w-full items-center justify-center bg-chamada-700"
               >
-                <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
+                <span class="text-3xl font-bold text-chamada-300">{{ iniciaisUsuario(auth.user?.nome || '') }}</span>
               </div>
               <template v-else>
                 <video ref="videoLocal" autoplay playsinline muted class="h-full w-full object-contain"></video>
@@ -271,7 +271,7 @@
               v-if="!peer.stream?.getVideoTracks().length"
               class="flex h-full w-full items-center justify-center bg-chamada-700"
             >
-              <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
+              <span class="text-3xl font-bold text-chamada-300">{{ iniciaisUsuario(peer.usuarioNome) }}</span>
             </div>
             <template v-else>
               <VideoRemoto :stream="peer.stream" :tela="call.telasRemotas.has(userId)" @tela-vista="call.avisarTelaVista(userId)" />
@@ -290,7 +290,7 @@
             :class="tileAspect"
           >
             <div class="flex h-full w-full flex-col items-center justify-center gap-2 bg-chamada-700 opacity-80">
-              <span class="text-3xl font-bold text-surface-400">{{ iniciaisUsuario(convidado.usuario_nome) }}</span>
+              <span class="text-3xl font-bold text-chamada-300">{{ iniciaisUsuario(convidado.usuario_nome) }}</span>
               <p v-if="convidado.status === StatusUsuarioChamada.Pendente" class="animate-pulse text-xs text-surface-400">Chamando...</p>
               <template v-else>
                 <p class="text-xs text-surface-400">N&atilde;o atendeu</p>

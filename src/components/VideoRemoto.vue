@@ -4,7 +4,7 @@
   <div
     v-if="!temQuadro"
     role="status"
-    class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-chamada-800 text-surface-300"
+    class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-chamada-800 text-chamada-300"
   >
     <svg class="h-5 w-5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
     <span class="text-xs">Conectando o vídeo...</span>
